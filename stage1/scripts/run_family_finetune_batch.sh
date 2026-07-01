@@ -18,7 +18,9 @@ MAX_TOKENS="${MAX_TOKENS:-16384}"
 UPDATE_FREQ="${UPDATE_FREQ:-1}"
 ALLOW_CPU_STAGE1="${ALLOW_CPU_STAGE1:-0}"
 
-FAMILIES=(
+# Family list: override with the FAMILIES env var (space/comma separated dataset names),
+# otherwise finetune all ten reaction families.
+DEFAULT_FAMILIES=(
   "REAXYS_Beckmann_SINGLE_CATMERGE"
   "REAXYS_Buchwald-HartwigCross-Coupling_SINGLE_CATMERGE"
   "REAXYS_Chan_LamCoupling_SINGLE_CATMERGE"
@@ -30,6 +32,12 @@ FAMILIES=(
   "REAXYS_KumadaCoupling_SINGLE_CATMERGE"
   "REAXYS_NegishiCoupling_SINGLE_CATMERGE"
 )
+
+if [[ -n "${FAMILIES:-}" ]]; then
+  IFS=', ' read -r -a FAMILIES <<< "$FAMILIES"
+else
+  FAMILIES=("${DEFAULT_FAMILIES[@]}")
+fi
 
 mkdir -p "$RESULTS_ROOT"
 

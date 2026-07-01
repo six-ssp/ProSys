@@ -480,6 +480,23 @@ if __name__ == '__main__':
         #         rection_list_tmp = reaction_list[k * args.batch : ]
                 
         # random.shuffle(reaction_list)
+        # Drop rows with a missing/blank reaction string (e.g. atom-mapping failed
+        # -> NaN in mapped_reaction_smiles). Without this the '>' splits below raise
+        # AttributeError on float NaN. Require the full reactants>reagents>product form.
+        cleaned_reaction_list = []
+        for x in reaction_list:
+            if not isinstance(x, str):
+                if pd.isna(x):
+                    continue
+                x = str(x)
+            x = x.strip()
+            if x and x.count('>') >= 2:
+                cleaned_reaction_list.append(x)
+        dropped = len(reaction_list) - len(cleaned_reaction_list)
+        if dropped:
+            print(f'[{data_set}] dropped {dropped} rows with missing/invalid reaction string')
+        reaction_list = cleaned_reaction_list
+
         reactant_smarts_list = list(
             map(lambda x: x.split('>')[0], reaction_list))
         reactant_smarts_list = list(
