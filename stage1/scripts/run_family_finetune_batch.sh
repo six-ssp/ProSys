@@ -76,6 +76,33 @@ if [[ "$gpu_slot_count" -lt 1 ]]; then
 fi
 
 running_jobs=0
+declare -A JOB_DATASET=()
+failed_families=()
+completed_families=()
+
+# One family's failure (e.g. a bad SMILES in preprocessing) must not abort the
+# whole batch or kill its concurrent sibling. Track PID->dataset, disable -e
+# around the waits, and record per-family exit status for a final summary.
+# (bash 5.0 has no `wait -n -p`, so block on one pid at a time.)
+reap_one() {
+  local pid rc
+  for pid in "${!JOB_DATASET[@]}"; do
+    wait "$pid"
+    rc=$?
+    local ds="${JOB_DATASET[$pid]}"
+    if [[ "$rc" -eq 0 ]]; then
+      completed_families+=("$ds")
+      echo "[stage1] finished $ds"
+    else
+      failed_families+=("$ds")
+      echo "[stage1] FAILED $ds (exit $rc) — continuing with remaining families"
+    fi
+    unset "JOB_DATASET[$pid]"
+    return 0
+  done
+}
+
+set +e
 for dataset in "${FAMILIES[@]}"; do
   gpu_index=$(( running_jobs % gpu_slot_count ))
   GPU_ID="${GPU_ARRAY[$gpu_index]}" \
@@ -94,12 +121,23 @@ for dataset in "${FAMILIES[@]}"; do
   PATIENCE="${PATIENCE:-15}" \
   KEEP_LAST_EPOCHS="${KEEP_LAST_EPOCHS:-2}" \
   "$REPO_ROOT/stage1/scripts/run_family_finetune_one.sh" "$REPO_ROOT" "$dataset" &
+  JOB_DATASET[$!]="$dataset"
 
   running_jobs=$(( running_jobs + 1 ))
   if [[ "$running_jobs" -ge "$gpu_slot_count" ]]; then
-    wait -n
+    reap_one
     running_jobs=$(( running_jobs - 1 ))
   fi
 done
 
-wait
+# Drain remaining jobs.
+while [[ "${#JOB_DATASET[@]}" -gt 0 ]]; do
+  reap_one
+done
+
+echo "[stage1] batch done: ${#completed_families[@]} ok, ${#failed_families[@]} failed"
+if [[ "${#failed_families[@]}" -gt 0 ]]; then
+  echo "[stage1] failed families: ${failed_families[*]}"
+  exit 1
+fi
+

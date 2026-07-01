@@ -49,3 +49,9 @@ Work on the earlier `/home/six_ssp/...` host, before the autodl handover (supers
 - Relaunched Stage 1 for the 9 missing families (`FAMILIES=<9> GPU_IDS=0,0 MAX_TOKENS=12288`), co-scheduled with the still-running Stage 2 pipeline (Stage 1 = GPU, Stage 2 = mostly CPU); GPU memory stays safe (~9–20 GB of 24). Log: `stage1/results/stage1_rerun_9fam.log`.
 - Note: the Stage 2 Oracle hit-rate pipeline is independent of Stage 1 models (it uses gold routes), so it kept producing per-family Oracle results throughout. Its low GPU use is expected (tiny MLP + `num_workers=0` dataloader); the "stale log" was Python stdout block-buffering, not a hang.
 
+
+### Two more Stage 1 robustness fixes (second rerun)
+
+- The 9-family rerun still aborted after 4 families: `preprocess_data.py` crashed on Friedel-CraftsAcylation with `'NoneType' object has no attribute 'GetAtoms'`. Root cause: the quality checks set `status="invalid_r"/"invalid_p"` when `MolFromSmiles` returns None, but then called `rea_mol.GetAtoms()` / `pro_mol.GetAtoms()` unconditionally on the next line — crashing before the guard mattered. Fixed by short-circuiting (`elif`) so GetAtoms is only called on parsed mols.
+- Systemic fix: `run_family_finetune_batch.sh` used `set -euo pipefail` + `wait -n`, so any one family's non-zero exit aborted the whole batch AND killed its concurrent GPU sibling (this is why Buchwald had a Stage 2 model but no Stage 1 checkpoint — it was killed mid-train when Friedel-Acylation crashed). Rewrote the reaping loop to track PID→dataset, tolerate per-family failures, and print a `batch done: N ok, M failed` summary (bash-5.0 compatible). Verified with a mock (5 jobs, 1 failing → all others still complete).
+- Relaunched the 6 still-missing families with both fixes; confirmed Friedel-CraftsAcylation now binarizes and trains (98% GPU). Log: `stage1/results/stage1_rerun_6fam.log`.

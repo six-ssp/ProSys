@@ -185,15 +185,18 @@ def multi_process(data):
         return_status["status"] = "empty_p"
     if "" == reactant:
         return_status["status"] = "empty_r"
+    # Guard against unparseable SMILES: MolFromSmiles returns None, and calling
+    # .GetAtoms() on it crashes the whole pool. Short-circuit invalid mols here
+    # rather than falling through to the GetAtoms() checks below.
     if rea_mol is None:
         return_status["status"] = "invalid_r"
-    if len(rea_mol.GetAtoms()) < 5:
+    elif len(rea_mol.GetAtoms()) < 5:
         return_status["status"] = "small_r"
     if pro_mol is None:
         return_status["status"] = "invalid_p"
-    if len(pro_mol.GetAtoms()) == 1:
+    elif len(pro_mol.GetAtoms()) == 1:
         return_status["status"] = "small_p"
-    if not all([a.HasProp('molAtomMapNumber') for a in pro_mol.GetAtoms()]):
+    elif not all([a.HasProp('molAtomMapNumber') for a in pro_mol.GetAtoms()]):
         return_status["status"] = "error_mapping_p"
     """finishing checking data quality"""
 
