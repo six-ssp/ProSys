@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -53,6 +53,38 @@ def load_route_records_from_split(split_file: str | Path, family: str) -> list[R
     return records
 
 
+@dataclass
+class ProductSupportContext:
+    """Per-product memory lookups computed once and reused across all candidates.
+
+    Building this once per product (instead of recomputing inside every
+    candidate's support-feature call) removes the O(candidates x train_products)
+    Tanimoto blow-up that dominated Stage 2A build time.
+    """
+
+    product: str
+    canonical: str
+    scaffold: str
+    exact_rows: list[dict]
+    exact_total: float
+    scaffold_rows: list[dict]
+    scaffold_total: float
+    knn_neighbor_rows: list[tuple[float, list[dict]]] = field(default_factory=list)
+    knn_total_weight: float = 0.0
+
+
+def _single_side_support(rows: Iterable[dict], total_count: float, candidate_value: str, field_name: str) -> float:
+    if total_count <= 0 or not candidate_value:
+        return 0.0
+    support = 0.0
+    token = set(candidate_value.split('; '))
+    for row in rows:
+        values = set(str(row[field_name]).split('; ')) if row[field_name] else set()
+        if token & values:
+            support += float(row['count'])
+    return support / total_count
+
+
 class ProductMemoryLookup:
     def __init__(self, memory_dir: str | Path):
         memory_dir = Path(memory_dir)
@@ -89,35 +121,67 @@ class ProductMemoryLookup:
             self.scaffold_by_scaffold.setdefault(scaffold, []).append(row)
             self.scaffold_totals[scaffold] = self.scaffold_totals.get(scaffold, 0.0) + row['count']
 
-    def exact_candidates(self, product: str) -> list[dict]:
+    def build_support_context(self, product: str, *, knn_top_k: int = 10) -> ProductSupportContext:
+        """Precompute all per-product memory lookups exactly once.
+
+        The Morgan fingerprint and full-matrix Tanimoto are the expensive parts;
+        computing them here (rather than per candidate) is the core optimization.
+        """
         canonical = canonicalize_smiles(product)
-        rows = self.exact_by_product.get(canonical, [])
-        return sorted(rows, key=lambda row: (-row['count'], row['reagent_norm'], row['solvent_norm']))
-
-    def scaffold_candidates(self, product: str) -> list[dict]:
         scaffold = product_scaffold_smiles(product)
-        rows = self.scaffold_by_scaffold.get(scaffold, [])
-        return sorted(rows, key=lambda row: (-row['count'], row['reagent_norm'], row['solvent_norm']))
+        exact_rows = self.exact_by_product.get(canonical, [])
+        exact_total = self.exact_totals.get(canonical, 0.0)
+        scaffold_rows = self.scaffold_by_scaffold.get(scaffold, [])
+        scaffold_total = self.scaffold_totals.get(scaffold, 0.0)
 
-    def knn_candidates(self, product: str, top_k: int = 10, max_contexts: int = 50) -> list[dict]:
-        query_fp = product_morgan_fp(product, n_bits=self.knn_n_bits, radius=self.knn_radius)
-        similarities = tanimoto_similarity_from_bitvect(query_fp, self.knn_matrix)
-        top_indices = np.argsort(similarities)[::-1][:top_k]
+        knn_neighbor_rows: list[tuple[float, list[dict]]] = []
+        knn_total_weight = 0.0
+        if self.knn_matrix.shape[0] > 0:
+            query_fp = product_morgan_fp(product, n_bits=self.knn_n_bits, radius=self.knn_radius)
+            similarities = tanimoto_similarity_from_bitvect(query_fp, self.knn_matrix)
+            top_indices = np.argsort(similarities)[::-1][:knn_top_k]
+            for index in top_indices:
+                sim = float(similarities[index])
+                if sim <= 0:
+                    continue
+                neighbor_rows = self.exact_by_product.get(self.knn_products[index], [])
+                knn_neighbor_rows.append((sim, neighbor_rows))
+                knn_total_weight += sim
 
+        return ProductSupportContext(
+            product=product,
+            canonical=canonical,
+            scaffold=scaffold,
+            exact_rows=exact_rows,
+            exact_total=exact_total,
+            scaffold_rows=scaffold_rows,
+            scaffold_total=scaffold_total,
+            knn_neighbor_rows=knn_neighbor_rows,
+            knn_total_weight=knn_total_weight,
+        )
+
+    # --- candidate enumeration (uses the cached context) ---
+
+    @staticmethod
+    def exact_candidate_rows(ctx: ProductSupportContext) -> list[dict]:
+        return sorted(ctx.exact_rows, key=lambda row: (-row['count'], row['reagent_norm'], row['solvent_norm']))
+
+    @staticmethod
+    def scaffold_candidate_rows(ctx: ProductSupportContext) -> list[dict]:
+        return sorted(ctx.scaffold_rows, key=lambda row: (-row['count'], row['reagent_norm'], row['solvent_norm']))
+
+    @staticmethod
+    def knn_candidate_rows(ctx: ProductSupportContext, max_contexts: int = 50) -> list[dict]:
         aggregated: dict[tuple[str, str], dict[str, float]] = {}
-        for index in top_indices:
-            sim = float(similarities[index])
-            if sim <= 0:
-                continue
-            neighbor_product = self.knn_products[index]
-            for row in self.exact_by_product.get(neighbor_product, []):
+        for sim, neighbor_rows in ctx.knn_neighbor_rows:
+            for row in neighbor_rows:
                 key = (str(row['reagent_norm']), str(row['solvent_norm']))
                 stats = aggregated.setdefault(
                     key,
                     {'knn_weight': 0.0, 'weighted_yield': 0.0, 'support_products': 0.0},
                 )
                 stats['knn_weight'] += sim
-                if pd.notna(row['mean_yield']):
+                if not np.isnan(row['mean_yield']):
                     stats['weighted_yield'] += sim * float(row['mean_yield'])
                 stats['support_products'] += 1.0
 
@@ -138,22 +202,12 @@ class ProductMemoryLookup:
         rows.sort(key=lambda row: (-row['knn_weight'], row['reagent_norm'], row['solvent_norm']))
         return rows[:max_contexts]
 
-    def _single_side_support(self, rows: Iterable[dict], total_count: float, candidate_value: str, field: str) -> float:
-        if total_count <= 0 or not candidate_value:
-            return 0.0
-        support = 0.0
-        token = set(candidate_value.split('; '))
-        for row in rows:
-            values = set(str(row[field]).split('; ')) if row[field] else set()
-            if token & values:
-                support += float(row['count'])
-        return support / total_count
+    # --- support features (uses the cached context) ---
 
-    def exact_support_features(self, product: str, reagent_norm: str, solvent_norm: str) -> dict[str, float]:
-        canonical = canonicalize_smiles(product)
-        rows = self.exact_by_product.get(canonical, [])
-        total_count = self.exact_totals.get(canonical, 0.0)
-
+    @staticmethod
+    def exact_support_from_context(ctx: ProductSupportContext, reagent_norm: str, solvent_norm: str) -> dict[str, float]:
+        rows = ctx.exact_rows
+        total_count = ctx.exact_total
         pair_row = next(
             (
                 row for row in rows
@@ -161,24 +215,21 @@ class ProductMemoryLookup:
             ),
             None,
         )
-
         pair_count = float(pair_row['count']) if pair_row else 0.0
         pair_mean_yield = float(pair_row['mean_yield']) if pair_row else 0.0
         pair_support = pair_count / total_count if total_count > 0 else 0.0
-
         return {
             'product_exact_pair_support': pair_support,
-            'product_exact_reagent_support': self._single_side_support(rows, total_count, reagent_norm, 'reagent_norm'),
-            'product_exact_solvent_support': self._single_side_support(rows, total_count, solvent_norm, 'solvent_norm'),
+            'product_exact_reagent_support': _single_side_support(rows, total_count, reagent_norm, 'reagent_norm'),
+            'product_exact_solvent_support': _single_side_support(rows, total_count, solvent_norm, 'solvent_norm'),
             'product_pair_freq': pair_count,
             'product_pair_mean_yield': pair_mean_yield,
         }
 
-    def scaffold_support_features(self, product: str, reagent_norm: str, solvent_norm: str) -> dict[str, float]:
-        scaffold = product_scaffold_smiles(product)
-        rows = self.scaffold_by_scaffold.get(scaffold, [])
-        total_count = self.scaffold_totals.get(scaffold, 0.0)
-
+    @staticmethod
+    def scaffold_support_from_context(ctx: ProductSupportContext, reagent_norm: str, solvent_norm: str) -> dict[str, float]:
+        rows = ctx.scaffold_rows
+        total_count = ctx.scaffold_total
         pair_row = next(
             (
                 row for row in rows
@@ -187,33 +238,29 @@ class ProductMemoryLookup:
             None,
         )
         pair_support = float(pair_row['count']) / total_count if pair_row and total_count > 0 else 0.0
-
         return {
             'product_scaffold_pair_support': pair_support,
-            'product_scaffold_reagent_support': self._single_side_support(rows, total_count, reagent_norm, 'reagent_norm'),
-            'product_scaffold_solvent_support': self._single_side_support(rows, total_count, solvent_norm, 'solvent_norm'),
+            'product_scaffold_reagent_support': _single_side_support(rows, total_count, reagent_norm, 'reagent_norm'),
+            'product_scaffold_solvent_support': _single_side_support(rows, total_count, solvent_norm, 'solvent_norm'),
         }
 
-    def knn_support_features(self, product: str, reagent_norm: str, solvent_norm: str, top_k: int = 10) -> dict[str, float]:
-        query_fp = product_morgan_fp(product, n_bits=self.knn_n_bits, radius=self.knn_radius)
-        similarities = tanimoto_similarity_from_bitvect(query_fp, self.knn_matrix)
-        top_indices = np.argsort(similarities)[::-1][:top_k]
-
-        pair_weight = 0.0
-        reagent_weight = 0.0
-        solvent_weight = 0.0
-        total_weight = 0.0
+    @staticmethod
+    def knn_support_from_context(ctx: ProductSupportContext, reagent_norm: str, solvent_norm: str) -> dict[str, float]:
+        total_weight = ctx.knn_total_weight
+        if total_weight <= 0:
+            return {
+                'product_knn_pair_support': 0.0,
+                'product_knn_reagent_support': 0.0,
+                'product_knn_solvent_support': 0.0,
+            }
 
         reagent_tokens = set(reagent_norm.split('; ')) if reagent_norm else set()
         solvent_tokens = set(solvent_norm.split('; ')) if solvent_norm else set()
 
-        for index in top_indices:
-            sim = float(similarities[index])
-            if sim <= 0:
-                continue
-            total_weight += sim
-            neighbor_product = self.knn_products[index]
-            neighbor_rows = self.exact_by_product.get(neighbor_product, [])
+        pair_weight = 0.0
+        reagent_weight = 0.0
+        solvent_weight = 0.0
+        for sim, neighbor_rows in ctx.knn_neighbor_rows:
             if any(
                 str(row['reagent_norm']) == reagent_norm and str(row['solvent_norm']) == solvent_norm
                 for row in neighbor_rows
@@ -223,13 +270,6 @@ class ProductMemoryLookup:
                 reagent_weight += sim
             if any(solvent_tokens & set(str(row['solvent_norm']).split('; ')) for row in neighbor_rows):
                 solvent_weight += sim
-
-        if total_weight <= 0:
-            return {
-                'product_knn_pair_support': 0.0,
-                'product_knn_reagent_support': 0.0,
-                'product_knn_solvent_support': 0.0,
-            }
 
         return {
             'product_knn_pair_support': pair_weight / total_weight,
@@ -287,13 +327,17 @@ class FNNCandidateGenerator:
         ]
 
 
-def merge_candidate_rows(base_row: dict, candidates: dict[tuple[str, str], dict], product_lookup: ProductMemoryLookup) -> list[dict]:
+def merge_candidate_rows(
+    base_row: dict,
+    candidates: dict[tuple[str, str], dict],
+    ctx: ProductSupportContext,
+) -> list[dict]:
     rows = []
     for (reagent_norm, solvent_norm), candidate in candidates.items():
         support = {}
-        support.update(product_lookup.exact_support_features(base_row['product'], reagent_norm, solvent_norm))
-        support.update(product_lookup.scaffold_support_features(base_row['product'], reagent_norm, solvent_norm))
-        support.update(product_lookup.knn_support_features(base_row['product'], reagent_norm, solvent_norm))
+        support.update(ProductMemoryLookup.exact_support_from_context(ctx, reagent_norm, solvent_norm))
+        support.update(ProductMemoryLookup.scaffold_support_from_context(ctx, reagent_norm, solvent_norm))
+        support.update(ProductMemoryLookup.knn_support_from_context(ctx, reagent_norm, solvent_norm))
 
         rows.append(
             {
@@ -319,6 +363,7 @@ def build_candidate_pool_for_routes(
     knn_max_contexts: int = 50,
 ) -> pd.DataFrame:
     rows = []
+    context_cache: dict[str, ProductSupportContext] = {}
     for record in route_records:
         base_row = {
             'family': record.family,
@@ -331,6 +376,11 @@ def build_candidate_pool_for_routes(
             'retro_probability': record.retro_probability,
         }
 
+        ctx = context_cache.get(record.product)
+        if ctx is None:
+            ctx = product_lookup.build_support_context(record.product, knn_top_k=knn_top_k)
+            context_cache[record.product] = ctx
+
         candidates: dict[tuple[str, str], dict] = {}
 
         if fnn_generator is not None:
@@ -338,19 +388,19 @@ def build_candidate_pool_for_routes(
                 key = (reagent_norm, solvent_norm)
                 candidates.setdefault(key, {})['from_fnn'] = 1
 
-        for row in product_lookup.exact_candidates(record.product):
+        for row in ProductMemoryLookup.exact_candidate_rows(ctx):
             key = (str(row['reagent_norm']), str(row['solvent_norm']))
             candidates.setdefault(key, {})['from_product_exact'] = 1
 
-        for row in product_lookup.scaffold_candidates(record.product):
+        for row in ProductMemoryLookup.scaffold_candidate_rows(ctx):
             key = (str(row['reagent_norm']), str(row['solvent_norm']))
             candidates.setdefault(key, {})['from_product_scaffold'] = 1
 
-        for row in product_lookup.knn_candidates(record.product, top_k=knn_top_k, max_contexts=knn_max_contexts):
+        for row in ProductMemoryLookup.knn_candidate_rows(ctx, max_contexts=knn_max_contexts):
             key = (str(row['reagent_norm']), str(row['solvent_norm']))
             candidates.setdefault(key, {})['from_product_knn'] = 1
 
-        rows.extend(merge_candidate_rows(base_row, candidates, product_lookup))
+        rows.extend(merge_candidate_rows(base_row, candidates, ctx))
 
     frame = pd.DataFrame(rows)
     if frame.empty:

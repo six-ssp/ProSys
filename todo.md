@@ -2,30 +2,15 @@
 
 ## Active
 
-- Validate the workspace-local `runtime/overlay_cuda121` runtime from a shell with real GPU access:
-  - confirm `torch.cuda.is_available()`,
-  - confirm at least one CUDA tensor allocation succeeds,
-  - decide whether to standardize training on the overlay path or a cleaned base env.
-- Rerun Stage 1 family finetune through the validated CUDA runtime and confirm at least one family completes real GPU training updates.
-- Rebuild and verify `fairseq.libnat_cuda` when CUDA toolkit support is available.
-- Launch Stage 2 V2 full-family batch training with the unified batch runner and collect stable checkpoints per family.
-- Implement Oracle and Non-Oracle evaluation entries for the Stage 2 V2 pipeline.
-- Profile full-split Stage 2A candidate-pool build time and optimize if it becomes the next bottleneck.
+- Full pipeline RUNNING in background (`scripts/run_full_pipeline.sh`): Stage 1 finetune (2 families co-located on the GPU) → Stage 2 V2 full-family (train + Oracle eval) → hit-rate summary. Watch `stage1/results/full_pipeline_console.log`; results at `stage1/results/full_pipeline/hitrate_summary.{txt,json}`.
+- Wire Stage 1 route-recall evaluation (product→reactants top-k via EditRetro generation + aggregation); the current finetune produces the family checkpoints it needs.
+- After Stage 1 route models exist: build the Stage 1 route cache, then run Non-Oracle Stage 2 eval (`stage2/evaluate_stage2_v2.py --mode non_oracle`).
+- Train / wire family-specific Stage 2A FNN checkpoints and pass `--fnn_checkpoint_pattern` so candidate pools include the FNN branch (currently product-memory only).
 
-## Done
+## Done (summary)
 
-- Replace active `rxn_yield_context` runtime imports and package assumptions with the `ProSys` / `stage2` structure.
-- Normalize the Stage 2 requirement entry to `stage2/stage2_detail.md`.
-- Audit Stage 1 / Stage 2 split leakage and rebuild Stage 1 route exports with the corrected split logic.
-- Add unified runtime helpers:
-  - `scripts/check_runtime.py`
-  - `scripts/setup_prosys_env.sh`
-  - `scripts/audit_data_splits.py`
-- Add a workspace-local CUDA overlay fallback for locked or conflicting `ProSys` environments:
-  - `scripts/prepare_prosys_cuda121_overlay.sh`
-  - `scripts/run_in_prosys_cuda121_overlay.sh`
-  - `scripts/libittnotify_stub.c`
-- Add unified family runners:
-  - `stage1/scripts/run_family_finetune_one.sh`
-  - `stage1/scripts/run_family_finetune_batch.sh`
-  - `scripts/run_stage2_v2_family_batch.py`
+- Environment on autodl: rebuilt `ProSys` conda env (clone of `retro_gan`), built fairseq `libnat`/`libnat_cuda` (sm_86), fixed torch≥2.6 checkpoint loading; `check_runtime.py` + split audit green.
+- Stage 1: restored the base checkpoint, added throughput knobs (patience / dataloader workers / capped checkpoints), verified 2 families saturate the GPU, launched the 10-family finetune.
+- Stage 2 V2: `import stage2` bootstrap fix, ~7x faster candidate-pool build (per-product context reuse, verified identical output), Oracle/Non-Oracle evaluation entry + auto-eval from the batch runner.
+- Tooling: `scripts/run_full_pipeline.sh` (end-to-end orchestrator) and `scripts/summarize_hitrates.py`.
+- Earlier: migrated off `rxn_yield_context` to the `stage2` package; canonical spec `stage2/stage2_detail.md`; fixed Stage 1 split leakage + rebuilt route exports; added unified runtime/audit/runner entrypoints.

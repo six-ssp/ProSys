@@ -82,6 +82,9 @@ for dataset in "${FAMILIES[@]}"; do
   WARMUP="$WARMUP" \
   MAX_TOKENS="$MAX_TOKENS" \
   UPDATE_FREQ="$UPDATE_FREQ" \
+  NUM_WORKERS="${NUM_WORKERS:-8}" \
+  PATIENCE="${PATIENCE:-15}" \
+  KEEP_LAST_EPOCHS="${KEEP_LAST_EPOCHS:-2}" \
   "$REPO_ROOT/stage1/scripts/run_family_finetune_one.sh" "$REPO_ROOT" "$dataset" &
 
   running_jobs=$(( running_jobs + 1 ))

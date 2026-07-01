@@ -1,134 +1,42 @@
 # ProSys Development Log
 
-## 2026-06-30
+## Pre-autodl history (2026-06-30 → 07-01, condensed)
 
-### Decision
+Work on the earlier `/home/six_ssp/...` host, before the autodl handover (superseded; kept for reference):
 
-- Confirmed root repository as the only active Git repository for ProSys.
-- Confirmed `stage2/stage2_detail.md` as the canonical Stage 2 requirement document.
-- Confirmed old `rxn_yield_context` naming and import paths should be fully removed from active development code.
+- Established the root repo as the only active repo; `stage2/stage2_detail.md` as the canonical Stage 2 spec; dropped legacy `rxn_yield_context` naming for the `stage2` package layout.
+- Built the Stage 2 V2 module set (`stage2/v2/*`, `build_*` CLIs, `train_stage2_v2.py`) and smoke-tested it on Beckmann.
+- Fixed a Stage 1 route-split leakage bug, rebuilt route exports (`raw_{train,val,test}.csv`), added `scripts/audit_data_splits.py` (splits verified clean).
+- Patched vendored fairseq for modern NumPy (`np.float`) and a CPU reposition-target shape bug; added `ensure_fairseq_extensions.sh` + a CUDA guard in the batch runner.
+- Added unified entrypoints (`check_runtime.py`, `setup_prosys_env.sh`, family finetune runners, Stage 2 batch runner) and a workspace-local CUDA overlay fallback (obsolete on autodl — the GPU works natively there).
+- That host was blocked from GPU / package access, so full training was deferred to a GPU-capable host.
 
-### Work
+## 2026-07-01 — autodl host
 
-- Initialized project log and todo tracking.
-- Started repository hygiene cleanup for cache files and Windows metadata residue.
-- Started Stage 2 package-path migration from legacy `rxn_yield_context` imports to the current `stage2` package layout.
-- Added `stage2.preprocess_data.sort_out_data` back into the active codebase through a new local parser implementation.
-- Added the first executable Stage 2 V2 module set:
-  - `stage2/v2/features.py`
-  - `stage2/v2/product_memory.py`
-  - `stage2/build_product_memory.py`
-- Validated product-memory artifact generation on `Beckmann` using a temporary output directory.
-- Removed the old Git remote and kept development local-only for the current repo state.
-- Audited Stage 2 split integrity across all 10 families and confirmed `train/validate/test` are mutually disjoint.
-- Found and fixed a Stage 1 leakage bug in `collect_stage1_route_data()` where extra Stage 1 train data failed to exclude the Stage 2 test split.
-- Rebuilt the Stage 1 route exporter to emit `raw_train.csv`, `raw_val.csv`, and `raw_test.csv` using the corrected split logic.
-- Added `scripts/audit_data_splits.py` with strict failure mode and verified:
-  - Stage 2 splits are clean.
-  - Stage 1 route datasets no longer overlap Stage 2 test reactions.
-- Patched Stage 1 preprocessing to support the current `data/editretro/datasets/...` layout instead of the historical `stage1/datasets/...` assumption.
-- Fixed the Stage 1 route rebuild to call `RXNMapper.get_attention_guided_atom_maps()` instead of the nonexistent `RXNMapper.run()`.
-- Patched local `fairseq` compatibility issues with modern NumPy deprecations (`np.float`).
-- Added the Stage 2 V2 executable module set for neural ranking:
-  - `stage2/v2/constants.py`
-  - `stage2/v2/candidate_pool.py`
-  - `stage2/build_candidate_pool.py`
-  - `stage2/v2/training_table.py`
-  - `stage2/build_training_table.py`
-  - `stage2/v2/dataset.py`
-  - `stage2/v2/losses.py`
-  - `stage2/v2/model.py`
-  - `stage2/v2/trainer.py`
-  - `stage2/train_stage2_v2.py`
-- Smoke-tested the Stage 2 V2 path on `Beckmann`:
-  - built product memory,
-  - built Stage 2A candidate pools,
-  - built Stage 2B training tables,
-  - trained the new neural model for 1 epoch on a small real-data subset,
-  - saved a working checkpoint at `/tmp/prosys_stage2_smoke/train/best_model.pt`.
-- Relaunched the full local Stage 1 pipeline in the `rxn_yield_context` environment after the above fixes.
-- Assessed the terminated Stage 1 pipeline:
-  - full Stage 1 route rebuild completed successfully for all 10 families,
-  - split audit stayed clean after the rebuild,
-  - `Beckmann` preprocessing and `data-bin` generation completed successfully,
-  - batch finetune stopped at the first `fairseq-train` because `fairseq.libnat` / `libnat_cuda` had not been built.
-- Built `fairseq.libnat` in-place under `stage1/fairseq` and verified it imports correctly in the active environment.
-- Confirmed the rebuilt Stage 1 route CSVs now contain mapped reactions:
-  - `REAXYS_Beckmann_SINGLE_CATMERGE/raw/raw_train.csv` has 6604 / 6604 non-empty `mapped_reaction_smiles`,
-  - mean mapping confidence is about `0.8024`.
-- Found and fixed a concrete CPU-fallback bug in both EditRetro and bundled fairseq:
-  - `_get_advanced_reposition_targets_cpu()` padded reposition labels to `out_seq_len`,
-  - but downstream `_apply_reposition_words()` requires `in_seq_len`,
-  - causing an immediate tensor-shape crash on CPU training.
-- Added `stage1/scripts/ensure_fairseq_extensions.sh` and wired it into `run_family_finetune_batch.sh` so future finetune runs build/check `fairseq.libnat` before training.
-- Added a Stage 1 runtime guard in `run_family_finetune_batch.sh`:
-  - if `torch.cuda.is_available()` is false, the script now exits early by default,
-  - CPU-only smoke runs require explicit `ALLOW_CPU_STAGE1=1`.
-- Runtime assessment after the fixes:
-  - the host has an RTX 4070 and NVIDIA driver available,
-  - the current `rxn_yield_context` environment uses CPU-only PyTorch (`torch.version.cuda is None`),
-  - there is no system CUDA toolkit / `nvcc`,
-  - CPU-only smoke training no longer crashes immediately, but is too slow for practical 10-family finetuning.
+### Environment (done)
 
-### Notes
+- Host: autodl, `/root/autodl-tmp/ProSys`, RTX 3090 24 GB, driver 580, system CUDA 11.8 (`/usr/local/cuda`, nvcc 11.8). GPU directly usable.
+- The `ProSys` conda env was empty; rebuilt by cloning the proven `retro_gan` stack (`conda create --clone retro_gan -n ProSys`) + `pip install xgboost openpyxl`. py3.9, torch 2.7.1+cu118, rdkit/rxnmapper/selfies/SmilesPE/textdistance/prettytable.
+- Built vendored fairseq extensions in-place (`libnat`, `libnat_cuda` sm_86, `libbleu`); repointed the editable-fairseq finder from the deleted `editretro/fairseq` path to `stage1/fairseq`. `check_runtime.py` fully green.
+- `audit_data_splits.py --strict`: PASS across all 10 families.
+- Run any code with `OMP_NUM_THREADS` set (shell inherits `0`, which spams libgomp); set `CUDA_HOME=/usr/local/cuda` for fairseq ext rebuilds.
 
-- Stage 2 V2 development will proceed directly against the current requirement document without re-running historical reproduction work.
-- Stage 1 reverse-synthesis reproduction dependencies can remain deferred until later validation work.
-- Full-family Stage 2A candidate-pool construction on real splits is functional but noticeably slower than the small-sample smoke test; keep this in mind when scheduling batch runs.
-- For practical Stage 1 training, the next environment step is to provide CUDA-capable PyTorch plus CUDA toolkit / `nvcc`, then rebuild `fairseq/libnat_cuda` and rerun family finetuning.
+### Fixes (done)
 
-## 2026-07-01
+- `stage1/fairseq/fairseq/checkpoint_utils.py`: force `torch.load(weights_only=False)` (torch≥2.6 flips the default to True and can't unpickle legacy fairseq checkpoints).
 
-### Work
+### Stage 1 base checkpoint
 
-- Switched the active runtime target to the local `ProSys` environment and audited its current package state.
-- Confirmed the `ProSys` environment already contains the core chemistry and Stage 2 dependencies:
-  - `rdkit`
-  - `rxnmapper`
-  - `textdistance`
-  - `selfies`
-  - `SmilesPE`
-  - `fairseq.libnat`
-- Found the `ProSys` environment in a mixed PyTorch state:
-  - CPU-only `pytorch 2.5.1` from conda was still taking precedence,
-  - CUDA runtime packages and older pip-installed CUDA wheels were also present,
-  - `torch.cuda.is_available()` remained false before repair.
-- Added unified runtime and batch entrypoints:
-  - `scripts/check_runtime.py`
-  - `scripts/setup_prosys_env.sh`
-  - `stage1/scripts/run_family_finetune_one.sh`
-  - upgraded `stage1/scripts/run_family_finetune_batch.sh`
-  - upgraded `scripts/run_stage2_v2_family_batch.py`
-- The Stage 2 batch runner now supports:
-  - family filtering,
-  - artifact reuse,
-  - parallel candidate-pool preprocessing,
-  - multi-device family training scheduling,
-  - per-family training logs.
-- Updated `README.md` to make the unified local workflow the default operating path.
+- `checkpoint_UPSTO_full_best.pt` was initially corrupted (truncated in transfer). User re-uploaded a valid 470 MB copy; verified it loads and fairseq-train restores + trains on GPU.
 
-### Notes
+### Stage 2 V2 improvements (done)
 
-- A forced CUDA-wheel reinstall for `torch` / `torchvision` / `torchaudio` in `ProSys` was started; final GPU verification is pending completion of that install.
-- Until the repaired `torch` state is verified, Stage 1 full-family GPU finetuning remains blocked by runtime rather than by data or code.
+- Fixed `import stage2` in `run_stage2_v2_family_batch.py` (repo-root bootstrap) so the documented command runs without a manual `PYTHONPATH`.
+- Optimized Stage 2A candidate-pool build: compute one `ProductSupportContext` per product and reuse across candidates (old code recomputed the Morgan FP + full-matrix Tanimoto per candidate). Byte-identical output, **~7x faster**.
+- Added the Stage 2 V2 evaluation entry (`stage2/v2/evaluate.py` + `stage2/evaluate_stage2_v2.py`) — one evaluator for Oracle/Non-Oracle: pool coverage, system/context/route top-{1,3,5,10}, temperature MAE/RMSE/±10/±20 ℃. Auto-run after training by the batch runner (`eval_oracle_test.json`).
 
-### Follow-up
+### High-throughput end-to-end pipeline (running)
 
-- Mirror-based reinstall was attempted next, but the current shell had outbound package access blocked by the local proxy / sandbox boundary:
-  - direct Tsinghua / USTC pip mirror checks failed before package resolution,
-  - the active shell could not write back into `/home/six_ssp/miniconda3/envs/ProSys`.
-- Switched to a workspace-local fallback instead of modifying the locked base env:
-  - extracted cached local conda packages into `runtime/overlay_cuda121`,
-  - added `scripts/prepare_prosys_cuda121_overlay.sh`,
-  - added `scripts/run_in_prosys_cuda121_overlay.sh`,
-  - added `scripts/libittnotify_stub.c` and built a no-op `libittnotify.so` shim for the missing `iJIT_*` symbols.
-- Verified the overlay runtime can now import a consistent CUDA build stack:
-  - `torch 2.5.1`
-  - `torchvision 0.20.1`
-  - `torchaudio 2.5.1`
-  - `torch.backends.cuda.is_built() == True`
-  - `torch.version.cuda == 12.1`
-- Remaining blocker is no longer the Python package stack:
-  - inside the current sandbox, `nvidia-smi` reports `GPU access blocked by the operating system`,
-  - `torch.cuda.is_available()` stays false because the shell cannot access GPU device nodes,
-  - full GPU training validation must be rerun from a shell with actual `/dev/nvidia*` visibility.
+- Added Stage 1 knobs `NUM_WORKERS` (dataloader, 8), `PATIENCE` (early stop, 15), `KEEP_LAST_EPOCHS` (2 — per-epoch checkpoints are ~470 MB each; disk guard). Verified 2 families co-located on the GPU reach **96–100% util at ~20 GB** (was ~22% single-family).
+- `scripts/run_full_pipeline.sh`: Stage 1 finetune (`GPU_IDS=0,0`) → Stage 2 V2 full-family (train + Oracle eval) → `scripts/summarize_hitrates.py`. Console: `stage1/results/full_pipeline_console.log`; results: `stage1/results/full_pipeline/hitrate_summary.{txt,json}`.
+- Hit rates computed = Stage 2 Oracle (system/context/route top-k, coverage, temperature) for all 10 families. Stage 1 route-recall eval (EditRetro generation) is a pending follow-up; this run produces the family checkpoints it will consume.

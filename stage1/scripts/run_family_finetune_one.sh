@@ -23,6 +23,10 @@ WARMUP="${WARMUP:-10000}"
 MAX_TOKENS="${MAX_TOKENS:-16384}"
 UPDATE_FREQ="${UPDATE_FREQ:-1}"
 USE_FP16="${USE_FP16:-1}"
+# Throughput / disk knobs.
+NUM_WORKERS="${NUM_WORKERS:-8}"          # dataloader workers (host has many cores)
+PATIENCE="${PATIENCE:-15}"               # early-stop after N validations w/o val-loss improvement (-1 disables)
+KEEP_LAST_EPOCHS="${KEEP_LAST_EPOCHS:-2}"  # cap per-epoch checkpoints (each ~470MB) to protect disk
 
 run_name="$(date "+%Y%m%d_%H%M%S")"
 family_root="$RESULTS_ROOT/$DATASET/$run_name"
@@ -70,8 +74,10 @@ train_cmd=(
   --log-interval 200
   --fixed-validation-seed 7
   --max-tokens "$MAX_TOKENS"
+  --num-workers "$NUM_WORKERS"
+  --patience "$PATIENCE"
   --save-interval-updates 5000
-  --keep-last-epochs 20
+  --keep-last-epochs "$KEEP_LAST_EPOCHS"
   --max-epoch "$MAX_EPOCH"
   --max-update "$MAX_UPDATE"
   --alpha-ratio 0.5

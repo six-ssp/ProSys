@@ -214,6 +214,41 @@ scripts/run_in_prosys_cuda121_overlay.sh "$(pwd)" \
 outputs/stage2_v2/<family>/train/train.log
 ```
 
+训练结束后 `run_stage2_v2_family_batch.py` 会自动对每个 family 的 test 候选表跑一次 Oracle 评估，结果固定写到：
+
+```text
+outputs/stage2_v2/<family>/train/eval_oracle_test.json
+```
+
+加 `--skip_eval` 可跳过；用 `--eval_device` 指定评估设备（默认取第一个训练设备）。
+
+## Stage 2 V2 评估
+
+评估入口是 `stage2/evaluate_stage2_v2.py`，Oracle / Non-Oracle 共用同一套指标逻辑，区别只在于喂进去的候选表：
+
+- Oracle：候选表来自 gold route（即 `training_tables/test.csv`），`route_match` 恒为 1，衡量的是条件排序能力。
+- Non-Oracle：候选表来自 Stage 1 route cache（多条预测路线），衡量端到端的路线+条件系统命中。Stage 1 路线模型就绪后再启用。
+
+单独运行：
+
+```bash
+conda activate ProSys
+python -m stage2.evaluate_stage2_v2 \
+  --family_dir data/reaction_processed_Beckmann_catmerge \
+  --candidate_table outputs/stage2_v2/Beckmann/training_tables/test.csv \
+  --checkpoint outputs/stage2_v2/Beckmann/train/best_model.pt \
+  --mode oracle \
+  --device cuda:0 \
+  --output_file outputs/stage2_v2/Beckmann/train/eval_oracle_test.json
+```
+
+输出指标包含：
+
+- `pool_coverage`：test 中 gold 系统进入候选池的比例（top-k 上界）
+- `system_top{1,3,5,10}_all` / `_covered`：整体与「仅覆盖样本」两种分母下的系统命中
+- `context_top{k}` / `route_top{k}`：条件命中与路线命中
+- `temperature`：正样本上的温度 MAE / RMSE 与 ±10 / ±20 ℃ 命中率
+
 ## 文件管理约定
 
 - 重要决策、环境问题、实际运行结论记到 `log.md`。

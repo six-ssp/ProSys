@@ -10,12 +10,19 @@ import time
 from concurrent.futures import Future, ProcessPoolExecutor
 from pathlib import Path
 
+# Make the repo root importable when invoked as `python scripts/run_stage2_v2_family_batch.py`
+# (running a script puts scripts/ on sys.path, not the repo root that holds the `stage2` package).
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 from stage2.v2.candidate_pool import (
     FNNCandidateGenerator,
     ProductMemoryLookup,
     build_candidate_pool_for_routes,
     load_route_records_from_split,
 )
+from stage2.v2.evaluate import run_stage2_v2_eval
 from stage2.v2.product_memory import build_product_memory_artifacts
 from stage2.v2.training_table import write_candidate_training_table
 
@@ -230,6 +237,8 @@ def main() -> None:
     parser.add_argument('--force_retrain', action='store_true')
     parser.add_argument('--max_train_slates', type=int, default=None)
     parser.add_argument('--max_val_slates', type=int, default=None)
+    parser.add_argument('--skip_eval', action='store_true', help='Skip the automatic Oracle evaluation after training.')
+    parser.add_argument('--eval_device', type=str, default=None, help='Device for post-training evaluation (defaults to first train device).')
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
@@ -396,6 +405,36 @@ def main() -> None:
                 cmd=completed['cmd'],
             )
         print(f'[stage2] finished training for {finished_family} on {finished_device}')
+
+    if not args.skip_eval:
+        eval_device = args.eval_device or train_devices[0]
+        for family_dir in family_dirs:
+            family = infer_family_name_from_dir(family_dir)
+            family_output = family_outputs[family]
+            checkpoint = family_output / 'train' / 'best_model.pt'
+            test_table = family_output / 'training_tables' / 'test.csv'
+            if not checkpoint.exists() or not test_table.exists():
+                print(f'[stage2] skip eval for {family}: missing checkpoint or test table')
+                continue
+
+            eval_output = family_output / 'train' / 'eval_oracle_test.json'
+            print(f'[stage2] evaluate (oracle) {family} on {eval_device}')
+            result = run_stage2_v2_eval(
+                family_dir=family_dir,
+                candidate_table=test_table,
+                checkpoint_path=checkpoint,
+                device=eval_device,
+                mode='oracle',
+                slates_per_batch=args.slates_per_batch,
+                num_workers=args.train_num_workers,
+                output_file=eval_output,
+            )
+            metrics = result['metrics']
+            print(
+                f"[stage2] {family} oracle: coverage={metrics['pool_coverage']:.3f} "
+                f"top1={metrics['system_top1_all']:.3f} top5={metrics['system_top5_all']:.3f} "
+                f"top10={metrics['system_top10_all']:.3f} temp_mae={metrics['temperature']['mae']}"
+            )
 
 
 if __name__ == '__main__':

@@ -2,6 +2,7 @@
 
 from .constants import FEATURE_COLUMNS_V2, LEARNED_FEATURE_COLUMNS_V2, SUPPORT_FEATURE_COLUMNS_V2
 from .dataset import Stage2CandidateDataLoaderV2, Stage2CandidateDatasetV2
+from .evaluate import evaluate_predictions, load_stage2_model_v2, run_stage2_v2_eval
 from .features import (
     canonicalize_reaction_side,
     count_condition_tokens,
@@ -26,6 +27,9 @@ __all__ = [
     'SUPPORT_FEATURE_COLUMNS_V2',
     'Stage2CandidateDataLoaderV2',
     'Stage2CandidateDatasetV2',
+    'evaluate_predictions',
+    'load_stage2_model_v2',
+    'run_stage2_v2_eval',
     'canonicalize_reaction_side',
     'count_condition_tokens',
     'count_reactant_components',

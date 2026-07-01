@@ -26,3 +26,10 @@ scripts/__pycache__/
 stage1/scripts/__pycache__/
 data_preprocess/__pycache__/
 stage2/__pycache__/
+
+# Stage 2 V2 generated artifacts (memory / candidate pools / tables / checkpoints / eval)
+outputs/
+
+# Bulk / generated datasets (reproducible from raw exports + preprocess; too large for git)
+data/reaction_processed_*_catmerge/
+data/editretro/datasets/
