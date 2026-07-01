@@ -1,4 +1,9 @@
 *.xlsx
+__pycache__/
+*.py[cod]
+*.Zone.Identifier
+.ipynb_checkpoints/
+wandb/
 data/reaxys_output/For_first_part_model/*.txt
 data/reaxys_output/For_second_part_model/*.txt
 data/reaxys_output/processed_data.csv
@@ -9,3 +14,15 @@ job_new/
 rxn_yield_context/train_multilabel/wandb
 save_models/backup/
 save_models/z_remove
+runtime/overlay_cuda121/
+runtime/prosys_cuda121/
+stage1/checkpoints/
+stage1/results/
+stage1/interactive/databin/
+stage1/fairseq/build/
+stage1/fairseq/fairseq/*.cpython-*-linux-gnu.so
+stage1/fairseq/fairseq/data/*.cpython-*-linux-gnu.so
+scripts/__pycache__/
+stage1/scripts/__pycache__/
+data_preprocess/__pycache__/
+stage2/__pycache__/
