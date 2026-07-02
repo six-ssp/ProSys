@@ -135,6 +135,70 @@ def print_stage1_table(stage1: dict[str, dict]) -> None:
         )
 
 
+def load_stage2_nonoracle(output_root: Path) -> dict[str, dict]:
+    results: dict[str, dict] = {}
+    for eval_file in sorted(output_root.glob('*/non_oracle/eval_non_oracle_test.json')):
+        family = eval_file.parents[1].name
+        try:
+            results[family] = json.loads(eval_file.read_text(encoding='utf-8'))
+        except (json.JSONDecodeError, OSError):
+            continue
+    return results
+
+
+def print_nonoracle_table(nonoracle: dict[str, dict]) -> None:
+    if not nonoracle:
+        print('\nStage 2 V2 Non-Oracle: no eval results yet.')
+        return
+    header = ['family', 'N', 'rr@1', 'rr@10', 'cover'] + [f'sys@{k}' for k in TOPKS] + ['temp_MAE']
+    rows = []
+    agg = {f'system_top{k}_all': [] for k in TOPKS}
+    agg.update({'pool_coverage': [], 'temp_mae': [], 'rr1': [], 'rr10': []})
+
+    for family, result in sorted(nonoracle.items()):
+        m = result['metrics']
+        rr = result.get('stage1_route_recall', {})
+        temp = m.get('temperature', {})
+        rows.append([
+            family,
+            str(m.get('num_slates', '-')),
+            _fmt(rr.get('route_recall_top1'), pct=True),
+            _fmt(rr.get('route_recall_top10'), pct=True),
+            _fmt(m.get('pool_coverage'), pct=True),
+            *[_fmt(m.get(f'system_top{k}_all'), pct=True) for k in TOPKS],
+            (f"{temp['mae']:.1f}" if temp.get('mae') is not None else '-'),
+        ])
+        for k in TOPKS:
+            if m.get(f'system_top{k}_all') is not None:
+                agg[f'system_top{k}_all'].append(m[f'system_top{k}_all'])
+        if m.get('pool_coverage') is not None:
+            agg['pool_coverage'].append(m['pool_coverage'])
+        if temp.get('mae') is not None:
+            agg['temp_mae'].append(temp['mae'])
+        if rr.get('route_recall_top1') is not None:
+            agg['rr1'].append(rr['route_recall_top1'])
+        if rr.get('route_recall_top10') is not None:
+            agg['rr10'].append(rr['route_recall_top10'])
+
+    def mean(v):
+        return sum(v) / len(v) if v else None
+
+    rows.append([
+        'MACRO-AVG', '',
+        _fmt(mean(agg['rr1']), pct=True), _fmt(mean(agg['rr10']), pct=True),
+        _fmt(mean(agg['pool_coverage']), pct=True),
+        *[_fmt(mean(agg[f'system_top{k}_all']), pct=True) for k in TOPKS],
+        (f"{mean(agg['temp_mae']):.1f}" if agg['temp_mae'] else '-'),
+    ])
+
+    widths = [max(len(str(r[i])) for r in ([header] + rows)) for i in range(len(header))]
+    print('\n' + '=' * (sum(widths) + 3 * len(widths)))
+    print('Stage 2 V2 Non-Oracle hit rates (%)  [rr = Stage 1 route recall; sys = end-to-end route+context]')
+    print('=' * (sum(widths) + 3 * len(widths)))
+    for r in [header] + rows:
+        print('   '.join(str(cell).ljust(widths[i]) for i, cell in enumerate(r)))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description='Summarize ProSys hit-rate results.')
     parser.add_argument('--repo_root', type=str, default='.')
@@ -145,13 +209,19 @@ def main() -> None:
 
     repo_root = Path(args.repo_root).resolve()
     stage2 = load_stage2_oracle(repo_root / args.output_root)
+    nonoracle = load_stage2_nonoracle(repo_root / args.output_root)
     stage1 = load_stage1_convergence(repo_root / args.stage1_results)
 
     print_stage2_table(stage2)
+    print_nonoracle_table(nonoracle)
     print_stage1_table(stage1)
 
     if args.json_out:
-        payload = {'stage2_oracle': stage2, 'stage1_convergence': stage1}
+        payload = {
+            'stage2_oracle': stage2,
+            'stage2_non_oracle': nonoracle,
+            'stage1_convergence': stage1,
+        }
         Path(args.json_out).write_text(json.dumps(payload, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
         print(f'\nwrote {args.json_out}')
 

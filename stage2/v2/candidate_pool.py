@@ -53,6 +53,40 @@ def load_route_records_from_split(split_file: str | Path, family: str) -> list[R
     return records
 
 
+def load_route_records_from_cache(route_cache_file: str | Path, family: str) -> list[RouteRecord]:
+    """Non-Oracle route records from a Stage 1 route cache (see stage1/build_route_cache.py).
+
+    Emits one RouteRecord per predicted route. All routes of a single test
+    reaction share that reaction's ``sample_index`` so they form one ranking
+    slate downstream. Reactions with zero predicted routes are skipped (they
+    contribute no candidates and would be un-hittable anyway).
+    """
+    import json
+
+    with open(route_cache_file, 'r', encoding='utf-8') as handle:
+        cache = json.load(handle)
+
+    records: list[RouteRecord] = []
+    for reaction in cache.get('reactions', []):
+        sample_index = int(reaction['sample_index'])
+        reaction_id = str(reaction['reaction_id'])
+        product = str(reaction['product'])
+        for route in reaction.get('routes', []):
+            records.append(
+                RouteRecord(
+                    sample_index=sample_index,
+                    reaction_id=reaction_id,
+                    reactants=str(route['reactants']),
+                    product=product,
+                    family=family,
+                    retro_rank=int(route.get('retro_rank', 1)),
+                    retro_score=float(route.get('retro_score', 1.0)),
+                    retro_probability=float(route.get('retro_probability', 1.0)),
+                )
+            )
+    return records
+
+
 @dataclass
 class ProductSupportContext:
     """Per-product memory lookups computed once and reused across all candidates.
