@@ -132,12 +132,20 @@ def main() -> None:
         raise ValueError('no families with a route_cache.json found')
 
     results = {}
+    failed = []
     for family in families:
-        result = run_family(family, repo_root, output_root, route_root, args.device)
+        try:
+            result = run_family(family, repo_root, output_root, route_root, args.device)
+        except Exception as exc:  # keep going, but surface the failure loudly
+            print(f'[non_oracle] ERROR {family}: {type(exc).__name__}: {exc}')
+            failed.append(family)
+            continue
         if result is not None:
             results[family] = result
 
     print(f'[non_oracle] done: {len(results)}/{len(families)} families evaluated')
+    if failed:
+        print(f'[non_oracle] FAILED families: {", ".join(failed)}')
 
 
 if __name__ == '__main__':

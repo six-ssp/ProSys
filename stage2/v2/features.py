@@ -59,7 +59,10 @@ def reaction_morgan_fp(reactants: str, product: str, fpsize: int = 4096, radius:
     reactant_mol = _smiles_to_mol(reactants)
     product_mol = _smiles_to_mol(product)
     if reactant_mol is None or product_mol is None:
-        raise ValueError(f'Invalid reaction SMILES: {reactants} >> {product}')
+        # Stage 1 can predict unparseable reactant SMILES (e.g. malformed
+        # organometallics). Treat such a candidate as a zero-signal route rather
+        # than crashing the whole family — it simply won't rank/hit.
+        return np.zeros((fpsize * 2,), dtype=np.float32)
 
     reactant_bits = AllChem.GetMorganFingerprintAsBitVect(
         mol=reactant_mol,
