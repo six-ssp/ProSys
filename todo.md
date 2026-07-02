@@ -2,10 +2,12 @@
 
 ## Active
 
-- Full pipeline RUNNING in background (`scripts/run_full_pipeline.sh`): Stage 1 finetune (2 families co-located on the GPU) → Stage 2 V2 full-family (train + Oracle eval) → hit-rate summary. Watch `stage1/results/full_pipeline_console.log`; results at `stage1/results/full_pipeline/hitrate_summary.{txt,json}`.
-- Wire Stage 1 route-recall evaluation (product→reactants top-k via EditRetro generation + aggregation); the current finetune produces the family checkpoints it needs.
-- After Stage 1 route models exist: build the Stage 1 route cache, then run Non-Oracle Stage 2 eval (`stage2/evaluate_stage2_v2.py --mode non_oracle`).
-- Train / wire family-specific Stage 2A FNN checkpoints and pass `--fnn_checkpoint_pattern` so candidate pools include the FNN branch (currently product-memory only).
+- End-to-end Oracle run COMPLETE: 10/10 Stage 1 route models + 10/10 Stage 2 Oracle hit rates (`stage1/results/full_pipeline/hitrate_summary.txt`).
+- Wire the family-specific Stage 2A FNN branch (`--fnn_checkpoint_pattern`) to raise candidate-pool coverage (currently product-memory only).
+- Build the Stage 1 route cache from the finished family models, then run Non-Oracle Stage 2 eval (`stage2/evaluate_stage2_v2.py --mode non_oracle`) for true end-to-end hit rates.
+- Wire a Stage 1 route-recall evaluator (product→reactants top-k via EditRetro generation).
+- Investigate DielsAlder temperature head (MAE 56 °C, only 10% within ±20 °C).
+
 
 ## Done (summary)
 

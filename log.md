@@ -55,3 +55,10 @@ Work on the earlier `/home/six_ssp/...` host, before the autodl handover (supers
 - The 9-family rerun still aborted after 4 families: `preprocess_data.py` crashed on Friedel-CraftsAcylation with `'NoneType' object has no attribute 'GetAtoms'`. Root cause: the quality checks set `status="invalid_r"/"invalid_p"` when `MolFromSmiles` returns None, but then called `rea_mol.GetAtoms()` / `pro_mol.GetAtoms()` unconditionally on the next line — crashing before the guard mattered. Fixed by short-circuiting (`elif`) so GetAtoms is only called on parsed mols.
 - Systemic fix: `run_family_finetune_batch.sh` used `set -euo pipefail` + `wait -n`, so any one family's non-zero exit aborted the whole batch AND killed its concurrent GPU sibling (this is why Buchwald had a Stage 2 model but no Stage 1 checkpoint — it was killed mid-train when Friedel-Acylation crashed). Rewrote the reaping loop to track PID→dataset, tolerate per-family failures, and print a `batch done: N ok, M failed` summary (bash-5.0 compatible). Verified with a mock (5 jobs, 1 failing → all others still complete).
 - Relaunched the 6 still-missing families with both fixes; confirmed Friedel-CraftsAcylation now binarizes and trains (98% GPU). Log: `stage1/results/stage1_rerun_6fam.log`.
+
+### Full run complete (2026-07-02)
+
+- **Stage 1: 10/10 family route models trained** (resilient batch: "6 ok, 0 failed"). Early-stop epochs 40–74, best val ppl 5.7–20.5. Checkpoints under `stage1/results/family_finetune/<family>/<ts>/checkpoints/checkpoint_best.pt`.
+- **Stage 2: Oracle hit rates computed for all 10 families.** Macro-avg: coverage 85.9%, sys@1 41.9%, sys@3 58.6%, sys@5 65.2%, sys@10 73.0%, temp MAE 27.2 °C. Full table + per-family in `stage1/results/full_pipeline/hitrate_summary.{txt,json}`.
+- Both preprocess crashes (NaN reaction row; None-mol GetAtoms) and the fatal `set -e` batch-abort are fixed and committed, so the family finetune is now robust end-to-end.
+- Follow-ups (not blocking): FNN candidate branch (`--fnn_checkpoint_pattern`) to lift Stage 2A coverage; Stage 1 route cache → Non-Oracle eval; investigate DielsAlder temperature (MAE 56 °C).
