@@ -69,3 +69,17 @@ Work on the earlier `/home/six_ssp/...` host, before the autodl handover (supers
 - Bug found + fixed (Non-Oracle only): Stage 1 sometimes predicts an unparseable reactant SMILES (e.g. malformed organometallic `[Li]<-[c]1cccc1`). `reaction_morgan_fp` raised `ValueError`, which crashed NegishiCoupling's whole eval (it silently produced no result the first pass). Fixed to return a zero route-fp for unparseable reactants (a hallucinated route becomes a zero-signal candidate, not a fatal error). Also made `run_stage2_v2_non_oracle.py` catch/report per-family failures instead of dropping them silently.
 - **Non-Oracle macro-avg**: Stage 1 route recall @1/@10 = 28.5/41.9%, pool coverage 37.5%, end-to-end system top-1/3/5/10 = 10.3/15.3/17.8/22.1%, temp MAE 26.3 °C. Full per-family Oracle vs Non-Oracle table in `stage1/results/full_pipeline/hitrate_summary.{txt,json}`.
 - Reading: Non-Oracle is gated by Stage 1 route recall (coverage ≈ route recall, since Stage 2A candidates hang off predicted routes). Strong: Buchwald (sys@10 50.8), Friedel-Acylation (39.7), Friedel-Alkylation (36.9). Weak couplings: Kumada (sys@10 2.6, route recall @10 only 3.5%) and Negishi (9.2) — Stage 1 barely recovers their gold routes. This localizes the biggest end-to-end lever to Stage 1 route recall for the coupling families.
+
+### Route-budget experiment (2026-07-02)
+
+- Goal: test a low-risk Stage 1-side optimization before retraining anything. Hypothesis: for weak coupling families, keeping more unique routes per product in the Stage 1 route cache might lift Non-Oracle coverage and end-to-end hits.
+- Tooling change 1: `stage1/build_route_cache.py` now accepts `--generation_file` together with `--skip_generation`, so an existing `generation.txt` can be re-aggregated with a different `n_best` / ranking budget without rerunning fairseq generation.
+- Tooling change 2: `scripts/run_stage2_v2_non_oracle.py` now accepts `--result_root`, so experimental Non-Oracle candidate tables / eval JSONs can be written to a separate tree without overwriting the baseline under `outputs/stage2_v2/`.
+- Experiment setup: reused the existing Stage 1 `generation.txt` for `KumadaCoupling` and `NegishiCoupling`, rebuilt route caches with `n_best=20` (baseline `n_best=10`), and re-ran Non-Oracle evaluation into `outputs/stage2_v2_routebudget_n20/`.
+- Stage 1 route-recall signal:
+  - `KumadaCoupling`: route recall@10 unchanged at **3.47%**, route recall@20 rose to **3.71%**.
+  - `NegishiCoupling`: route recall@10 unchanged at **14.10%**, route recall@20 rose to **15.75%**.
+- Stage 2 / end-to-end effect:
+  - `KumadaCoupling`: candidate rows **506,346 -> 632,419** (+24.9%), pool coverage **3.16% -> 3.41%**, but system top-10 stayed **2.55% -> 2.55%** and temperature MAE worsened slightly (**26.04 -> 26.79 °C**).
+  - `NegishiCoupling`: candidate rows **200,769 -> 349,291** (+74.0%), pool coverage **11.17% -> 12.33%**, but system top-10 stayed **9.17% -> 9.17%**; temperature MAE improved only marginally (**26.85 -> 26.69 °C**).
+- Conclusion: simply increasing the Stage 1 route-cache budget is not enough to move end-to-end top-10 on the weak coupling families. It does recover a few extra gold routes and improves pool coverage, but the gain is too small relative to the much larger candidate tables. Keep `n_best>10` as an experiment knob, not the new default. The next meaningful levers remain better Stage 1 route quality/ranking and the deferred FNN candidate branch.

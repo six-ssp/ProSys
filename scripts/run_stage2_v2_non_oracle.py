@@ -62,10 +62,17 @@ def stage1_route_recall(route_cache_file: Path, topks=TOPKS) -> dict:
     }
 
 
-def run_family(family: str, repo_root: Path, output_root: Path, route_root: Path, device: str) -> dict | None:
+def run_family(
+    family: str,
+    repo_root: Path,
+    artifact_root: Path,
+    result_root: Path,
+    route_root: Path,
+    device: str,
+) -> dict | None:
     family_dir = repo_root / 'data' / f'reaction_processed_{family}_catmerge'
-    memory_dir = output_root / family / 'memory'
-    checkpoint = output_root / family / 'train' / 'best_model.pt'
+    memory_dir = artifact_root / family / 'memory'
+    checkpoint = artifact_root / family / 'train' / 'best_model.pt'
     route_cache = route_root / family / 'route_cache.json'
     gold_split = family_dir / 'For_second_part_model' / 'Splitted_second_test_labels_processed.txt'
 
@@ -74,7 +81,7 @@ def run_family(family: str, repo_root: Path, output_root: Path, route_root: Path
             print(f'[non_oracle] skip {family}: missing {required}')
             return None
 
-    out_dir = output_root / family / 'non_oracle'
+    out_dir = result_root / family / 'non_oracle'
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f'[non_oracle] {family}: building candidate pool from route cache')
@@ -116,12 +123,19 @@ def main() -> None:
     parser.add_argument('--repo_root', type=str, default='.')
     parser.add_argument('--families', type=str, default='all')
     parser.add_argument('--output_root', type=str, default='outputs/stage2_v2')
+    parser.add_argument(
+        '--result_root',
+        type=str,
+        default=None,
+        help='optional output root for experiment results; defaults to --output_root',
+    )
     parser.add_argument('--route_root', type=str, default='outputs/stage1_routes')
     parser.add_argument('--device', type=str, default='cpu')
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
     output_root = (repo_root / args.output_root).resolve()
+    result_root = (repo_root / args.result_root).resolve() if args.result_root else output_root
     route_root = (repo_root / args.route_root).resolve()
 
     if args.families == 'all':
@@ -135,7 +149,7 @@ def main() -> None:
     failed = []
     for family in families:
         try:
-            result = run_family(family, repo_root, output_root, route_root, args.device)
+            result = run_family(family, repo_root, output_root, result_root, route_root, args.device)
         except Exception as exc:  # keep going, but surface the failure loudly
             print(f'[non_oracle] ERROR {family}: {type(exc).__name__}: {exc}')
             failed.append(family)

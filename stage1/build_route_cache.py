@@ -186,6 +186,12 @@ def main() -> None:
     parser.add_argument('--max_products', type=int, default=None, help='limit test products (smoke)')
     parser.add_argument('--processes', type=int, default=min(16, multiprocessing.cpu_count()))
     parser.add_argument('--skip_generation', action='store_true', help='reuse existing generation.txt')
+    parser.add_argument(
+        '--generation_file',
+        type=str,
+        default=None,
+        help='optional path to an existing generation.txt to reuse with --skip_generation',
+    )
     args = parser.parse_args()
 
     if args.repos_beam * args.mask_beam * args.token_beam != args.topk:
@@ -214,7 +220,16 @@ def main() -> None:
     input_file = output_dir / 'input_products.txt'
     input_file.write_text('\n'.join(r['product'] for r in reactions) + '\n', encoding='utf-8')
 
-    generation_file = output_dir / 'generation.txt'
+    if args.generation_file:
+        if not args.skip_generation:
+            raise ValueError('--generation_file is only supported together with --skip_generation')
+        generation_file = Path(args.generation_file).resolve()
+    else:
+        generation_file = output_dir / 'generation.txt'
+
+    if args.skip_generation and not generation_file.exists():
+        raise FileNotFoundError(f'generation file not found: {generation_file}')
+
     if not args.skip_generation:
         print(f'[route_cache] {args.family}: generating routes for {len(reactions)} products '
               f'(checkpoint={checkpoint.name})')
@@ -247,6 +262,7 @@ def main() -> None:
     cache = {
         'family': args.family,
         'checkpoint': str(checkpoint),
+        'generation_file': str(generation_file),
         'aug': args.aug,
         'topk': args.topk,
         'n_best': args.n_best,
