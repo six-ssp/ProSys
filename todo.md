@@ -2,11 +2,10 @@
 
 ## Active
 
-- End-to-end Oracle run COMPLETE: 10/10 Stage 1 route models + 10/10 Stage 2 Oracle hit rates (`stage1/results/full_pipeline/hitrate_summary.txt`).
-- Wire the family-specific Stage 2A FNN branch (`--fnn_checkpoint_pattern`) to raise candidate-pool coverage (currently product-memory only).
-- Build the Stage 1 route cache from the finished family models, then run Non-Oracle Stage 2 eval (`stage2/evaluate_stage2_v2.py --mode non_oracle`) for true end-to-end hit rates.
-- Wire a Stage 1 route-recall evaluator (product→reactants top-k via EditRetro generation).
-- Investigate DielsAlder temperature head (MAE 56 °C, only 10% within ±20 °C).
+- End-to-end run COMPLETE (Oracle + Non-Oracle) for all 10 families: `stage1/results/full_pipeline/hitrate_summary.{txt,json}`. Non-Oracle macro-avg: route recall@10 41.9%, system top-10 22.1%.
+- Biggest end-to-end lever is **Stage 1 route recall for the coupling families** (Kumada route recall@10 3.5%, Negishi 14.1%) — investigate before further Stage 2 tuning.
+- Optimize Stage 2 (was deferred): wire the family FNN candidate branch (`--fnn_checkpoint_pattern`) to lift pool coverage; consider Non-Oracle finetuning of the Stage 2 ranker.
+- Investigate DielsAlder temperature head (Oracle MAE 56 °C; Non-Oracle 50 °C).
 
 
 ## Done (summary)
