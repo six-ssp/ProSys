@@ -1,10 +1,9 @@
 #!/bin/bash
 #
-# ProSys end-to-end pipeline: Stage 1 family finetune -> Stage 2 V2 (train + Oracle eval) -> hit-rate summary.
+# Legacy ProSys neural-V2 pipeline: Stage 1 family finetune -> Stage 2 V2 (train + Oracle eval) -> hit-rate summary.
 #
-# Designed to saturate a single-GPU host: Stage 1 runs multiple families concurrently on one GPU,
-# Stage 2 uses the abundant CPU cores for candidate-pool building. All paths are derived from the
-# repo root argument; nothing is hardcoded.
+# Kept for historical reproduction of the original Stage 2 neural branch.
+# The current mainline after cleanup is `scripts/run_stage23_non_oracle_suite.sh`.
 #
 # Usage:
 #   conda activate ProSys
@@ -37,8 +36,8 @@ STAGE2_PREPROCESS="${STAGE2_PREPROCESS:-16}"
 TRAIN_DEVICE="${TRAIN_DEVICE:-cuda:0}"
 SKIP_STAGE1="${SKIP_STAGE1:-0}"
 
-RESULTS_ROOT="$REPO_ROOT/stage1/results/family_finetune"
-PIPE_DIR="$REPO_ROOT/stage1/results/full_pipeline"
+RESULTS_ROOT="$REPO_ROOT/stage1_retrosynthesis/results/family_finetune"
+PIPE_DIR="$REPO_ROOT/stage1_retrosynthesis/results/full_pipeline"
 mkdir -p "$PIPE_DIR"
 
 echo "[pipeline] repo_root=$REPO_ROOT python=$PYTHON_BIN"
@@ -53,7 +52,7 @@ if [[ "$SKIP_STAGE1" != "1" ]]; then
   NUM_WORKERS="$NUM_WORKERS" \
   PATIENCE="$PATIENCE" \
   KEEP_LAST_EPOCHS="$KEEP_LAST_EPOCHS" \
-    bash "$REPO_ROOT/stage1/scripts/run_family_finetune_batch.sh" "$REPO_ROOT"
+    bash "$REPO_ROOT/stage1_retrosynthesis/scripts/run_family_finetune_batch.sh" "$REPO_ROOT"
   echo "[pipeline] Stage 1 finished exit=$? $(date)"
 else
   echo "[pipeline] SKIP_STAGE1=1, skipping Stage 1"

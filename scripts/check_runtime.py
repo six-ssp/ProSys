@@ -25,7 +25,7 @@ def safe_import(name: str) -> tuple[bool, str]:
 
 
 def fairseq_extension_status(repo_root: Path) -> dict[str, str | bool]:
-    fairseq_root = repo_root / 'stage1' / 'fairseq'
+    fairseq_root = repo_root / 'stage1_retrosynthesis' / 'fairseq'
     if str(fairseq_root) not in sys.path:
         sys.path.insert(0, str(fairseq_root))
 

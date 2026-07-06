@@ -3,7 +3,7 @@
 Reads:
 - Stage 2 V2 Oracle evaluation JSONs: ``outputs/stage2_v2/<family>/train/eval_oracle_test.json``
   (system / context / route top-k, pool coverage, temperature).
-- Stage 1 family finetune logs: ``stage1/results/family_finetune/<dataset>/<ts>/train.log``
+- Stage 1 family finetune logs: ``stage1_retrosynthesis/results/family_finetune/<dataset>/<ts>/train.log``
   (best validation loss / perplexity as a convergence proxy).
 
 Prints a per-family table plus a macro-average row.
@@ -203,7 +203,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description='Summarize ProSys hit-rate results.')
     parser.add_argument('--repo_root', type=str, default='.')
     parser.add_argument('--output_root', type=str, default='outputs/stage2_v2')
-    parser.add_argument('--stage1_results', type=str, default='stage1/results/family_finetune')
+    parser.add_argument('--stage1_results', type=str, default='stage1_retrosynthesis/results/family_finetune')
     parser.add_argument('--json_out', type=str, default=None)
     args = parser.parse_args()
 

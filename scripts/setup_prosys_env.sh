@@ -22,7 +22,7 @@ fi
 
 "$PYTHON_BIN" scripts/check_runtime.py --repo_root "$REPO_ROOT"
 
-cd "$REPO_ROOT/stage1/fairseq"
+cd "$REPO_ROOT/stage1_retrosynthesis/fairseq"
 
 CUDA_HOME_VALUE="$("$PYTHON_BIN" - <<'PY'
 import os
@@ -40,4 +40,4 @@ if [[ -n "$CUDA_HOME_VALUE" ]]; then
   export CUDA_HOME="$CUDA_HOME_VALUE"
 fi
 
-"$REPO_ROOT/stage1/scripts/ensure_fairseq_extensions.sh" "$REPO_ROOT"
+"$REPO_ROOT/stage1_retrosynthesis/scripts/ensure_fairseq_extensions.sh" "$REPO_ROOT"

@@ -22,6 +22,12 @@ stage1/interactive/databin/
 stage1/fairseq/build/
 stage1/fairseq/fairseq/*.cpython-*-linux-gnu.so
 stage1/fairseq/fairseq/data/*.cpython-*-linux-gnu.so
+stage1_retrosynthesis/checkpoints/
+stage1_retrosynthesis/results/
+stage1_retrosynthesis/interactive/databin/
+stage1_retrosynthesis/fairseq/build/
+stage1_retrosynthesis/fairseq/fairseq/*.cpython-*-linux-gnu.so
+stage1_retrosynthesis/fairseq/fairseq/data/*.cpython-*-linux-gnu.so
 scripts/__pycache__/
 stage1/scripts/__pycache__/
 data_preprocess/__pycache__/
@@ -33,3 +39,9 @@ outputs/
 # Bulk / generated datasets (reproducible from raw exports + preprocess; too large for git)
 data/reaction_processed_*_catmerge/
 data/editretro/datasets/
+
+# Archived exploratory material and large historical outputs
+Experiment/notebooks/
+Experiment/legacy_outputs/
+Experiment/route_budget/
+Experiment/legacy_tools/

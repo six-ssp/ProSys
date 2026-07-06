@@ -9,7 +9,7 @@ Oracle-trained Stage 2 checkpoint:
     -> write_candidate_training_table (route/context/system labels vs gold split)
     -> run_stage2_v2_eval(mode='non_oracle')  [+ Stage 1 route-recall from the cache]
 
-Prereqs: stage1/build_route_cache.py has produced outputs/stage1_routes/<family>/route_cache.json,
+Prereqs: stage1_retrosynthesis/build_route_cache.py has produced outputs/stage1_routes/<family>/route_cache.json,
 and scripts/run_stage2_v2_family_batch.py has produced the family's memory/ and train/best_model.pt.
 """
 
@@ -24,14 +24,14 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from stage2.v2.candidate_pool import (
+from Experiment.legacy_stage2.v2.candidate_pool import (
     ProductMemoryLookup,
     build_candidate_pool_for_routes,
     load_route_records_from_cache,
 )
-from stage2.v2.evaluate import run_stage2_v2_eval
-from stage2.v2.features import canonicalize_reaction_side
-from stage2.v2.training_table import write_candidate_training_table
+from Experiment.legacy_stage2.v2.evaluate import run_stage2_v2_eval
+from Experiment.legacy_stage2.v2.features import canonicalize_reaction_side
+from Experiment.legacy_stage2.v2.training_table import write_candidate_training_table
 
 TOPKS = (1, 3, 5, 10)
 

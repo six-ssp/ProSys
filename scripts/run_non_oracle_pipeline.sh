@@ -1,10 +1,9 @@
 #!/bin/bash
 #
-# ProSys end-to-end (Non-Oracle) pipeline: for every family, generate a Stage 1
-# route cache (EditRetro inference on the test products) then run Stage 2 V2
-# Non-Oracle evaluation against the Oracle-trained checkpoint, and summarize.
+# Legacy ProSys neural-V2 Non-Oracle pipeline.
+# For the current KNN+XGBoost mainline, use `scripts/run_stage23_non_oracle_suite.sh`.
 #
-# Prereqs: Stage 1 family checkpoints (stage1/results/family_finetune/) and
+# Prereqs: Stage 1 family checkpoints (stage1_retrosynthesis/results/family_finetune/) and
 # Stage 2 artifacts (outputs/stage2_v2/<family>/{memory,train}) already exist.
 #
 # Usage:
@@ -34,7 +33,7 @@ if [[ -n "${FAMILIES:-}" ]]; then
   IFS=', ' read -r -a FAMS <<< "$FAMILIES"
 else
   FAMS=()
-  for d in stage1/results/family_finetune/REAXYS_*_SINGLE_CATMERGE; do
+  for d in stage1_retrosynthesis/results/family_finetune/REAXYS_*_SINGLE_CATMERGE; do
     [[ -d "$d" ]] || continue
     fam="$(basename "$d")"; fam="${fam#REAXYS_}"; fam="${fam%_SINGLE_CATMERGE}"
     FAMS+=("$fam")
@@ -55,7 +54,7 @@ for fam in "${FAMS[@]}"; do
     continue
   fi
   echo "[non-oracle-pipeline] generating route cache for $fam $(date)"
-  "$PYTHON_BIN" stage1/build_route_cache.py \
+  "$PYTHON_BIN" stage1_retrosynthesis/build_route_cache.py \
     --repo_root "$REPO_ROOT" --family "$fam" \
     --aug "$AUG" --topk "$TOPK" --repos_beam "$REPOS_BEAM" \
     --token_beam "$TOKEN_BEAM" --mask_beam "$MASK_BEAM" --n_best "$N_BEST" \
@@ -72,7 +71,7 @@ echo "[non-oracle-pipeline] Non-Oracle evaluation $(date)"
 echo "[non-oracle-pipeline] summary $(date)"
 "$PYTHON_BIN" scripts/summarize_hitrates.py \
   --repo_root "$REPO_ROOT" \
-  --json_out stage1/results/full_pipeline/hitrate_summary.json \
-  | tee stage1/results/full_pipeline/hitrate_summary.txt
+  --json_out stage1_retrosynthesis/results/full_pipeline/hitrate_summary.json \
+  | tee stage1_retrosynthesis/results/full_pipeline/hitrate_summary.txt
 
 echo "[non-oracle-pipeline] done $(date)"

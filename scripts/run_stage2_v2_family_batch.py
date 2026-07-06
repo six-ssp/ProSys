@@ -11,20 +11,20 @@ from concurrent.futures import Future, ProcessPoolExecutor
 from pathlib import Path
 
 # Make the repo root importable when invoked as `python scripts/run_stage2_v2_family_batch.py`
-# (running a script puts scripts/ on sys.path, not the repo root that holds the `stage2` package).
+# (running a script puts scripts/ on sys.path, not the repo root that holds the archived legacy package).
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from stage2.v2.candidate_pool import (
+from Experiment.legacy_stage2.v2.candidate_pool import (
     FNNCandidateGenerator,
     ProductMemoryLookup,
     build_candidate_pool_for_routes,
     load_route_records_from_split,
 )
-from stage2.v2.evaluate import run_stage2_v2_eval
-from stage2.v2.product_memory import build_product_memory_artifacts
-from stage2.v2.training_table import write_candidate_training_table
+from Experiment.legacy_stage2.v2.evaluate import run_stage2_v2_eval
+from Experiment.legacy_stage2.v2.product_memory import build_product_memory_artifacts
+from Experiment.legacy_stage2.v2.training_table import write_candidate_training_table
 
 
 def infer_family_name_from_dir(family_dir: Path) -> str:
@@ -144,7 +144,7 @@ def start_training_process(
     cmd = [
         python_bin,
         '-m',
-        'stage2.train_stage2_v2',
+        'Experiment.legacy_stage2.train_stage2_v2',
         '--family_dir',
         str(family_dir),
         '--train_table',
