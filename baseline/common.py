@@ -517,8 +517,6 @@ def evaluate_scored_frame(
     hit_counters.update({f'context_top{k}': 0 for k in topks})
     hit_counters.update({f'route_top{k}': 0 for k in topks})
     covered_hit = {f'system_top{k}': 0 for k in topks}
-    temp_hit_10c = {f'top{k}': 0 for k in topks}
-    temp_hit_20c = {f'top{k}': 0 for k in topks}
     temp_abs_errors: list[float] = []
 
     for _, group in work.groupby('sample_index', sort=True):
@@ -541,18 +539,10 @@ def evaluate_scored_frame(
         if temperature_column and temperature_column in group.columns:
             temperature_gold = group['temperature_gold'].to_numpy(dtype=np.float64)
             temperature_pred = group[temperature_column].to_numpy(dtype=np.float64)
-            valid_temperature = np.isfinite(temperature_gold) & np.isfinite(temperature_pred)
-            for k in topks:
-                topk_mask = (label[:k] > 0.5) & valid_temperature[:k]
-                if not np.any(topk_mask):
-                    continue
-                errors = np.abs(temperature_pred[:k][topk_mask] - temperature_gold[:k][topk_mask])
-                temp_hit_10c[f'top{k}'] += int(np.any(errors <= 10.0))
-                temp_hit_20c[f'top{k}'] += int(np.any(errors <= 20.0))
-
-            top10_mask = (label[:10] > 0.5) & valid_temperature[:10]
-            if np.any(top10_mask):
-                first_idx = int(np.flatnonzero(top10_mask)[0])
+            valid_positive = (label > 0.5) & np.isfinite(temperature_gold) & np.isfinite(temperature_pred)
+            positive_rows = np.flatnonzero(valid_positive)
+            if positive_rows.size > 0:
+                first_idx = int(positive_rows[0])
                 temp_abs_errors.append(abs(float(temperature_pred[first_idx]) - float(temperature_gold[first_idx])))
 
     metrics: dict[str, object] = {
@@ -565,31 +555,31 @@ def evaluate_scored_frame(
     for k in topks:
         key = f'system_top{k}'
         metrics[f'{key}_covered'] = (covered_hit[key] / covered_slates if covered_slates else 0.0)
-        metrics[f'temperature_top{k}_within_10c_all'] = (temp_hit_10c[f'top{k}'] / num_slates if num_slates else 0.0)
-        metrics[f'temperature_top{k}_within_20c_all'] = (temp_hit_20c[f'top{k}'] / num_slates if num_slates else 0.0)
 
     if temp_abs_errors:
         errors = np.asarray(temp_abs_errors, dtype=np.float64)
         metrics['temperature'] = {
-            'definition': 'topk_end_to_end_temperature_hit',
+            'definition': 'standalone_temperature_error_on_highest_ranked_full_match',
             'n': int(errors.size),
             'mae': float(np.mean(errors)),
             'mse': float(np.mean(errors ** 2)),
             'rmse': float(np.sqrt(np.mean(errors ** 2))),
-            'mae_support': 'highest_ranked_full_match_with_valid_temperature_within_top10',
-            'within_10c': (temp_hit_10c['top10'] / num_slates if num_slates else 0.0),
-            'within_20c': (temp_hit_20c['top10'] / num_slates if num_slates else 0.0),
+            'support': 'highest_ranked_full_match_with_valid_temperature',
+            'within_5c': float(np.mean(errors <= 5.0)),
+            'within_10c': float(np.mean(errors <= 10.0)),
+            'within_20c': float(np.mean(errors <= 20.0)),
         }
     else:
         metrics['temperature'] = {
-            'definition': 'topk_end_to_end_temperature_hit',
+            'definition': 'standalone_temperature_error_on_highest_ranked_full_match',
             'n': 0,
             'mae': None,
             'mse': None,
             'rmse': None,
-            'mae_support': 'highest_ranked_full_match_with_valid_temperature_within_top10',
-            'within_10c': 0.0,
-            'within_20c': 0.0,
+            'support': 'highest_ranked_full_match_with_valid_temperature',
+            'within_5c': None,
+            'within_10c': None,
+            'within_20c': None,
         }
     return metrics
 

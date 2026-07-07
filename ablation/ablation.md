@@ -211,8 +211,10 @@
 - `sys@1`
 - `sys@5`
 - `sys@10`
-- `Temp@10C`
-- `Temp@20C`
+- `Temp MAE`
+- `Temp±5C`
+- `Temp±10C`
+- `Temp±20C`
 
 对于 Stage 2 消融，再保留一个辅助解释指标：
 
@@ -228,9 +230,9 @@
 
 温度评估和 baseline 完全统一：
 
-- 只在 `sys@10` 已命中的样本上统计
-- 只看 top-10 中最高排名的 exact-positive system
-- 汇总 `Temp@10C` 和 `Temp@20C`
+- 对每个样本取最高排名的 exact-positive system
+- 只在该 system 温度标注和预测都有效时纳入统计
+- 汇总 `Temp MAE` 与 `Temp±5C / Temp±10C / Temp±20C`
 
 这样表格才可以直接横向比较。
 

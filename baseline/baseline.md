@@ -88,8 +88,10 @@
 - `sys@1`
 - `sys@5`
 - `sys@10`
-- `Temp@10C`
-- `Temp@20C`
+- `Temp MAE`
+- `Temp±5C`
+- `Temp±10C`
+- `Temp±20C`
 
 辅助解释指标：
 
@@ -104,17 +106,18 @@
 
 ## 6. 温度指标的统一定义
 
-为了让 baseline 和主线可比，温度指标建议统一成：
+为了让 baseline 和主线可比，温度指标统一成：
 
-- 只在 `sys@10` 已命中的样本上统计
-- 只看 top-10 中最高排名的 exact-positive system
-- 统计该 system 的温度是否落在真实温度 `±10℃ / ±20℃` 内
+- 对每个样本，找到最高排名的 exact-positive system
+- 要求这个 system 有有效 `temperature_gold` 和预测温度
+- 在这些样本上单独统计 `Temp MAE`
+- 同时统计温度误差是否落在 `±5℃ / ±10℃ / ±20℃`
 
 这样做的好处是：
 
-- 和 `sys@k` 的排序逻辑一致
-- 不会把未命中的样本混进温度统计
-- 口径能和主线、ablation 保持一致
+- 保留了温度回归本身的解释性
+- 不会和 `sys@k` 的 end-to-end 排序命中混在一起
+- 口径能和当前主线、ablation 保持一致
 
 
 ## 7. 最终 baseline 结果应该怎么用

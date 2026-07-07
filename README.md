@@ -131,7 +131,7 @@ python baseline/render_stage23_nonoracle_reports.py \
 - 重新执行了 Stage 1 之后的 Non-Oracle 全流程
 - 重新渲染了 baseline / ablation / average-effect 报表
 - 通过 `scripts/audit_data_splits.py --strict` 确认当前 split 无明显泄露
-- 统一了温度指标口径：`Temp@10C` / `Temp@20C` 表示 top-10 内存在完整 system hit 且温度误差落在 `+/-10C` / `+/-20C`
+- 温度指标已切回独立统计口径：单独汇总 `Temp MAE` 与 `Temp±5C / Temp±10C / Temp±20C`
 
 ### 10-family 全量主线概览
 
@@ -142,8 +142,10 @@ python baseline/render_stage23_nonoracle_reports.py \
 - `sys@1 = 15.4`
 - `sys@5 = 23.6`
 - `sys@10 = 27.0`
-- `Temp@10C = 9.2`
-- `Temp@20C = 14.5`
+- `Temp MAE = 23.5`
+- `Temp±5C = 19.9`
+- `Temp±10C = 34.4`
+- `Temp±20C = 58.0`
 
 与 `Original FNN` 相比，当前主线在全量 10 家族上更强的部分是：
 
@@ -167,8 +169,8 @@ python baseline/render_stage23_nonoracle_reports.py \
 
 在这 6 个家族上的宏平均：
 
-- `Original FNN`: `cover 38.0`, `sys@1 10.5`, `sys@5 19.6`, `sys@10 28.3`, `Temp@10C 20.0`, `Temp@20C 24.1`
-- `KNN+XGB`: `cover 52.2`, `sys@1 22.0`, `sys@5 33.7`, `sys@10 38.6`, `Temp@10C 13.1`, `Temp@20C 20.9`
+- `Original FNN`: `cover 38.0`, `sys@1 10.5`, `sys@5 19.6`, `sys@10 28.3`, `Temp MAE 6.8`, `Temp±5C 55.7`, `Temp±10C 74.5`, `Temp±20C 94.1`
+- `KNN+XGB`: `cover 52.2`, `sys@1 22.0`, `sys@5 33.7`, `sys@10 38.6`, `Temp MAE 23.7`, `Temp±5C 17.7`, `Temp±10C 33.4`, `Temp±20C 56.8`
 
 也就是当前主线相对原始项目 baseline 的提升大致为：
 
@@ -213,14 +215,14 @@ python baseline/render_stage23_nonoracle_reports.py \
 
 ## 当前温度指标口径
 
-当前 `Temp@10C` 和 `Temp@20C` 已统一改成：
+当前温度指标使用独立统计口径：
 
-- 在 top-10 内，存在一个候选同时满足：
-- `route + reagent + solvent` 全命中
-- 且该候选有有效温度标注
-- 且 `|T_pred - T_gold| <= 10C` 或 `20C`
+- 先在每个样本里找到“分数最高、且 `route + reagent + solvent` 全命中、并且温度标注有效”的候选
+- 记录该候选的温度绝对误差 `|T_pred - T_gold|`
+- 在这些误差上单独计算 `Temp MAE`
+- 同时计算 `Temp±5C / Temp±10C / Temp±20C`
 
-也就是说，温度命中率现在是**真正的 top-10 end-to-end 命中率**，分母是全部样本，不再是先条件化到 `sys@10` 命中的子集。
+也就是说，温度部分不再按 top-k end-to-end hit 去单独记一个温度命中率，而是回到“对命中样本单独统计温度误差”的旧口径。
 
 ## 目录整理约定
 

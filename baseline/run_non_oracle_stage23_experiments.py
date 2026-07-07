@@ -86,6 +86,12 @@ BASELINE_LABELS = {
 
 REPORT_FILTER_BASELINE = 'knn_xgb'
 REPORT_FILTER_SYS10_THRESHOLD = 0.20
+TEMPERATURE_METRICS = [
+    ('temp_mae', 'Temp MAE', False),
+    ('temp_within_5c', 'Temp±5C', True),
+    ('temp_within_10c', 'Temp±10C', True),
+    ('temp_within_20c', 'Temp±20C', True),
+]
 
 
 def _write_json(data: dict | list, output_file: Path) -> Path:
@@ -102,7 +108,7 @@ def _family_sort_key(family: str) -> tuple[int, str]:
 
 
 def _format_metric(value: float | None, *, percent: bool) -> str:
-    if value is None:
+    if value is None or pd.isna(value):
         return 'NA'
     if percent:
         return f'{value * 100.0:.1f}'
@@ -557,6 +563,7 @@ def _flatten_rows(rows: list[dict]) -> pd.DataFrame:
                 'temp_mae': temp.get('mae'),
                 'temp_mse': temp.get('mse'),
                 'temp_rmse': temp.get('rmse'),
+                'temp_within_5c': temp.get('within_5c'),
                 'temp_within_10c': temp.get('within_10c'),
                 'temp_within_20c': temp.get('within_20c'),
                 'temp_n': temp.get('n'),
@@ -581,6 +588,8 @@ def _macro_rows(frame: pd.DataFrame, baselines: list[str]) -> list[dict]:
                 'sys1': _mean_metric(block['sys1'].dropna().astype(float).tolist()),
                 'sys5': _mean_metric(block['sys5'].dropna().astype(float).tolist()),
                 'sys10': _mean_metric(block['sys10'].dropna().astype(float).tolist()),
+                'temp_mae': _mean_metric(block['temp_mae'].dropna().astype(float).tolist()),
+                'temp_within_5c': _mean_metric(block['temp_within_5c'].dropna().astype(float).tolist()),
                 'temp_within_10c': _mean_metric(block['temp_within_10c'].dropna().astype(float).tolist()),
                 'temp_within_20c': _mean_metric(block['temp_within_20c'].dropna().astype(float).tolist()),
             }
@@ -613,11 +622,17 @@ def _family_metric_matrix(
 
 
 def _render_macro_markdown(rows: list[dict]) -> list[str]:
+    headers = ['Baseline', 'n_fam', 'rr@10', 'cover', 'sys@1', 'sys@5', 'sys@10']
+    headers.extend(label for _, label, _ in TEMPERATURE_METRICS)
     lines = [
-        '| Baseline | n_fam | rr@10 | cover | sys@1 | sys@5 | sys@10 | Temp@10C | Temp@20C |',
-        '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+        '| ' + ' | '.join(headers) + ' |',
+        '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     ]
     for row in rows:
+        temp_cells = [
+            _format_metric(row.get(metric), percent=percent)
+            for metric, _, percent in TEMPERATURE_METRICS
+        ]
         lines.append(
             '| '
             + ' | '.join(
@@ -629,8 +644,7 @@ def _render_macro_markdown(rows: list[dict]) -> list[str]:
                     _format_metric(row['sys1'], percent=True),
                     _format_metric(row['sys5'], percent=True),
                     _format_metric(row['sys10'], percent=True),
-                    _format_metric(row['temp_within_10c'], percent=True),
-                    _format_metric(row['temp_within_20c'], percent=True),
+                    *temp_cells,
                 ]
             )
             + ' |'
@@ -673,9 +687,13 @@ def _write_report(
     lines.append('')
     lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='sys10'), baselines, title='sys@10 by Family', percent=True))
     lines.append('')
-    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_within_10c'), baselines, title='Temp@10C by Family', percent=True))
+    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_mae'), baselines, title='Temp MAE by Family', percent=False))
     lines.append('')
-    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_within_20c'), baselines, title='Temp@20C by Family', percent=True))
+    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_within_5c'), baselines, title='Temp±5C by Family', percent=True))
+    lines.append('')
+    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_within_10c'), baselines, title='Temp±10C by Family', percent=True))
+    lines.append('')
+    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_within_20c'), baselines, title='Temp±20C by Family', percent=True))
     output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_text('\n'.join(lines) + '\n', encoding='utf-8')
     return output_file

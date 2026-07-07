@@ -52,6 +52,12 @@ BASELINE_LABELS = {
 REPORT_FILTER_BASELINE = 'knn_xgb'
 REPORT_FILTER_SYS10_THRESHOLD = 0.20
 TOPKS = (1, 3, 5, 10)
+TEMPERATURE_METRICS = [
+    ('temp_mae', 'Temp MAE', False),
+    ('temp_within_5c', 'Temp±5C', True),
+    ('temp_within_10c', 'Temp±10C', True),
+    ('temp_within_20c', 'Temp±20C', True),
+]
 
 
 def display_family_name(family: str) -> str:
@@ -66,7 +72,7 @@ def _family_sort_key(family: str) -> tuple[int, str]:
 
 
 def _format_metric(value: float | None, *, percent: bool) -> str:
-    if value is None:
+    if value is None or pd.isna(value):
         return 'NA'
     if percent:
         return f'{value * 100.0:.1f}'
@@ -91,8 +97,6 @@ def _evaluate_scored_frame(frame: pd.DataFrame, *, score_column: str, temperatur
     hit_counters.update({f'context_top{k}': 0 for k in TOPKS})
     hit_counters.update({f'route_top{k}': 0 for k in TOPKS})
     covered_hit = {f'system_top{k}': 0 for k in TOPKS}
-    temp_hit_10c = {f'top{k}': 0 for k in TOPKS}
-    temp_hit_20c = {f'top{k}': 0 for k in TOPKS}
     temp_abs_errors: list[float] = []
 
     for _, group in work.groupby('sample_index', sort=True):
@@ -115,18 +119,10 @@ def _evaluate_scored_frame(frame: pd.DataFrame, *, score_column: str, temperatur
         if temperature_column and temperature_column in group.columns:
             temperature_gold = group['temperature_gold'].to_numpy(dtype=np.float64)
             temperature_pred = group[temperature_column].to_numpy(dtype=np.float64)
-            valid_temperature = np.isfinite(temperature_gold) & np.isfinite(temperature_pred)
-            for k in TOPKS:
-                topk_mask = (label[:k] > 0.5) & valid_temperature[:k]
-                if not np.any(topk_mask):
-                    continue
-                errors = np.abs(temperature_pred[:k][topk_mask] - temperature_gold[:k][topk_mask])
-                temp_hit_10c[f'top{k}'] += int(np.any(errors <= 10.0))
-                temp_hit_20c[f'top{k}'] += int(np.any(errors <= 20.0))
-
-            top10_mask = (label[:10] > 0.5) & valid_temperature[:10]
-            if np.any(top10_mask):
-                first_idx = int(np.flatnonzero(top10_mask)[0])
+            valid_positive = (label > 0.5) & np.isfinite(temperature_gold) & np.isfinite(temperature_pred)
+            positive_rows = np.flatnonzero(valid_positive)
+            if positive_rows.size > 0:
+                first_idx = int(positive_rows[0])
                 temp_abs_errors.append(abs(float(temperature_pred[first_idx]) - float(temperature_gold[first_idx])))
 
     metrics: dict[str, object] = {
@@ -139,31 +135,31 @@ def _evaluate_scored_frame(frame: pd.DataFrame, *, score_column: str, temperatur
     for k in TOPKS:
         key = f'system_top{k}'
         metrics[f'{key}_covered'] = (covered_hit[key] / covered_slates if covered_slates else 0.0)
-        metrics[f'temperature_top{k}_within_10c_all'] = (temp_hit_10c[f'top{k}'] / num_slates if num_slates else 0.0)
-        metrics[f'temperature_top{k}_within_20c_all'] = (temp_hit_20c[f'top{k}'] / num_slates if num_slates else 0.0)
 
     if temp_abs_errors:
         errors = np.asarray(temp_abs_errors, dtype=np.float64)
         metrics['temperature'] = {
-            'definition': 'topk_end_to_end_temperature_hit',
+            'definition': 'standalone_temperature_error_on_highest_ranked_full_match',
             'n': int(errors.size),
             'mae': float(np.mean(errors)),
             'mse': float(np.mean(errors ** 2)),
             'rmse': float(np.sqrt(np.mean(errors ** 2))),
-            'mae_support': 'highest_ranked_full_match_with_valid_temperature_within_top10',
-            'within_10c': (temp_hit_10c['top10'] / num_slates if num_slates else 0.0),
-            'within_20c': (temp_hit_20c['top10'] / num_slates if num_slates else 0.0),
+            'support': 'highest_ranked_full_match_with_valid_temperature',
+            'within_5c': float(np.mean(errors <= 5.0)),
+            'within_10c': float(np.mean(errors <= 10.0)),
+            'within_20c': float(np.mean(errors <= 20.0)),
         }
     else:
         metrics['temperature'] = {
-            'definition': 'topk_end_to_end_temperature_hit',
+            'definition': 'standalone_temperature_error_on_highest_ranked_full_match',
             'n': 0,
             'mae': None,
             'mse': None,
             'rmse': None,
-            'mae_support': 'highest_ranked_full_match_with_valid_temperature_within_top10',
-            'within_10c': 0.0,
-            'within_20c': 0.0,
+            'support': 'highest_ranked_full_match_with_valid_temperature',
+            'within_5c': None,
+            'within_10c': None,
+            'within_20c': None,
         }
     return metrics
 
@@ -242,6 +238,7 @@ def _flatten_rows(rows: list[dict]) -> pd.DataFrame:
                 'temp_mae': temp.get('mae'),
                 'temp_mse': temp.get('mse'),
                 'temp_rmse': temp.get('rmse'),
+                'temp_within_5c': temp.get('within_5c'),
                 'temp_within_10c': temp.get('within_10c'),
                 'temp_within_20c': temp.get('within_20c'),
                 'temp_n': temp.get('n'),
@@ -300,6 +297,8 @@ def _macro_rows(frame: pd.DataFrame, baselines: list[str]) -> list[dict]:
                 'sys1': _mean_metric(block['sys1'].dropna().astype(float).tolist()),
                 'sys5': _mean_metric(block['sys5'].dropna().astype(float).tolist()),
                 'sys10': _mean_metric(block['sys10'].dropna().astype(float).tolist()),
+                'temp_mae': _mean_metric(block['temp_mae'].dropna().astype(float).tolist()),
+                'temp_within_5c': _mean_metric(block['temp_within_5c'].dropna().astype(float).tolist()),
                 'temp_within_10c': _mean_metric(block['temp_within_10c'].dropna().astype(float).tolist()),
                 'temp_within_20c': _mean_metric(block['temp_within_20c'].dropna().astype(float).tolist()),
             }
@@ -327,11 +326,17 @@ def _family_metric_matrix(frame: pd.DataFrame, baselines: list[str], *, metric: 
 
 
 def _render_macro_markdown(rows: list[dict]) -> list[str]:
+    headers = ['Baseline', 'n_fam', 'rr@10', 'cover', 'sys@1', 'sys@5', 'sys@10']
+    headers.extend(label for _, label, _ in TEMPERATURE_METRICS)
     lines = [
-        '| Baseline | n_fam | rr@10 | cover | sys@1 | sys@5 | sys@10 | Temp@10C | Temp@20C |',
-        '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+        '| ' + ' | '.join(headers) + ' |',
+        '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     ]
     for row in rows:
+        temp_cells = [
+            _format_metric(row.get(metric), percent=percent)
+            for metric, _, percent in TEMPERATURE_METRICS
+        ]
         lines.append(
             '| '
             + ' | '.join(
@@ -343,8 +348,7 @@ def _render_macro_markdown(rows: list[dict]) -> list[str]:
                     _format_metric(row['sys1'], percent=True),
                     _format_metric(row['sys5'], percent=True),
                     _format_metric(row['sys10'], percent=True),
-                    _format_metric(row['temp_within_10c'], percent=True),
-                    _format_metric(row['temp_within_20c'], percent=True),
+                    *temp_cells,
                 ]
             )
             + ' |'
@@ -394,9 +398,13 @@ def _write_report(
     lines.append('')
     lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='sys10'), baselines, title='sys@10 by Family', percent=True))
     lines.append('')
-    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_within_10c'), baselines, title='Temp@10C by Family', percent=True))
+    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_mae'), baselines, title='Temp MAE by Family', percent=False))
     lines.append('')
-    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_within_20c'), baselines, title='Temp@20C by Family', percent=True))
+    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_within_5c'), baselines, title='Temp±5C by Family', percent=True))
+    lines.append('')
+    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_within_10c'), baselines, title='Temp±10C by Family', percent=True))
+    lines.append('')
+    lines.extend(_render_family_metric_markdown(_family_metric_matrix(frame, baselines, metric='temp_within_20c'), baselines, title='Temp±20C by Family', percent=True))
     output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_text('\n'.join(lines) + '\n', encoding='utf-8')
     return output_file
@@ -411,8 +419,8 @@ def _write_overview(frame: pd.DataFrame, output_file: Path, *, note: str | None 
         lines.extend([note, ''])
     lines.extend(
         [
-            '| Family | Baseline | rr@10 | cover | sys@1 | sys@5 | sys@10 | Temp@10C | Temp@20C |',
-            '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+            '| Family | Baseline | rr@10 | cover | sys@1 | sys@5 | sys@10 | Temp MAE | Temp±5C | Temp±10C | Temp±20C |',
+            '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
         ]
     )
     for _, row in frame.sort_values(['family', 'baseline']).iterrows():
@@ -427,6 +435,8 @@ def _write_overview(frame: pd.DataFrame, output_file: Path, *, note: str | None 
                     'NA' if pd.isna(row['sys1']) else f'{float(row["sys1"]) * 100.0:.1f}',
                     'NA' if pd.isna(row['sys5']) else f'{float(row["sys5"]) * 100.0:.1f}',
                     'NA' if pd.isna(row['sys10']) else f'{float(row["sys10"]) * 100.0:.1f}',
+                    'NA' if pd.isna(row['temp_mae']) else f'{float(row["temp_mae"]):.1f}',
+                    'NA' if pd.isna(row['temp_within_5c']) else f'{float(row["temp_within_5c"]) * 100.0:.1f}',
                     'NA' if pd.isna(row['temp_within_10c']) else f'{float(row["temp_within_10c"]) * 100.0:.1f}',
                     'NA' if pd.isna(row['temp_within_20c']) else f'{float(row["temp_within_20c"]) * 100.0:.1f}',
                 ]
@@ -444,10 +454,10 @@ def _fmt_pct(value: float | None) -> str:
 
 
 def _macro_table(frame: pd.DataFrame, baselines: list[str]) -> list[str]:
-    metrics = ['rr10', 'pool_coverage', 'sys1', 'sys5', 'sys10', 'temp_within_10c', 'temp_within_20c']
+    metrics = ['rr10', 'pool_coverage', 'sys1', 'sys5', 'sys10', 'temp_mae', 'temp_within_5c', 'temp_within_10c', 'temp_within_20c']
     lines = [
-        '| Baseline | n_fam | rr@10 | cover | sys@1 | sys@5 | sys@10 | Temp@10C | Temp@20C |',
-        '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+        '| Baseline | n_fam | rr@10 | cover | sys@1 | sys@5 | sys@10 | Temp MAE | Temp±5C | Temp±10C | Temp±20C |',
+        '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     ]
     for baseline in baselines:
         block = frame[frame['baseline'] == baseline]
@@ -465,6 +475,8 @@ def _macro_table(frame: pd.DataFrame, baselines: list[str]) -> list[str]:
                     _fmt_pct(means['sys1']),
                     _fmt_pct(means['sys5']),
                     _fmt_pct(means['sys10']),
+                    'NA' if pd.isna(means['temp_mae']) else f'{float(means["temp_mae"]):.1f}',
+                    _fmt_pct(means['temp_within_5c']),
                     _fmt_pct(means['temp_within_10c']),
                     _fmt_pct(means['temp_within_20c']),
                 ]
@@ -476,12 +488,14 @@ def _macro_table(frame: pd.DataFrame, baselines: list[str]) -> list[str]:
 
 def _delta_table(frame: pd.DataFrame, lhs: str, rhs: str) -> list[str]:
     metrics = [
-        ('pool_coverage', 'cover'),
-        ('sys1', 'sys@1'),
-        ('sys5', 'sys@5'),
-        ('sys10', 'sys@10'),
-        ('temp_within_10c', 'Temp@10C'),
-        ('temp_within_20c', 'Temp@20C'),
+        ('pool_coverage', 'cover', True),
+        ('sys1', 'sys@1', True),
+        ('sys5', 'sys@5', True),
+        ('sys10', 'sys@10', True),
+        ('temp_mae', 'Temp MAE', False),
+        ('temp_within_5c', 'Temp±5C', True),
+        ('temp_within_10c', 'Temp±10C', True),
+        ('temp_within_20c', 'Temp±20C', True),
     ]
     left = frame[frame['baseline'] == lhs]
     right = frame[frame['baseline'] == rhs]
@@ -494,10 +508,15 @@ def _delta_table(frame: pd.DataFrame, lhs: str, rhs: str) -> list[str]:
     if not common:
         return []
 
-    lines = ['| Metric | Delta (pp) |', '| --- | ---: |']
-    for metric, label in metrics:
+    lines = ['| Metric | Delta |', '| --- | ---: |']
+    for metric, label, percent in metrics:
         delta = left_mean.loc[common, metric].mean() - right_mean.loc[common, metric].mean()
-        lines.append(f'| {label} | {delta * 100.0:+.1f} |')
+        if pd.isna(delta):
+            lines.append(f'| {label} | NA |')
+        elif percent:
+            lines.append(f'| {label} | {delta * 100.0:+.1f} pp |')
+        else:
+            lines.append(f'| {label} | {delta:+.1f} |')
     return lines
 
 
@@ -521,7 +540,7 @@ def _write_average_effect(frame: pd.DataFrame, output_file: Path) -> Path:
     lines.extend(_macro_table(frame, STAGE3_BASELINES))
     lines.extend(['', '## Stage 2 Mean', ''])
     lines.extend(_macro_table(frame, STAGE2_BASELINES))
-    lines.extend(['', 'Note: `Temp@10C` and `Temp@20C` denote top-10 end-to-end temperature hit rates: within top-10 there exists a full system hit with temperature error within +/-10C or +/-20C.'])
+    lines.extend(['', 'Note: temperature metrics are evaluated separately on the highest-ranked full-match candidate with a valid gold/predicted temperature for each sample.'])
     output_file.write_text('\n'.join(lines) + '\n', encoding='utf-8')
     return output_file
 
