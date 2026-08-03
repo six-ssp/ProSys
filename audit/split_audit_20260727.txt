@@ -1,0 +1,22 @@
+Strict split audit command:
+/root/miniconda3/envs/ProSys/bin/python data_preprocess/audit_data_splits.py --strict
+
+Exit status: 0
+
+Stage2 split audit
+family	train	val	test	train_val	train_test	val_test
+reaction_processed_Beckmann_catmerge	1876	234	235	0	0	0
+reaction_processed_Buchwald-HartwigCross-Coupling_catmerge	8777	1097	1098	0	0	0
+reaction_processed_Chan_LamCoupling_catmerge	3112	389	390	0	0	0
+reaction_processed_DielsAlder_catmerge	6078	760	760	0	0	0
+reaction_processed_Friedel-CraftsAcylation_catmerge	3797	475	475	0	0	0
+reaction_processed_Friedel-CraftsAlkylation_catmerge	7145	893	894	0	0	0
+
+Stage1 route audit
+family	raw_train	raw_val	raw_test	train_val	train_test	val_test	val_vs_stage2_val	test_vs_stage2_test	trainval_vs_stage2_test
+Beckmann	6657	234	235	0	0	0	0	0	0
+Buchwald-HartwigCross-Coupling	16184	1097	1098	0	0	0	0	0	0
+Chan_LamCoupling	6094	389	390	0	0	0	0	0	0
+DielsAlder	17233	760	760	0	0	0	0	0	0
+Friedel-CraftsAcylation	9176	475	475	0	0	0	0	0	0
+Friedel-CraftsAlkylation	15374	893	894	0	0	0	0	0	0

@@ -14,12 +14,8 @@ FAMILY_ORDER = [
     'Buchwald-HartwigCross-Coupling',
     'Chan_LamCoupling',
     'DielsAlder',
-    'FischerIndoleSynthesis',
     'Friedel-CraftsAcylation',
     'Friedel-CraftsAlkylation',
-    'GrignardReaction',
-    'KumadaCoupling',
-    'NegishiCoupling',
 ]
 
 FAMILY_DISPLAY_NAMES = {
@@ -27,17 +23,13 @@ FAMILY_DISPLAY_NAMES = {
     'Buchwald-HartwigCross-Coupling': 'Buchwald-Hartwig',
     'Chan_LamCoupling': 'Chan-Lam',
     'DielsAlder': 'Diels-Alder',
-    'FischerIndoleSynthesis': 'Fischer-Indole',
     'Friedel-CraftsAcylation': 'Friedel-Crafts Acyl.',
     'Friedel-CraftsAlkylation': 'Friedel-Crafts Alkyl.',
-    'GrignardReaction': 'Grignard',
-    'KumadaCoupling': 'Kumada',
-    'NegishiCoupling': 'Negishi',
 }
 
 HISTORICAL_BASELINES = ['prototype_fnn', 'knn_xgb']
 STAGE3_BASELINES = ['knn_xgb', 'knn_rf', 'knn_svm', 'knn_bayes']
-STAGE2_BASELINES = ['knn_xgb', 'cluster_xgb', 'fnnpool_xgb']
+STAGE2_BASELINES = ['knn_xgb', 'cluster_xgb']
 
 BASELINE_LABELS = {
     'prototype_fnn': 'Original FNN',
@@ -46,7 +38,6 @@ BASELINE_LABELS = {
     'knn_svm': 'KNN+SVM',
     'knn_bayes': 'KNN+Bayes',
     'cluster_xgb': 'Cluster+XGB',
-    'fnnpool_xgb': 'FNN-pool+XGB',
 }
 
 REPORT_FILTER_BASELINE = 'knn_xgb'
@@ -214,6 +205,8 @@ def _load_rows(output_root: Path) -> list[dict]:
         baseline = row.get('baseline')
         family = row.get('family')
         if not baseline or not family:
+            continue
+        if baseline not in BASELINE_LABELS:
             continue
         rows.append(_refresh_metrics(row))
     rows.sort(key=lambda row: (_family_sort_key(row['family']), row['baseline']))

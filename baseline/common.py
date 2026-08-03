@@ -39,12 +39,8 @@ FAMILY_ORDER = [
     'Buchwald-HartwigCross-Coupling',
     'Chan_LamCoupling',
     'DielsAlder',
-    'FischerIndoleSynthesis',
     'Friedel-CraftsAcylation',
     'Friedel-CraftsAlkylation',
-    'GrignardReaction',
-    'KumadaCoupling',
-    'NegishiCoupling',
 ]
 
 FAMILY_DISPLAY_NAMES = {
@@ -52,12 +48,8 @@ FAMILY_DISPLAY_NAMES = {
     'Buchwald-HartwigCross-Coupling': 'Buchwald-Hartwig',
     'Chan_LamCoupling': 'Chan-Lam',
     'DielsAlder': 'Diels-Alder',
-    'FischerIndoleSynthesis': 'Fischer-Indole',
     'Friedel-CraftsAcylation': 'Friedel-Crafts Acyl.',
     'Friedel-CraftsAlkylation': 'Friedel-Crafts Alkyl.',
-    'GrignardReaction': 'Grignard',
-    'KumadaCoupling': 'Kumada',
-    'NegishiCoupling': 'Negishi',
 }
 
 TEXT_COLUMNS = {

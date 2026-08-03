@@ -1,164 +1,86 @@
 # ProSys
 
-`ProSys` 是一个从 **target product** 出发，推荐完整反应体系的框架。  
-当前维护的主线已经固定为：
+> **Current verified result source:** [`CURRENT_RESULTS.md`](CURRENT_RESULTS.md)
+> and `outputs/stage23_mainline_gnn_temperature_gated_20260803/`. The retained
+> direct-GNN-ranking snapshot is historical and must not be cited for headline metrics.
+
+`ProSys` 是一个从目标产物出发，逐步推荐完整反应体系的框架。
+当前维护的官方主线已经更新为：
 
 ```text
-product
+target product
 -> Stage 1 EditRetro route generation
--> Stage 2 KNN candidate screening
--> Stage 3 XGBoost reranking + temperature prediction
+-> Stage 2 KNN wide recall + ReaFNN feasible-condition filtering
+-> Stage 3 no-GNN XGBoost reranking + validation-gated Reaction-GNN temperature prediction
 -> Top-k reaction systems
 ```
 
-当前项目的主要叙事是 **Non-Oracle end-to-end**。  
-`Oracle` 只保留作历史分析和上限参考，不再是主结果入口。
+当前正式口径只保留：
 
-## 当前主线
+- `6-family`
+- `Non-Oracle`
+- `end-to-end`
+
+`Oracle` 只作为历史分析和上限参考，不再作为主结果入口。
+
+**输入边界。** 目标产物的结构是主线唯一的分子输入；Stage 1 之后使用的
+reactants、候选条件和排序特征均由该输入在系统内部产生或检索得到。反应家族
+不会作为类别特征拼接到任何模型输入中。当前结果按家族分别训练和报告，运行时
+由外层评测分区选择相应的专家模型、条件记忆和词表，因此这是家族专属专家设置，
+而不是 `product + reaction type` 的特征融合设置。
+
+## 当前官方结果快照
+
+本轮最新、已经跑通并核对过的主线结果位于：
+
+- `outputs/stage23_mainline_gnn_temperature_gated_20260803/`
+- `outputs/stage23_mainline/` 仅保留为历史快照，不再作为结果来源
+
+当前这轮 `6-family` 官方快照已经直接使用了最新的 Stage 2 代码路径：
+
+- `train/val` 构表仍只保留历史已见完整组合
+- `Non-Oracle` 推理时允许极少量 token-consistent 新组合进入候选池
+- 目的不是刷高分数，而是明确说明当前主线不是只在历史完整答案空间里做“选择题”
+
+其中最常用的结果文件是：
+
+- `outputs/stage23_mainline_gnn_temperature_gated_20260803/overview.md`
+- `outputs/stage23_mainline_gnn_temperature_gated_20260803/overview.txt`
+- `outputs/stage23_mainline_gnn_temperature_gated_20260803/results_flat.csv`
+- `outputs/stage23_mainline_gnn_temperature_gated_20260803/gnn_temperature_gate_audit.tsv`
+
+Stage 1 路线缓存位于：
+
+- `outputs/stage1_routes/`
+
+## 当前主线模块
 
 ### Stage 1
 
 - 目录：`stage1_retrosynthesis/`
-- 作用：从目标产物生成候选路线，产出 `outputs/stage1_routes/<family>/route_cache.json`
+- 作用：从目标产物生成 top-k 候选路线
+- 输出：`outputs/stage1_routes/<family>/route_cache.json`
 
 ### Stage 2
 
-- 主线目录：`stage2_KNN/`
-- 核心实现：`stage2_KNN/knn_condition_selector.py`
-- 作用：对 Stage 1 预测路线做 family-specific KNN 检索，生成可行条件候选池
+- 目录：核心实现 `stage2_ReaFNN/`，兼容导入 `stage2_KNN/`
+- 当前模型：`KNN + ReaFNN`
+- 作用：先做 family-specific 宽 KNN 召回，再用 `ReaFNN` 对试剂/溶剂 token 做二次筛选，并在 `Non-Oracle` 推理时尝试极少量受限新组合，形成更稳的可行条件候选池
+- 细节文档：`stage2_ReaFNN/stage2_KNN_detail.md`
 
 ### Stage 3
 
-- 主线目录：`stage3_XGBoost/`
-- 核心实现：`stage3_XGBoost/xgb_reranker.py`
-- 作用：对候选池重排，并预测温度
+- 目录：`stage3_XGBoost/`
+- 当前模型：`no-GNN XGBoost ranker + validation-gated Reaction-GNN temperature regressor`
+- 作用：`XGBRanker` 在无 `route_gnn_feat_*` 的表上做分组重排并验证集选择 Stage 2 prior；独立温度回归器使用 64 维 reaction-GNN 特征，只有 validation MAE 至少改善 `0.25 C` 才按 family 启用
+- 评估口径：Stage 3 只重排 Stage 2 已有候选，不增加新候选；温度指标只在每个样本最高排名的 full-match 候选上单独统计
+- 细节文档：`stage3_XGBoost/stage3_XGBoost_detail.md`
 
-### 实验与报表
+## 当前主线结果摘要
 
-- 目录：`baseline/`、`ablation/`
-- 当前主实验入口：
-  - `baseline/run_non_oracle_stage23_experiments.py`
-  - `baseline/render_stage23_nonoracle_reports.py`
-  - `ablation/run_non_oracle_ablation.py`
-  - `scripts/run_stage23_non_oracle_suite.sh`
+更新时间：`2026-08-03`
 
-## 当前保留的历史分支
-
-下面这些内容仍然保留，但不再是主线：
-
-- `Experiment/legacy_stage2/`
-  - 原始 neural V2 分支归档
-  - 现在主要为历史 baseline、旧模型包装、旧特征与评估工具提供兼容支持
-- `prosys_shared/`
-  - 从旧 `stage2/v2` 中抽出的当前共享工具层
-  - 供 `stage2_KNN/`、`stage3_XGBoost/`、`baseline/` 复用
-- `save_models/`
-  - 原始 FNN / ReactionModel_LWTemp checkpoint
-  - `Original FNN` baseline 仍依赖它们
-- `scripts/run_full_pipeline.sh`
-  - 旧的 neural-V2 Oracle 全流程入口
-- `scripts/run_non_oracle_pipeline.sh`
-  - 旧的 neural-V2 Non-Oracle 入口
-
-## 当前推荐入口
-
-### 1. 环境检查
-
-```bash
-conda activate ProSys
-bash scripts/setup_prosys_env.sh
-python scripts/audit_data_splits.py --strict
-```
-
-### 2. Stage 1 route cache
-
-如果还没有 `route_cache.json`：
-
-```bash
-conda activate ProSys
-python stage1_retrosynthesis/build_route_cache.py --repo_root . --family Beckmann
-```
-
-全家族 route cache 生成后，主线实验默认从 `outputs/stage1_routes/` 读取。
-
-### 3. 当前主线实验套件
-
-```bash
-conda activate ProSys
-bash scripts/run_stage23_non_oracle_suite.sh .
-```
-
-这条入口会完成：
-
-1. `KNN + XGBoost` 主线
-2. `Original FNN` historical baseline
-3. Stage 3 ablation
-   - `KNN + RF`
-   - `KNN + SVM`
-   - `KNN + Bayes`
-4. Stage 2 ablation
-   - `Cluster + XGBoost`
-   - `FNN-pool + XGBoost`
-5. 最终 markdown / csv / json 报表渲染
-
-### 4. 只重渲染报表
-
-```bash
-conda activate ProSys
-python baseline/render_stage23_nonoracle_reports.py \
-  --output_root outputs/stage23_non_oracle_all10
-```
-
-## 当前主要结果位置
-
-### 主线 + baseline + ablation
-
-- 结果根目录：`outputs/stage23_non_oracle_all10/`
-- 核心报表：
-  - `overview.md`
-  - `baseline_historical.md`
-  - `ablation_stage2.md`
-  - `ablation_stage3.md`
-  - `average_effect.md`
-
-## 当前结果摘要
-
-更新时间：`2026-07-05`
-
-当前正式结果以 `outputs/stage23_non_oracle_all10/` 为单一可信入口。  
-本轮结果已经过以下处理：
-
-- 重新执行了 Stage 1 之后的 Non-Oracle 全流程
-- 重新渲染了 baseline / ablation / average-effect 报表
-- 通过 `scripts/audit_data_splits.py --strict` 确认当前 split 无明显泄露
-- 温度指标已切回独立统计口径：单独汇总 `Temp MAE` 与 `Temp±5C / Temp±10C / Temp±20C`
-
-### 10-family 全量主线概览
-
-`KNN+XGB` 在全部 10 个家族上的宏平均为：
-
-- `rr@10 = 41.9`
-- `cover = 36.7`
-- `sys@1 = 15.4`
-- `sys@5 = 23.6`
-- `sys@10 = 27.0`
-- `Temp MAE = 23.5`
-- `Temp±5C = 19.9`
-- `Temp±10C = 34.4`
-- `Temp±20C = 58.0`
-
-与 `Original FNN` 相比，当前主线在全量 10 家族上更强的部分是：
-
-- 候选池覆盖率更高
-- end-to-end `sys@k` 更高
-
-### 过滤后的主结果子集
-
-为了与最终主表保持一致，当前 markdown 报表默认过滤为：
-
-- `KNN+XGB sys@10 > 20%`
-
-保留的 6 个家族为：
+当前 6 个保留家族分别是：
 
 - `Beckmann`
 - `Buchwald-Hartwig`
@@ -167,96 +89,158 @@ python baseline/render_stage23_nonoracle_reports.py \
 - `Friedel-Crafts Acyl.`
 - `Friedel-Crafts Alkyl.`
 
-在这 6 个家族上的宏平均：
+### Mainline: Route + System
 
-- `Original FNN`: `cover 38.0`, `sys@1 10.5`, `sys@5 19.6`, `sys@10 28.3`, `Temp MAE 6.8`, `Temp±5C 55.7`, `Temp±10C 74.5`, `Temp±20C 94.1`
-- `KNN+XGB`: `cover 52.2`, `sys@1 22.0`, `sys@5 33.7`, `sys@10 38.6`, `Temp MAE 23.7`, `Temp±5C 17.7`, `Temp±10C 33.4`, `Temp±20C 56.8`
+| Family | rr@10 | cover | sys@1 | sys@3 | sys@5 | sys@10 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Beckmann | 69.8 | 39.6 | 18.7 | 23.8 | 26.0 | 29.8 |
+| Buchwald-Hartwig | 70.0 | 48.7 | 37.2 | 44.7 | 45.8 | 46.8 |
+| Chan-Lam | 77.4 | 66.7 | 45.9 | 55.4 | 59.2 | 60.8 |
+| Diels-Alder | 37.3 | 29.8 | 17.3 | 23.6 | 26.2 | 27.6 |
+| Friedel-Crafts Acyl. | 70.3 | 60.6 | 32.0 | 41.7 | 46.9 | 53.1 |
+| Friedel-Crafts Alkyl. | 54.4 | 49.7 | 29.5 | 39.0 | 42.6 | 45.5 |
+| MACRO-AVG | 63.2 | 49.2 | 30.1 | 38.0 | 41.1 | 43.9 |
 
-也就是当前主线相对原始项目 baseline 的提升大致为：
+当前主线最核心的 headline 是：
 
-- `cover +14.2 pp`
-- `sys@1 +11.5 pp`
-- `sys@5 +14.1 pp`
-- `sys@10 +10.2 pp`
+- `rr@10 = 63.2`
+- `cover = 49.18`
+- `sys@10 = 43.91`
 
-### 为什么主线定为 `KNN+XGB`
+### Mainline: Temperature
 
-当前结论不是简单地“谁的某个 `sys@k` 最高就选谁”，而是更强调：
+温度指标是在“每个样本里最高排名的 full-match 候选”上单独统计的，不和 `sys@k` 混成一个指标。
 
-1. `KNN` 在 Stage 2 里承担 family-specific feasible-condition screening，解释最直接。
-2. `XGBoost` 在 Stage 3 里承担 reranking + temperature prediction，工程成本低、可解释特征清晰、复现稳定。
-3. Stage 2 ablation 中，`KNN+XGB` 明显强于 `Cluster+XGB` 和 `FNN-pool+XGB`，说明 `KNN` 这步筛选确实有用。
-4. Stage 3 ablation 中，`KNN+SVM` 在过滤子集上的纯 `sys@k` 更高，但温度命中几乎为零，不适合作为完整反应体系推荐主线。
+- `Temp MAE = 11.11 C`
+- `Temp±5C = 39.2%`
+- `Temp±10C = 62.6%`
+- `Temp±20C = 82.9%`
 
-因此当前保留的叙事是：
+这说明当前主线除了离散体系推荐外，也已经能给出一个可用的连续温度估计。
 
-- `KNN` 负责“找可行候选”
-- `XGBoost` 负责“在可行候选里重排并给温度”
-- `Original FNN` 作为历史 baseline
+## 为什么现在的主线是这一版
 
-### 推荐阅读顺序
+当前主线不是简单的 `KNN+XGB` 旧口径，而是：
 
-如果只想快速理解当前项目状态，建议按下面顺序看：
+- Stage 2：`KNN + ReaFNN`
+- Stage 3：`no-GNN XGBoost ranker + validation-gated Reaction-GNN temperature`
+
+选择这一版作为官方主线，主要因为它更符合这个任务的分工：
+
+1. `KNN` 负责把 family 内历史上“像”的反应先找回来。
+2. `ReaFNN` 负责在宽候选池上做 token 级二次筛选，并允许极少量受限的新组合尝试，避免主线退化成封闭答案空间里的检索题。
+3. `Reaction-GNN` 只服务独立温度头，避免在小 family 中把同一路线恒定的 64 维特征直接送入树排序器。
+4. `XGBoost` 负责在可行候选池中把真正的完整反应体系尽量排到前面；groupwise 标准化后的 `xgb_score_raw` 与轻量 Stage 2 heuristic prior 的融合权重在 validation 上选择。
+5. 对 novel combination 的开放是刻意保守的，因为真实可行的新组合本来就稀少，被最终选中的概率更低，这种低频现象本身就是符合实际场景的。
+
+所以当前主线更准确的理解应该是：
+
+- `Stage 1` 决定路线空间
+- `Stage 2` 决定可行候选池
+- `Stage 3` 决定最终系统排序和温度输出
+
+## 当前推荐入口
+
+### 1. 环境与数据检查
+
+```bash
+conda activate ProSys
+bash scripts/setup_prosys_env.sh
+python data_preprocess/audit_data_splits.py --strict
+```
+
+### 2. 如果还没有 Stage 1 route cache
+
+```bash
+conda activate ProSys
+python stage1_retrosynthesis/build_route_cache.py --repo_root . --family Beckmann
+```
+
+### 3. 复现当前主线
+
+如果只是查看当前已经核对过的 `6-family` 官方结果快照，直接读取：
+
+- `outputs/stage23_mainline_gnn_temperature_gated_20260803/`
+- `CURRENT_RESULTS.md`
+
+如果要运行当前维护代码，建议不要覆盖旧快照，而是显式指定一个新的输出目录：
+
+```bash
+conda activate ProSys
+OUTPUT_ROOT=outputs/stage23_mainline_current \
+ROUTE_ROOT=outputs/stage1_routes \
+REAFNN_DEVICE=cuda:0 \
+GNN_DEVICE=cuda:0 \
+bash scripts/run_stage23_non_oracle_suite.sh .
+```
+
+这条入口只做当前主线：
+
+1. 读取 Stage 1 的 `route_cache.json`
+2. 构建 `KNN + ReaFNN` candidate pool
+3. 训练无图 `XGBRanker`，并训练 no-GNN/GNN 两个温度模型
+4. 用 validation MAE 门控选择温度头，再输出 markdown / csv / json 汇总
+
+### 4. Baseline / Ablation
+
+这些不属于当前主线本体，单独维护在：
+
+- `baseline/`
+- `ablation/`
+
+## 文档阅读顺序
+
+如果只想快速理解当前项目状态，建议按下面顺序阅读：
 
 1. `README.md`
-2. `outputs/stage23_non_oracle_all10/average_effect.md`
-3. `outputs/stage23_non_oracle_all10/baseline_historical.md`
-4. `outputs/stage23_non_oracle_all10/ablation_stage2.md`
-5. `outputs/stage23_non_oracle_all10/ablation_stage3.md`
-6. `baseline/non_oracle_reaudit_20260705.md`
+2. `workflow.md`
+3. `performance.md`
+4. `stage2_ReaFNN/stage2_KNN_detail.md`
+5. `stage3_XGBoost/stage3_XGBoost_detail.md`
+6. `outputs/stage23_mainline_gnn_temperature_gated_20260803/overview.md`
 
-### Stage 1 route cache
+## 目录约定
 
-- `outputs/stage1_routes/`
-
-### 旧 neural-V2 结果
-
-- `outputs/stage2_v2/`
-
-## 当前温度指标口径
-
-当前温度指标使用独立统计口径：
-
-- 先在每个样本里找到“分数最高、且 `route + reagent + solvent` 全命中、并且温度标注有效”的候选
-- 记录该候选的温度绝对误差 `|T_pred - T_gold|`
-- 在这些误差上单独计算 `Temp MAE`
-- 同时计算 `Temp±5C / Temp±10C / Temp±20C`
-
-也就是说，温度部分不再按 top-k end-to-end hit 去单独记一个温度命中率，而是回到“对命中样本单独统计温度误差”的旧口径。
-
-## 目录整理约定
-
-### 主线长期保留
+### 当前主线长期保留
 
 - `stage1_retrosynthesis/`
 - `prosys_shared/`
+- `stage2_ReaFNN/`
 - `stage2_KNN/`
 - `stage3_XGBoost/`
-- `baseline/`
-- `ablation/`
 - `scripts/`
 - `outputs/stage1_routes/`
-- `outputs/stage23_non_oracle_all10/`
+- `outputs/stage23_mainline_gnn_temperature_gated_20260803/`
+
+### 历史结果快照
+
+- `outputs/stage23_mainline/` 与
+  `outputs/stage23_mainline_reafnn_gnn_fused_20260723/`（保留用于追溯，不可作为当前论文结果来源）
 
 ### 历史参考但不属于当前主线
 
 - 统一放到 `Experiment/`
-- 例如：
-  - notebook
-  - 旧 baseline/oracle 输出
-  - 归档的 neural-V2 代码
-  - route-budget 分析
-  - 旧渲染脚本和零散小工具
 
-### 不保留的内容
+### 非主线实验
 
-- `__pycache__/`
-- smoke 输出
-- 重复中间产物
+- `baseline/`
+- `ablation/`
 
-## 维护建议
+## 一句话总结
 
-- 新实验优先复用现有入口，不再新增零散脚本。
-- 主线代码只围绕 `stage1 -> stage2_KNN -> stage3_XGBoost` 扩展。
-- 旧 neural-V2 分支只做兼容维护，不再继续扩展成主实验。
-- 新的分析性 notebook、临时脚本、旧结果，统一放 `Experiment/`，不要再堆在仓库根目录。
+当前仓库正式维护的主线已经确定为：
+
+- `Stage 1 EditRetro`
+- `Stage 2 KNN + ReaFNN`
+- `Stage 3 no-GNN XGBoost ranker + validation-gated Reaction-GNN temperature regressor`
+
+其中 Stage 2 的当前正式口径还包括：
+
+- `Non-Oracle` 推理时允许极少量、强约束、强惩罚的 novel context 尝试
+
+当前官方 Non-Oracle 6-family 结果是：
+
+- `rr@10 = 63.2`
+- `cover = 49.18`
+- `sys@10 = 43.91`
+- `Temp MAE = 11.11 C`

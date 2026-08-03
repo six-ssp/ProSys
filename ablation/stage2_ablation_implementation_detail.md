@@ -1,3 +1,9 @@
+# Legacy Stage 2 Detail (Superseded)
+
+> This document describes the retired KNN-versus-Cluster setup. It is not used by the
+> current mainline. See [`ablation_reafnn_gnn_protocol.md`](ablation_reafnn_gnn_protocol.md)
+> and `run_current_mainline_ablation.py` for the maintained ReaFNN-aware Stage 2 study.
+
 # Stage 2 Ablation: 具体实现说明
 
 更新日期：`2026-07-05`
@@ -8,7 +14,6 @@
 
 - `KNN + XGBoost`
 - `Cluster + XGBoost`
-- `FNN-pool + XGBoost`
 
 这里固定的是 Stage 3：
 
@@ -35,8 +40,6 @@ Stage 2 消融主要依赖下面这些文件：
 - `baseline/run_oracle_baselines.py`
   - `ClusterContextPoolBuilder`
   - cluster 候选池实现
-- `baseline/legacy_models.py`
-  - 历史 FNN 兼容包装
 - `baseline/common.py`
   - candidate table 打标
   - 统一评估
@@ -70,11 +73,11 @@ python ablation/run_non_oracle_ablation.py \
 
 ## 4. Stage 2 消融的统一原则
 
-为了让结论干净，三条 Stage 2 路线共享下面这些设定：
+为了让结论干净，两条 Stage 2 路线共享下面这些设定：
 
 ### 4.1 同一个 Stage 1 输入
 
-三者都读取：
+两者都读取：
 
 - `outputs/stage1_routes/<family>/route_cache.json`
 
@@ -94,7 +97,7 @@ python ablation/run_non_oracle_ablation.py \
 
 ### 4.3 同一个 Stage 3 学习器
 
-三者都调用：
+两者都调用：
 
 - `baseline.common.train_xgb_ranker(...)`
 - `baseline.common.score_table_with_xgb(...)`
@@ -109,11 +112,10 @@ python ablation/run_non_oracle_ablation.py \
 
 ## 5. 统一的数据组织方式
 
-在统一脚本里，每个 family 都会先创建三套共享缓存目录：
+在统一脚本里，每个 family 都会先创建两套共享缓存目录：
 
 - `<output_root>/<family>/_shared_knn/`
 - `<output_root>/<family>/_shared_cluster/`
-- `<output_root>/<family>/_shared_fnnpool/`
 
 每套目录下面又分成：
 
@@ -133,7 +135,7 @@ python ablation/run_non_oracle_ablation.py \
 
 - Stage 2 和 Stage 3 明确解耦
 - 重跑 Stage 3 时不用重复构 candidate pool
-- 三种 Stage 2 方法的中间结果能单独检查
+- 两种 Stage 2 方法的中间结果能单独检查
 
 
 ## 6. A0: KNN + XGBoost 是怎么实现的
@@ -258,77 +260,7 @@ Non-Oracle test 则是手动读取 `route_cache.json` 后，对每条预测路�
 - 看“粗粒度簇记忆”能不能替代“细粒度近邻检索”
 
 
-## 8. A5: FNN-pool + XGBoost 是怎么实现的
-
-### 8.1 候选池构建函数
-
-FNN-pool 路线由：
-
-- `_ensure_fnnpool_tables(...)`
-
-负责。
-
-它内部会分别为：
-
-- train split
-- val split
-- Non-Oracle test
-
-构建候选池。
-
-
-### 8.2 它只用历史 FNN 的 candidate generation 部分
-
-这里最重要的一点是：
-
-- 它不会用历史 ranking head 做最终排序
-
-而是只做：
-
-1. `_load_legacy_evaluators(..., with_ranker=False)`
-2. `mt.make_input_rxn_condition(rxn_fp)`
-
-也就是只取历史 multitask FNN 提供的：
-
-- solvent 候选集合
-- reagent 候选集合
-
-
-### 8.3 条件组合是怎么枚举的
-
-得到候选 solvent / reagent 集合后，代码调用：
-
-- `LegacyRankingEvaluator(...).make_contexts(input_solvents, input_reagents)`
-
-这里只是借用了历史 ranking evaluator 的“枚举 context 组合”能力，并没有使用它的排序分数。
-
-然后对 `(reagent_norm, solvent_norm)` 做：
-
-- 规范化
-- 去重
-- 截断到 `legacy_max_contexts`
-
-输出列里只有：
-
-- `legacy_rank`
-
-但没有 `legacy_score`
-
-因为后面真正排序完全交给 XGBoost。
-
-
-### 8.4 这条线要回答什么
-
-它回答的是：
-
-- 如果 Stage 2 候选池回退到历史 FNN 风格，单靠现代 XGBoost 重排，能不能恢复主线表现
-
-如果不能，就说明：
-
-- KNN 的价值不只是排序器强，而是 candidate screening 本身更合适
-
-
-## 9. 统一打标过程
+## 8. 统一打标过程
 
 无论候选池来自哪种 Stage 2，都会统一调用：
 
@@ -354,10 +286,10 @@ FNN-pool 路线由：
 
 这一层很关键，因为它保证：
 
-- 三种 Stage 2 方法下游看到的是同一种监督格式
+- 两种 Stage 2 方法下游看到的是同一种监督格式
 
 
-## 10. Stage 3 为什么固定成 XGBoost
+## 9. Stage 3 为什么固定成 XGBoost
 
 对 Stage 2 消融来说，Stage 3 必须固定住，否则结论会混掉。
 
@@ -377,23 +309,23 @@ FNN-pool 路线由：
 - `xgb_temperature_pred`
 
 
-## 11. 评估是怎么做的
+## 10. 评估是怎么做的
 
-最终三条 Stage 2 路线都用：
+最终两条 Stage 2 路线都用：
 
 - `baseline.common.evaluate_scored_frame(...)`
 
 统一评估。
 
-### 11.1 `cover`
+### 10.1 `cover`
 
 一个 slate 里是否至少存在 exact-positive candidate。
 
-### 11.2 `sys@1 / sys@5 / sys@10`
+### 10.2 `sys@1 / sys@5 / sys@10`
 
 按 `xgb_score` 排序，看 top-k 是否命中 `label=1`。
 
-### 11.3 `Temp@10C / Temp@20C`
+### 10.3 `Temp@10C / Temp@20C`
 
 只在：
 
@@ -406,13 +338,12 @@ FNN-pool 路线由：
 这保证温度评估不会被未命中样本稀释。
 
 
-## 12. 结果文件怎么落盘
+## 11. 结果文件怎么落盘
 
 每个 family / baseline 的目录结构大致是：
 
 - `<output_root>/<family>/knn_xgb/non_oracle/`
 - `<output_root>/<family>/cluster_xgb/non_oracle/`
-- `<output_root>/<family>/fnnpool_xgb/non_oracle/`
 
 每个目录里至少包含：
 
@@ -428,13 +359,12 @@ FNN-pool 路线由：
 - `outputs/stage23_non_oracle_all10/average_effect.md`
 
 
-## 13. 这份消融最终要支持什么结论
+## 12. 这份消融最终要支持什么结论
 
 这组实验最终希望回答的是：
 
 1. `KNN + XGBoost` 是否优于 `Cluster + XGBoost`
-2. `KNN + XGBoost` 是否优于 `FNN-pool + XGBoost`
-3. 差距是否同时体现在：
+2. 差距是否同时体现在：
    - `cover`
    - `sys@k`
    - 温度命中率

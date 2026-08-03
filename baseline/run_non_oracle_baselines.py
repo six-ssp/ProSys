@@ -259,6 +259,106 @@ def _build_cluster_non_oracle_table(
     return output_file
 
 
+def _load_family_context_frequency(split_file: Path) -> list[dict]:
+    counts: dict[tuple[str, str], dict[str, float]] = {}
+    with open(split_file, 'r', encoding='utf-8') as handle:
+        for line in handle:
+            parts = line.rstrip('\n').split('\t')
+            if len(parts) < 7:
+                continue
+
+            reagent_norm = normalize_condition_labels(parts[4])
+            solvent_norm = normalize_condition_labels(parts[5])
+            key = (reagent_norm, solvent_norm)
+            bucket = counts.setdefault(
+                key,
+                {
+                    'reagent_norm': reagent_norm,
+                    'solvent_norm': solvent_norm,
+                    'count': 0.0,
+                    'temperature_sum': 0.0,
+                    'temperature_count': 0.0,
+                },
+            )
+            bucket['count'] += 1.0
+            try:
+                temperature = float(parts[6])
+            except (TypeError, ValueError):
+                temperature = float('nan')
+            if pd.notna(temperature):
+                bucket['temperature_sum'] += float(temperature)
+                bucket['temperature_count'] += 1.0
+
+    rows: list[dict] = []
+    total = sum(float(bucket['count']) for bucket in counts.values())
+    for bucket in counts.values():
+        temperature_pred = (
+            float(bucket['temperature_sum']) / float(bucket['temperature_count'])
+            if float(bucket['temperature_count']) > 0
+            else float('nan')
+        )
+        rows.append(
+            {
+                'reagent_norm': str(bucket['reagent_norm']),
+                'solvent_norm': str(bucket['solvent_norm']),
+                'context_count': float(bucket['count']),
+                'context_relative_freq': (float(bucket['count']) / total if total > 0 else 0.0),
+                'mode_temperature_pred': temperature_pred,
+            }
+        )
+
+    rows.sort(
+        key=lambda row: (
+            -float(row['context_count']),
+            row['reagent_norm'],
+            row['solvent_norm'],
+        )
+    )
+    return rows
+
+
+def _build_frequency_non_oracle_table(
+    repo_root: Path,
+    family: str,
+    route_cache: Path,
+    output_file: Path,
+    *,
+    max_contexts: int,
+) -> Path:
+    routes = load_route_records_from_cache(route_cache, family=family)
+    context_rows = _load_family_context_frequency(split_file_for_family(repo_root, family, 'train'))[:max_contexts]
+
+    rows: list[dict] = []
+    for record in routes:
+        base = base_candidate_row(record)
+        for rank, context in enumerate(context_rows, start=1):
+            # Use context frequency as the primary score and Stage 1 route rank
+            # only as a deterministic tie-breaker within same-frequency contexts.
+            frequency_score = (
+                float(context['context_count']) * 1_000_000.0
+                + max(0.0, 1000.0 - float(record.retro_rank))
+                + max(0.0, float(record.retro_probability)) * 1e-3
+                - float(rank) * 1e-6
+            )
+            rows.append(
+                {
+                    **base,
+                    'reagent_norm': context['reagent_norm'],
+                    'solvent_norm': context['solvent_norm'],
+                    'mode_context_count': float(context['context_count']),
+                    'mode_context_relative_freq': float(context['context_relative_freq']),
+                    'mode_temperature_pred': float(context['mode_temperature_pred']),
+                    'mode_rank': rank,
+                    'mode_score': frequency_score,
+                }
+            )
+
+    frame = pd.DataFrame(rows)
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_csv(output_file, index=False)
+    return output_file
+
+
 def _ensure_knn_xgb_model(
     repo_root: Path,
     family: str,
@@ -478,6 +578,36 @@ def _run_cluster_non_oracle(
     return result
 
 
+def _run_frequency_non_oracle(
+    repo_root: Path,
+    family: str,
+    route_cache: Path,
+    output_dir: Path,
+    *,
+    max_contexts: int,
+) -> dict:
+    candidate_file = output_dir / 'non_oracle' / 'candidate_pool_test.csv'
+    test_table = output_dir / 'non_oracle' / 'test.csv'
+    _build_frequency_non_oracle_table(
+        repo_root,
+        family,
+        route_cache,
+        candidate_file,
+        max_contexts=max_contexts,
+    )
+    label_candidate_table(candidate_file, split_file_for_family(repo_root, family, 'test'), test_table)
+    frame = pd.read_csv(test_table)
+    result = {
+        'baseline': 'frequency_mode',
+        'family': family,
+        'candidate_table': str(test_table),
+        'metrics': evaluate_scored_frame(frame, score_column='mode_score', temperature_column='mode_temperature_pred'),
+        'stage1_route_recall': stage1_route_recall(route_cache),
+    }
+    _write_json(result, output_dir / 'non_oracle' / 'result.json')
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description='Run ProSys Non-Oracle baselines under baseline/.')
     parser.add_argument('--repo_root', type=str, default='.')
@@ -486,7 +616,7 @@ def main() -> None:
         '--baselines',
         type=str,
         default='v2_neural_ref,v2_xgb,legacy_rank',
-        help='Comma-separated baselines: v2_neural_ref,v2_xgb,legacy_rank,knn_xgb,cluster_xgb',
+        help='Comma-separated baselines: v2_neural_ref,v2_xgb,legacy_rank,knn_xgb,cluster_xgb,frequency_mode',
     )
     parser.add_argument('--output_root', type=str, default='outputs/baselines/non_oracle')
     parser.add_argument('--route_root', type=str, default='outputs/stage1_routes')
@@ -561,6 +691,16 @@ def main() -> None:
                     svd_dim=args.svd_dim,
                     max_train_routes=args.max_train_routes,
                     max_val_routes=args.max_val_routes,
+                )
+            )
+        if 'frequency_mode' in baselines:
+            summary_rows.append(
+                _run_frequency_non_oracle(
+                    repo_root,
+                    family,
+                    route_cache,
+                    family_root / 'frequency_mode',
+                    max_contexts=args.max_contexts,
                 )
             )
 

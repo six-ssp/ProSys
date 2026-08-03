@@ -21,7 +21,7 @@ ablation experiments are scientifically valid and reproducible.
 Command:
 
 ```bash
-conda run --no-capture-output -n ProSys python scripts/audit_data_splits.py --strict
+conda run --no-capture-output -n ProSys python data_preprocess/audit_data_splits.py --strict
 ```
 
 Result:

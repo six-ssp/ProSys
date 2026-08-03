@@ -71,6 +71,6 @@ Safe to delete when regenerated:
 ```bash
 conda activate ProSys
 python -m py_compile prosys_shared/*.py baseline/*.py stage2_KNN/*.py stage3_XGBoost/*.py
-python scripts/audit_data_splits.py --strict
+python data_preprocess/audit_data_splits.py --strict
 python baseline/render_stage23_nonoracle_reports.py --output_root outputs/stage23_non_oracle_all10
 ```

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -18,6 +19,7 @@ def main() -> None:
     parser.add_argument('--augmentation', type=int, default=10)
     parser.add_argument('--processes', type=int, default=8)
     parser.add_argument('--repo_root', type=str, default='.')
+    parser.add_argument('--min_mapping_confidence', type=float, default=1e-8)
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
@@ -28,15 +30,20 @@ def main() -> None:
         raise FileNotFoundError(f'raw dataset directory not found: {raw_dir}')
     run_env = os.environ.copy()
     run_env['EDITRETRO_DATASETS_ROOT'] = str(repo_root / 'data' / 'editretro' / 'datasets')
+    fairseq_root = repo_root / 'stage1_retrosynthesis' / 'fairseq'
+    existing_pythonpath = run_env.get('PYTHONPATH', '')
+    run_env['PYTHONPATH'] = str(fairseq_root) + (os.pathsep + existing_pythonpath if existing_pythonpath else '')
 
+    python_bin = sys.executable or 'python'
     run(
         [
-            'python',
+            python_bin,
             'preprocess_data.py',
             '-dataset', args.dataset,
             '-augmentation', str(args.augmentation),
             '-processes', str(args.processes),
             '-splits', 'train,val,test',
+            '-min_mapping_confidence', str(args.min_mapping_confidence),
             '-spe',
         ],
         cwd=preprocess_dir,
@@ -48,20 +55,21 @@ def main() -> None:
     data_bin.mkdir(parents=True, exist_ok=True)
 
     fairseq_cmd = [
-        'fairseq-preprocess',
+        python_bin,
+        str(fairseq_root / 'fairseq_cli' / 'preprocess.py'),
         '--source-lang', 'src',
         '--target-lang', 'tgt',
         '--trainpref', str(aug_dir / 'train'),
         '--validpref', str(aug_dir / 'val'),
         '--destdir', str(data_bin),
-        '--workers', '8',
+        '--workers', str(args.processes),
         '--srcdict', str(preprocess_dir / 'dict.txt'),
         '--tgtdict', str(preprocess_dir / 'dict.txt'),
     ]
     if (aug_dir / 'test.src').exists():
         fairseq_cmd.extend(['--testpref', str(aug_dir / 'test')])
 
-    run(fairseq_cmd, cwd=repo_root / 'stage1_retrosynthesis')
+    run(fairseq_cmd, cwd=repo_root / 'stage1_retrosynthesis', env=run_env)
 
     print(f'prepared dataset: {args.dataset}')
     print(f'data-bin: {data_bin}')

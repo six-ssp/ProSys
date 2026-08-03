@@ -34,6 +34,23 @@ data_preprocess/__pycache__/
 stage2/__pycache__/
 
 # Stage 2 V2 generated artifacts (memory / candidate pools / tables / checkpoints / eval)
+# Local manuscript drafts and paper-delivery bundles (kept outside the code repository)
+/manuscript/
+/ProSys*.docx
+# External baseline repositories are reproducibly fetched from their upstream URLs.
+/baseline/MolecularTransformer/
+/baseline/Reaction_condition_recommendation/
+/baseline/reaction-gcnn/
+
+/ProSys_paper_delivery_*.zip
+/paper_statistics/
+/paper_statistics_*.zip
+/workflow&performance.md
+/performance.md
+/baseline&ablation.md
+/example.md
+/checklist.md
+/project_audit_*.md
 outputs/
 
 # Bulk / generated datasets (reproducible from raw exports + preprocess; too large for git)

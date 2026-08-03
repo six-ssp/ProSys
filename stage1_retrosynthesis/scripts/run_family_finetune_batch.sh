@@ -5,7 +5,15 @@ set -euo pipefail
 REPO_ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 GPU_IDS="${GPU_IDS:-0}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
-BASE_CKPT="${BASE_CKPT:-$REPO_ROOT/stage1_retrosynthesis/checkpoints/checkpoint_UPSTO_full_best.pt}"
+DEFAULT_ALIAS_CKPT="$REPO_ROOT/stage1_retrosynthesis/checkpoints/checkpoint_USPTO_STAGE2_FILTERED_best.pt"
+if [[ -z "${BASE_CKPT:-}" ]]; then
+  if [[ -f "$DEFAULT_ALIAS_CKPT" ]]; then
+    BASE_CKPT="$DEFAULT_ALIAS_CKPT"
+  else
+    BASE_CKPT="$(find "$REPO_ROOT/stage1_retrosynthesis/results/base_train/USPTO_STAGE2_FILTERED" \
+      -mindepth 3 -maxdepth 3 -path '*/checkpoints/checkpoint_best.pt' -print | sort | tail -n 1)"
+  fi
+fi
 RESULTS_ROOT="${RESULTS_ROOT:-$REPO_ROOT/stage1_retrosynthesis/results/family_finetune}"
 AUGMENTATION="${AUGMENTATION:-10}"
 PROCESSES="${PROCESSES:-8}"
@@ -18,30 +26,25 @@ MAX_TOKENS="${MAX_TOKENS:-16384}"
 UPDATE_FREQ="${UPDATE_FREQ:-1}"
 ALLOW_CPU_STAGE1="${ALLOW_CPU_STAGE1:-0}"
 
-# Family list: override with the FAMILIES env var (space/comma separated dataset names),
-# otherwise finetune all ten reaction families.
-DEFAULT_FAMILIES=(
-  "REAXYS_Beckmann_SINGLE_CATMERGE"
-  "REAXYS_Buchwald-HartwigCross-Coupling_SINGLE_CATMERGE"
-  "REAXYS_Chan_LamCoupling_SINGLE_CATMERGE"
-  "REAXYS_DielsAlder_SINGLE_CATMERGE"
-  "REAXYS_FischerIndoleSynthesis_SINGLE_CATMERGE"
-  "REAXYS_Friedel-CraftsAcylation_SINGLE_CATMERGE"
-  "REAXYS_Friedel-CraftsAlkylation_SINGLE_CATMERGE"
-  "REAXYS_GrignardReaction_SINGLE_CATMERGE"
-  "REAXYS_KumadaCoupling_SINGLE_CATMERGE"
-  "REAXYS_NegishiCoupling_SINGLE_CATMERGE"
-)
-
 if [[ -n "${FAMILIES:-}" ]]; then
   IFS=', ' read -r -a FAMILIES <<< "$FAMILIES"
 else
-  FAMILIES=("${DEFAULT_FAMILIES[@]}")
+  mapfile -t FAMILIES < <(
+    find "$REPO_ROOT/data/editretro/datasets" -maxdepth 1 -mindepth 1 -type d -name 'REAXYS_*_SINGLE_CATMERGE' \
+    -printf '%f\n' | sort
+  )
 fi
 
 mkdir -p "$RESULTS_ROOT"
 
 cd "$REPO_ROOT"
+
+if [[ "${OMP_NUM_THREADS:-0}" =~ ^[0-9]+$ ]] && [[ "${OMP_NUM_THREADS:-0}" -le 0 ]]; then
+  export OMP_NUM_THREADS=8
+fi
+if [[ "${MKL_NUM_THREADS:-0}" =~ ^[0-9]+$ ]] && [[ "${MKL_NUM_THREADS:-0}" -le 0 ]]; then
+  export MKL_NUM_THREADS=8
+fi
 
 if [[ "$SKIP_REMAP" != "1" ]]; then
   "$PYTHON_BIN" stage1_retrosynthesis/scripts/remap_reaxys_routes.py --datasets_root data/editretro/datasets
@@ -105,6 +108,7 @@ reap_one() {
 set +e
 for dataset in "${FAMILIES[@]}"; do
   gpu_index=$(( running_jobs % gpu_slot_count ))
+  echo "[stage1] launch $dataset on GPU ${GPU_ARRAY[$gpu_index]}"
   GPU_ID="${GPU_ARRAY[$gpu_index]}" \
   PYTHON_BIN="$PYTHON_BIN" \
   BASE_CKPT="$BASE_CKPT" \
@@ -119,7 +123,9 @@ for dataset in "${FAMILIES[@]}"; do
   UPDATE_FREQ="$UPDATE_FREQ" \
   NUM_WORKERS="${NUM_WORKERS:-8}" \
   PATIENCE="${PATIENCE:-15}" \
-  KEEP_LAST_EPOCHS="${KEEP_LAST_EPOCHS:-2}" \
+  KEEP_LAST_EPOCHS="${KEEP_LAST_EPOCHS:-1}" \
+  SAVE_INTERVAL_UPDATES="${SAVE_INTERVAL_UPDATES:-0}" \
+  NO_EPOCH_CHECKPOINTS="${NO_EPOCH_CHECKPOINTS:-1}" \
   "$REPO_ROOT/stage1_retrosynthesis/scripts/run_family_finetune_one.sh" "$REPO_ROOT" "$dataset" &
   JOB_DATASET[$!]="$dataset"
 

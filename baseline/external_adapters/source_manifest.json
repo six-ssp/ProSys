@@ -1,0 +1,27 @@
+{
+  "downloaded_on": "2026-07-25",
+  "sources": [
+    {
+      "name": "MolecularTransformer",
+      "url": "https://github.com/pschwllr/MolecularTransformer",
+      "path": "baseline/MolecularTransformer",
+      "commit": "aeb339daf0a029b391f8307fb3f467f461605dd2",
+      "role": "Direct Product-to-System Transformer framework",
+      "weight_status": "upstream IBM Box collection returned HTTP 404 on 2026-07-25"
+    },
+    {
+      "name": "Reaction_condition_recommendation",
+      "url": "https://github.com/Coughy1991/Reaction_condition_recommendation",
+      "path": "baseline/Reaction_condition_recommendation",
+      "commit": "64f151e",
+      "role": "Sequential FNN reference implementation"
+    },
+    {
+      "name": "reaction-gcnn",
+      "url": "https://github.com/slryou41/reaction-gcnn",
+      "path": "baseline/reaction-gcnn",
+      "commit": "4c6460c",
+      "role": "Reaction-GCNN reference implementation"
+    }
+  ]
+}

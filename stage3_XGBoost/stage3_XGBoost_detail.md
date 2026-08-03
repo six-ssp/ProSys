@@ -1,4 +1,21 @@
-# Stage 3 XGBoost: 候选重排与温度预测
+# Stage 3 XGBoost 重排 + 验证集门控 Reaction-GNN 温度预测
+
+更新日期：`2026-08-03`
+
+当前这份文档对应的官方主线结果快照是：
+
+- `outputs/stage23_mainline_gnn_temperature_gated_20260803/`
+
+当前 Stage 3 的正式角色是：
+
+- 无图特征 `XGBRanker` 使用 Stage 1 / Stage 2 数值特征重排候选；
+- reaction-GNN 的 `route_gnn_feat_*` 只输入独立温度回归器；
+- 每个 family 仅在 validation MAE 至少改善 `0.25 C` 时启用 GNN 温度头。
+- `condition_aware_gnn.py` 提供 route-context GNN residual 的探索实现；它受独立 validation gate 控制，当前未进入正式主线或 headline 指标。
+
+历史 `outputs/stage23_mainline_reafnn_gnn_fused_20260723/` 记录了将图特征
+直接送入 ranker 的消融。下面的 encoder、标签和 XGBoost 实现细节仍有效；任何
+“图特征进入 ranker”的历史描述均由本页开头的当前实现定义覆盖。
 
 ## 1. 模块目标
 
@@ -15,16 +32,19 @@
 当前实现文件：
 
 - `stage3_XGBoost/xgb_reranker.py`
+- `stage3_XGBoost/reaction_gnn_features.py`
 - `stage3_XGBoost/__init__.py`
+- `stage3_XGBoost/condition_aware_gnn.py`（探索性 candidate-aware residual）
+- `stage3_XGBoost/condition_aware_gnn_detail.md`（该分支的输入、训练、门控和结果状态）
 
 
 ## 2. 输入与输出
 
-Stage 3 的输入不是原始反应，而是 **已经打好标的 candidate table**。  
+Stage 3 的输入不是原始反应，而是 **已经打好标的 candidate table**。
 这个表通常由两步得到：
 
 1. Stage 2 生成候选池 csv
-2. `baseline.common.label_candidate_table(...)` 对候选池做监督标注
+2. `prosys_shared.mainline.label_candidate_table(...)` 对候选池做监督标注
 
 每一行代表：
 
@@ -34,8 +54,21 @@ Stage 3 的输入不是原始反应，而是 **已经打好标的 candidate tabl
 
 输出则是在原表上新增：
 
+- `xgb_score_raw`
+- `xgb_score_z`
+- `stage2_heuristic_prior`
 - `xgb_score`
 - `xgb_temperature_pred`（如果温度模型可训练）
+
+这里要特别强调一件事：
+
+- Stage 3 **不会增加新的候选条件**
+- Stage 3 只会重新排列 Stage 2 已经给出的候选，并附带温度输出
+
+因此：
+
+- `pool_coverage` 主要由 Stage 2 决定
+- `sys@k` 前排质量主要由 Stage 3 决定
 
 
 ## 3. 监督标签是怎么来的
@@ -44,19 +77,19 @@ Stage 3 的输入不是原始反应，而是 **已经打好标的 candidate tabl
 
 ### 3.1 `route_match`
 
-只看路线是否命中。  
+只看路线是否命中。
 即 candidate 的 `reactants` 规范化后，是否与 gold 的反应路线一致。
 
 
 ### 3.2 `context_match`
 
-只看条件组合是否命中。  
+只看条件组合是否命中。
 即 candidate 的 `(reagent_norm, solvent_norm)` 是否在该样本的 gold 条件集合里出现过。
 
 
 ### 3.3 `label`
 
-严格正例。  
+严格正例。
 只有 `(route_key, reagent_norm, solvent_norm)` 三者同时命中，`label = 1`。
 
 这也是最后 `sys@k` 用的真正命中定义。
@@ -86,7 +119,12 @@ XGBRanker 训练时真正回归/排序的目标就是 `rank_relevance`。
 
 ## 4. 特征如何组织
 
-Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特征。
+当前 Stage 3 同时维护两套特征视图：
+
+1. 无图 candidate-table 特征，仅供 `XGBRanker` 重排；
+2. 上述特征加 reaction-GNN embedding，仅供温度回归候选头。
+
+因此，`route_gnn_feat_*` 存在于表中不代表它会被排序器读取。
 
 ### 4.1 永久保留的主干特征
 
@@ -97,7 +135,7 @@ Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特�
 - `PRODUCT_DESCRIPTOR_COLUMNS_V2`
 - `SUPPORT_FEATURE_COLUMNS_V2`
 
-这些特征覆盖了：
+无图排序主干特征覆盖：
 
 - 路线相关密集特征
 - 条件组合密集特征
@@ -105,7 +143,27 @@ Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特�
 - 产品记忆/支持度特征
 
 
-### 4.2 额外自动纳入的数值特征
+### 4.2 reaction-GNN 特征
+
+为温度回归提供反应结构信息，Stage 3 会额外训练一个轻量 reaction-GNN，用它为每条 `(reactants, product)` 路线抽取固定维度 embedding。
+
+实现思路：
+
+- 用 RDKit 将 `reactants` 和 `product` 各自转成分子图
+- 用共享的 message passing encoder 分别编码反应物图与产物图
+- 做全局池化后得到：
+  - `h_reactant`
+  - `h_product`
+- 最终 reaction embedding 取：
+  - `concat(h_reactant, h_product, h_product - h_reactant)`
+
+然后再经过一个小投影层，得到固定长度的：
+
+- `route_gnn_feat_0 ... route_gnn_feat_63`
+
+这批列会写回 `train / val / test table`，但当前 `XGBRanker` 显式排除它们；只有候选的 GNN 温度回归器读取这些列。
+
+### 4.3 额外自动纳入的数值特征
 
 除了标准主干列，Stage 3 还会把表里新增的数值列自动收进来，例如：
 
@@ -120,6 +178,12 @@ Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特�
 - `knn_similarity_max`
 - `knn_neighbor_count`
 - `knn_weighted_mean_yield`
+- `reafnn_reagent_score`
+- `reafnn_solvent_score`
+- `reafnn_context_score`
+- `reafnn_context_count`
+- `reafnn_context_support`
+- `reafnn_mean_yield`
 - `cluster_context_count`
 - `cluster_context_support`
 - `cluster_context_mean_yield`
@@ -127,7 +191,7 @@ Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特�
 所以 KNN/Cluster Stage 2 产生的支持特征，会自然被 Stage 3 学进去。
 
 
-### 4.3 明确排除的列
+### 4.4 明确排除的列
 
 以下列不会作为特征进入模型：
 
@@ -157,28 +221,191 @@ Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特�
 这样可以避免显式标签泄露给 XGBoost。
 
 
-## 5. 排序模型如何训练
+## 5. reaction-GNN 如何训练
 
-### 5.1 为什么用 Ranker 而不是普通分类器
+reaction-GNN 本身不是最终排序器，它只负责输出 reaction embedding。
 
-这里每个样本对应一个 candidate slate，目标不是“单行二分类”，而是“同一个 slate 内谁更应该排前面”。  
+### 5.1 reaction-GNN 的输入图
+
+每条路线 `(reactants, product)` 会被拆成两张图：
+
+- 反应物图
+- 产物图
+
+图是用 RDKit 从规范化后的 SMILES 生成的。
+如果某条 SMILES 无法正常转图，则会回退成一个最小零图，保证整个 Stage 3 不因为个别异常样本崩掉。
+
+每个原子会编码一组轻量原子特征，主要包括：
+
+- 常见原子序数 one-hot
+- degree one-hot
+- formal charge
+- aromatic / ring 标记
+- 氢原子数
+- hybridization
+- mass 归一化值
+
+
+### 5.2 reaction-GNN 的网络结构
+
+当前实现使用一个共享图编码器分别编码反应物图和产物图。
+
+默认超参：
+
+- `hidden_dim = 64`
+- `embedding_dim = 64`
+- `message_passing_steps = 3`
+- `dropout = 0.10`
+
+可以把当前结构近似写成：
+
+```text
+reactant graph
+ -> GraphEncoder(shared)
+ -> h_reactant
+
+product graph
+ -> GraphEncoder(shared)
+ -> h_product
+
+concat(h_reactant, h_product, h_product - h_reactant)
+ -> Linear + ReLU + Dropout
+ -> reaction embedding (64-d)
+ -> reagent_head
+ -> solvent_head
+```
+
+其中图编码器内部是一个轻量 message-passing 结构：
+
+- 先把原子特征投影到 `hidden_dim`
+- 再做若干轮邻居聚合
+- 每轮都把自身信息和邻居平均信息一起更新
+- 最后对整张图做 mean pooling
+
+这样设计的目的不是追求特别重的图模型，而是：
+
+- 用一个足够轻的图网络，给 Stage 3 提供稳定的结构表示
+- 避免让主线因为 GNN 过重而难复现、难维护
+
+
+### 5.3 reaction-GNN 的训练任务
+
+reaction-GNN 的训练任务是一个辅助多标签任务：
+
+- 头 1：预测试剂 token 集合
+- 头 2：预测溶剂 token 集合
+
+输入只看反应本身：
+
+- `reactants`
+- `product`
+
+监督来自 family `train/val` split 中真实出现过的条件 token。
+
+也就是说，它不是直接学：
+
+- “哪个完整 `(reagent_norm, solvent_norm)` 应该排第一”
+
+而是先学：
+
+- “这条反应从结构上更偏向哪些试剂 token”
+- “更偏向哪些溶剂 token”
+
+然后把这个结构 embedding 交给候选的 GNN 温度回归器利用，而不交给当前排序器。
+
+
+### 5.4 reaction-GNN 的训练方式
+
+两个辅助头都使用：
+
+- `BCEWithLogitsLoss`
+
+并按 token 频率计算 `pos_weight` 来对抗长尾不平衡。
+总损失就是：
+
+- `loss = reagent_loss + solvent_loss`
+
+默认训练配置：
+
+- `learning_rate = 1e-3`
+- `weight_decay = 1e-5`
+- `batch_size = 48`
+- `max_epochs = 20`
+- `patience = 5`
+
+因此当前 reaction-GNN 的角色可以概括成一句：
+
+- 它不是 Stage 3 的最终决策器，而是一个由验证集门控的温度结构特征抽取器
+
+### 5.5 candidate-aware GNN residual（已实现，未纳入正式主线）
+
+当前代码还实现了一个 candidate-specific 的 GNN residual：它把冻结的 64 维
+`route_gnn_feat_*` 与 reagent/solvent token embedding 做交互，从而让同一路线下
+不同条件候选得到不同 GNN 分数。该分支不向 `XGBRanker` 回灌 in-sample GNN 分数，
+而是仅在 XGBoost 已经固定后，用 validation-only 的 score fusion gate 决定是否启用。
+
+当前已完成的 Beckmann interaction-model pilot 未达到预先规定的 validation Sys@10
+提升阈值，因此选中 `alpha = 0`；相关 six-family auxiliary residual probe 也没有任何
+family 通过非零 residual gate。故它不改变当前 `Sys@k`、不修改正式输出，不能被写成
+已验证的主线增益。完整细节见
+`stage3_XGBoost/condition_aware_gnn_detail.md`。
+
+
+## 6. 排序模型如何训练
+
+### 6.1 为什么用 Ranker 而不是普通分类器
+
+这里每个样本对应一个 candidate slate，目标不是“单行二分类”，而是“同一个 slate 内谁更应该排前面”。
 因此更合适的建模方式是 learning-to-rank。
 
 
-### 5.2 训练单元
+### 6.2 训练单元
 
-一个 `sample_index` 就是一组 query。  
+一个 `sample_index` 就是一组 query。
 同一个 `sample_index` 下的所有 candidate rows 共同组成一个 ranking group。
 
-实现里会先按：
+实现里会先做稳定排序，再按 group 长度交给 `XGBRanker(group=...)`。
+稳定排序优先参考：
 
 - `sample_index`
 - `reaction_id`
+- `retro_rank`
+- `retro_score`
+- `retro_probability`
+- `product`
+- `reactants`
+- `reagent_norm`
+- `solvent_norm`
 
-做稳定排序，然后计算每组长度，交给 `XGBRanker(group=...)`。
+这样做的作用是：
+
+- 保证训练和推理时 group 顺序稳定
+- 避免同分候选由于 csv 读写顺序抖动而造成结果不可复现
 
 
-### 5.3 目标函数
+### 6.3 排序目标到底是什么
+
+XGBoost 看到的监督目标不是二值 `label`，而是：
+
+- `rank_relevance`
+
+对应关系是：
+
+- `positive = 3`
+- `route_only = 2`
+- `context_only = 1`
+- `negative = 0`
+
+因此它学到的不是单纯“是不是正例”，而是一个更细粒度的优先级：
+
+1. 路线和条件都对的，排最前
+2. 至少路线对的，优先级高于完全负例
+3. 只有条件对但路线不对的，也比纯负例更有信息
+
+这让 Stage 3 在训练时能够利用更多弱监督结构，而不是只盯着稀少的严格正例。
+
+
+### 6.4 目标函数
 
 当前 ranker 使用：
 
@@ -188,7 +415,7 @@ Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特�
 含义是让模型更关注 top-10 位置的排序质量，这和我们最终看 `sys@1/5/10` 的评估目标是一致的。
 
 
-### 5.4 默认超参
+### 6.5 默认超参
 
 当前默认值：
 
@@ -201,18 +428,18 @@ Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特�
 - `tree_method = hist`
 - `early_stopping_rounds = 30`
 
-这些超参是一个稳健的 baseline 设定，优先保证：
+这些超参是一个稳健的主线设定，优先保证：
 
 - 训练快
 - 不容易过拟合得太离谱
-- 在 10 个 family 上都比较稳定
+- 在当前保留的 `6-family` 上比较稳定
 
 
-## 6. 温度模型如何训练
+## 7. 温度模型如何训练
 
-### 6.1 训练样本选择
+### 7.1 训练样本选择
 
-温度不是对所有 candidate 都有意义，只对真正命中的条件有意义。  
+温度不是对所有 candidate 都有意义，只对真正命中的条件有意义。
 因此温度回归只使用：
 
 - `label = 1`
@@ -223,7 +450,7 @@ Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特�
 这一步很重要，因为如果把负例也塞进去，温度回归会学成“对错误条件也给出看似合理温度”，语义会被污染。
 
 
-### 6.2 回归模型
+### 7.2 回归模型
 
 当前使用：
 
@@ -234,9 +461,9 @@ Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特�
 默认超参沿用 ranker 的主干超参，便于维护。
 
 
-### 6.3 数据不足时怎么处理
+### 7.3 数据不足时怎么处理
 
-某些 family 可能正例温度样本很少。  
+某些 family 可能正例温度样本很少。
 因此实现里做了容错：
 
 - 如果 `train` 中没有可用正例温度样本
@@ -250,21 +477,33 @@ Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特�
 - 调用方也能明确知道“这个 family 没有温度模型”
 
 
-## 7. 推理时怎么工作
+## 8. 推理时怎么工作
 
 推理分两步：
 
-### 7.1 先做重排
+### 8.1 先做重排
 
-对每个 candidate row 计算：
+对每个 candidate row，当前主线会先计算：
 
-- `xgb_score`
+- `xgb_score_raw`
 
-最后按 `xgb_score` 降序排序。  
-最终 top-k 的定义只看这个排序分数。
+然后在每个 `sample_index` 组内做标准化，得到：
+
+- `xgb_score_z`
+
+与此同时，代码还会根据 Stage 2 候选池的原始排序位置，生成一个轻量先验：
+
+- `stage2_heuristic_prior`
+
+最终正式排序分数定义为：
+
+- `xgb_score = xgb_score_z + heuristic_weight * stage2_heuristic_prior`
+
+其中 `heuristic_weight` 不是手工固定的，而是在 validation set 上做一个小网格搜索，优先最大化 `system_top10_all`，再用 `system_top1_all` 作为 tie-break。
+最后按 `xgb_score` 降序排序，最终 top-k 的定义只看这个融合后的排序分数。
 
 
-### 7.2 再做温度预测
+### 8.2 再做温度预测
 
 如果当前目录下存在可用的温度模型，则对所有 candidate row 额外计算：
 
@@ -282,7 +521,63 @@ Stage 3 会先从 candidate table 中自动推断可用于 XGBoost 的数值特�
 - 让“命中哪组条件”和“这组条件温度多少”分别优化
 
 
-## 8. 保存的模型文件
+### 8.3 温度在评估时怎么统计
+
+虽然温度模型会给所有 candidate rows 都输出一个 `xgb_temperature_pred`，
+但最终评估时不会把所有候选都拿来统计温度误差。
+
+当前正式口径是：
+
+1. 对每个样本，先按 `xgb_score` 从高到低排序
+2. 在这个排序里找到最高排名的 full-match candidate
+3. 只在这条 full-match candidate 上统计温度误差
+
+因此当前温度指标的含义是：
+
+- “如果主线最终把这组完整体系排到最前，它给出的温度有多准”
+
+而不是：
+
+- “对所有候选行随便做一个回归误差平均”
+
+
+### 8.4 一个具体例子
+
+假设某个 `sample_index = 42` 在 Stage 2 之后保留了 5 条候选：
+
+1. 路线对，条件错
+2. 路线对，条件对
+3. 路线错，条件看起来像
+4. 路线错，条件也错
+5. 路线对，条件错
+
+那么打标后，这 5 行的 `rank_relevance` 可能是：
+
+- `[2, 3, 1, 0, 2]`
+
+Stage 3 的目标就是学习把第 2 行尽量排到最前，而不是只学一个“哪几行是 1，哪几行是 0”的分类器。
+
+如果推理后 `xgb_score` 排序结果变成：
+
+1. 第 2 行
+2. 第 1 行
+3. 第 5 行
+4. 第 3 行
+5. 第 4 行
+
+那么：
+
+- `sys@1` 记一次命中
+- 如果第 2 行温度真值是 `80 C`，预测是 `73 C`
+- 则该样本会给温度统计贡献一个 `7 C` 的绝对误差
+
+这个例子说明：
+
+- `XGBRanker` 决定的是完整体系排序
+- `XGBRegressor` 只在真正 full-match 的候选上才有化学意义
+
+
+## 9. 保存的模型文件
 
 Stage 3 训练输出目录下会保存：
 
@@ -299,19 +594,21 @@ Stage 3 训练输出目录下会保存：
 因此后续复现实验时，不需要重新猜当时到底用了哪些列。
 
 
-## 9. 与主线 pipeline 的关系
+## 10. 与主线 pipeline 的关系
 
-在新的主线里：
+在当前主线里：
 
 1. Stage 1 提供路线候选
-2. Stage 2 KNN 提供可行条件候选池
-3. Stage 3 XGBoost 对候选池重排
-4. 输出 top-k 条件，并附带温度预测
+2. Stage 2 `KNN + ReaFNN` 提供可行条件候选池
+3. Stage 3 的无图 `XGBRanker` 对候选池重排
+4. 验证集门控的 Reaction-GNN 温度回归器输出温度预测
 
-所以 `KNN + XGBoost` 的真实含义是：
+所以当前主线更准确的真实含义是：
 
-- `KNN` 负责把“可能对的条件”找出来
-- `XGBoost` 负责在这些候选里“把最像真的排前面”
+- `KNN` 负责把“像的历史反应”找出来
+- `ReaFNN` 负责把可行条件池再精筛一遍
+- 无图 `XGBoost` 负责在这些候选里“把最像真的排前面”
+- `reaction-GNN` 仅在验证 MAE 改善至少 `0.25 C` 时给温度回归补充结构化反应表示
 
 不是简单的两个模型串起来，而是一个典型的：
 
@@ -321,7 +618,7 @@ Stage 3 训练输出目录下会保存：
 两阶段结构。
 
 
-## 10. 无泄露说明
+## 11. 无泄露说明
 
 当前实现里，XGBoost 的训练数据来源是：
 
@@ -339,8 +636,9 @@ Stage 3 训练输出目录下会保存：
 
 因此不会把监督答案直接喂给 XGBoost。
 
+- `route_gnn_feat_*`（排序头显式排除）
 
-## 11. 运行方式
+## 12. 运行方式
 
 命令行入口：
 
@@ -350,8 +648,8 @@ Stage 3 训练输出目录下会保存：
 
 ```bash
 python -m stage3_XGBoost.xgb_reranker train \
-  --train_table /root/autodl-tmp/ProSys/outputs/stage2_v2/Buchwald-HartwigCross-Coupling/training_tables/train.csv \
-  --val_table /root/autodl-tmp/ProSys/outputs/stage2_v2/Buchwald-HartwigCross-Coupling/training_tables/val.csv \
+  --train_table /root/autodl-tmp/ProSys/outputs/stage23_mainline_reafnn_gnn_fused_20260723/Buchwald-HartwigCross-Coupling/_shared_reaction_gnn/training_tables/train.csv \
+  --val_table /root/autodl-tmp/ProSys/outputs/stage23_mainline_reafnn_gnn_fused_20260723/Buchwald-HartwigCross-Coupling/_shared_reaction_gnn/training_tables/val.csv \
   --output_dir /tmp/xgb_stage3
 ```
 
@@ -359,14 +657,14 @@ python -m stage3_XGBoost.xgb_reranker train \
 
 ```bash
 python -m stage3_XGBoost.xgb_reranker score \
-  --table_file /root/autodl-tmp/ProSys/outputs/stage2_v2/Buchwald-HartwigCross-Coupling/training_tables/test.csv \
+  --table_file /root/autodl-tmp/ProSys/outputs/stage23_mainline_reafnn_gnn_fused_20260723/Buchwald-HartwigCross-Coupling/_shared_reaction_gnn/training_tables/test.csv \
   --model_file /tmp/xgb_stage3/xgb_ranker.json \
   --metadata_file /tmp/xgb_stage3/xgb_ranker_meta.json \
   --output_file /tmp/xgb_stage3/test_scored.csv
 ```
 
 
-## 12. 预期效果
+## 13. 预期效果
 
 Stage 3 XGBoost 的核心收益不是提升 candidate pool 覆盖率，而是：
 
@@ -382,3 +680,52 @@ Stage 3 XGBoost 的核心收益不是提升 candidate pool 覆盖率，而是：
 - 温度误差只在命中条件的样本上单独分析
 
 也就是说，Stage 3 是“把 Stage 2 已经找出来的对答案，尽量往前推”的模块。
+
+
+## 14. 历史：图特征直接进入 ranker 的快照（非当前 headline）
+
+在 `outputs/stage23_mainline_reafnn_gnn_fused_20260723/` 的历史 direct-GNN-ranking 快照里，Stage 3 的宏平均表现是：
+
+- `sys@1 = 27.64%`
+- `sys@3 = 35.55%`
+- `sys@5 = 38.47%`
+- `sys@10 = 42.68%`
+- `nDCG@10 = 0.341`
+- `MRR = 0.327`
+
+该历史快照的温度头在“最高排名 full-match 候选”上的宏平均表现是：
+
+- `Temp MAE = 11.28 C`
+- `Temp±5C = 37.96%`
+- `Temp±10C = 61.60%`
+- `Temp±20C = 82.98%`
+
+该历史快照说明，图特征直接进入排序器没有带来稳定的 Sys@k 增益。当前主线
+保留这一 encoder，但将其限制到验证集门控的温度分支；当前固定策略的结果和
+启用家族见下一节。
+
+## 15. 当前门控实现与结果
+
+当前主线在 `scripts/run_stage23_mainline_non_oracle.py` 中执行两个独立头：
+
+1. 排序头：从无 `route_gnn_feat_*` 的 candidate table 训练 `XGBRanker`，并在
+   validation 上选择 Stage 2 heuristic 融合权重。
+2. 温度头：分别训练 no-GNN 和 GNN-enhanced `XGBRegressor`；后者读取 64 个
+   `route_gnn_feat_*`。在固定验证 manifest 上，只有 MAE 至少降低 `0.25 C`
+   才保留 GNN 温度模型。
+
+因此温度 gate 绝不会改变 `xgb_score`、候选顺序或 `Sys@k`。它在 Chan-Lam、
+Diels-Alder、Friedel-Crafts acylation 和 Friedel-Crafts alkylation 四个家族
+被启用；Beckmann 与 Buchwald-Hartwig 回退 no-GNN temperature model。
+
+固定策略的 six-family test result 为：
+
+- `sys@1 / sys@3 / sys@5 / sys@10 = 30.11% / 38.04% / 41.13% / 43.91%`
+- `MRR / nDCG@10 = 35.03% / 36.33%`
+- `Temp MAE = 11.11 C`
+- `Temp±5C / Temp±10C / Temp±20C = 39.22% / 62.62% / 82.93%`
+
+在相同固定 ranker 下，no-GNN temperature baseline 的 macro MAE 为 `12.85 C`
+且 `Temp±10C = 56.77%`；验证集选择后的 GNN 温度分支分别改善到 `11.11 C`
+和 `62.62%`。完整逐家族审计见
+`outputs/stage23_mainline_gnn_temperature_gated_20260803/gnn_temperature_gate_audit.tsv`。

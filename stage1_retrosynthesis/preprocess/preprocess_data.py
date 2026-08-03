@@ -394,6 +394,12 @@ if __name__ == '__main__':
     parser.add_argument('-spe', action="store_true")
     parser.add_argument('-self', action="store_true")
     parser.add_argument('-dropout', type=float, default=0.0)
+    parser.add_argument(
+        '-min_mapping_confidence',
+        type=float,
+        default=-1.0,
+        help='if > 0 and mapped_reaction_smiles are used, drop rows whose mapping_confidence is below this threshold',
+    )
     parser.add_argument('-shuffle', action='store_true')
     parser.add_argument('-mixed', action='store_true')
     parser.add_argument('-samples', type=int, default=-1)
@@ -458,6 +464,20 @@ if __name__ == '__main__':
             mapped = csv['mapped_reaction_smiles'].fillna('').astype(str).str.strip()
             if (mapped != '').any():
                 reaction_column = 'mapped_reaction_smiles'
+
+        if (
+            args.min_mapping_confidence > 0
+            and reaction_column == 'mapped_reaction_smiles'
+            and 'mapping_confidence' in csv.columns
+        ):
+            mapping_conf = pd.to_numeric(csv['mapping_confidence'], errors='coerce')
+            keep_mask = mapping_conf.isna() | (mapping_conf >= args.min_mapping_confidence)
+            dropped_low_conf = int((~keep_mask).sum())
+            if dropped_low_conf:
+                print(
+                    f'[{data_set}] dropped {dropped_low_conf} rows with mapping_confidence < {args.min_mapping_confidence:g}'
+                )
+                csv = csv.loc[keep_mask].reset_index(drop=True)
 
         if args.samples > 0:
             reaction_list = random.sample(list(csv[reaction_column]), args.samples)

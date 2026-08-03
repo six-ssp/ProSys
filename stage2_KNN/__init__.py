@@ -1,5 +1,10 @@
-"""KNN-based Stage 2 candidate screening."""
+"""Compatibility shim for the maintained Stage 2 package.
 
-from .knn_condition_selector import KNNContextPoolBuilder
+The current implementation lives in ``stage2_ReaFNN``. This package keeps the
+historical import path ``stage2_KNN`` working for scripts that still reference
+it.
+"""
 
-__all__ = ['KNNContextPoolBuilder']
+from stage2_ReaFNN import KNNContextPoolBuilder, ReaFNNConfig, ReaFNNSelector, train_reafnn_selector
+
+__all__ = ['KNNContextPoolBuilder', 'ReaFNNConfig', 'ReaFNNSelector', 'train_reafnn_selector']

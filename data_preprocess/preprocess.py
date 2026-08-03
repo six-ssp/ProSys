@@ -6,15 +6,16 @@ Reaxys 反应数据全流程预处理 —— 按 data_process.md 规范执行。
   Step 0：原始文件预清理（删除版权行/无用列/多步反应）
   Stage 2：条件建模数据
     (a) 合法性检查：反应物/产物 SMILES 必须可解析；缺失产率/溶剂 → 删除
-    (b) 温度处理：多阶段 → 取最高温；缺失 → 保留为 NaN
-    (c) 催化剂并入试剂列
-    (d) 试剂/溶剂角色重分配（按全局频次）
-    (e) 标签标准化：大小写归一化、去空格、过滤哨兵值、
+    (b) 产率过滤：缺失删除；默认删除 yield < 25 的记录
+    (c) 温度处理：多阶段 → 取最高温；缺失 → 保留为 NaN
+    (d) 催化剂并入试剂列
+    (e) 试剂/溶剂角色重分配（按全局频次）
+    (f) 标签标准化：大小写归一化、去空格、过滤哨兵值、
         水合物后缀归并、可选 name→SMILES 合并
-    (f) 条件复杂度过滤：试剂 ≤ 3，溶剂 ≤ 2
-    (g) 低频标签过滤：全局频次 < 10 → 删除该条记录
-    (h) 按四元组去重：(reaction_id, canonical_reaction_smiles, reagent, solvent)
-    (i) 按 canonical_reaction_smiles 分组做 8:1:1 划分
+    (g) 条件复杂度过滤：试剂 ≤ 3，溶剂 ≤ 2
+    (h) 低频标签过滤：全局频次 < 10 → 删除该条记录
+    (i) 按四元组去重：(reaction_id, canonical_reaction_smiles, reagent, solvent)
+    (j) 按 canonical_reaction_smiles 分组做 8:1:1 划分
   Stage 1：逆合成路线数据（--do_stage1）
     → train/val 由 Stage 2 split 锚定
     → train 额外吸收被 Stage 2 筛掉但反应合法的记录
@@ -56,8 +57,10 @@ import json
 import pickle
 import argparse
 import itertools
+import multiprocessing
 import warnings
 from collections import Counter
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -77,16 +80,12 @@ warnings.filterwarnings('ignore')
 
 # reaxys_input/ 下的反应族子目录名列表
 REACTION_TYPES = [
+    'Beckmann',                          # Beckmann 重排
     'Buchwald-HartwigCross-Coupling',   # Buchwald-Hartwig 交叉偶联
     'Chan_LamCoupling',                  # Chan-Lam 偶联
     'DielsAlder',                        # Diels-Alder 反应
-    'FischerIndoleSynthesis',            # Fischer 吲哚合成
     'Friedel-CraftsAcylation',           # Friedel-Crafts 酰基化
     'Friedel-CraftsAlkylation',          # Friedel-Crafts 烷基化
-    'GrignardReaction',                  # Grignard 反应
-    'KumadaCoupling',                    # Kumada 偶联
-    'NegishiCoupling',                   # Negishi 偶联
-    'Beckmann',                          # Beckmann 重排
 ]
 
 # Stage 2 从原始数据中加载的列（其余列全部丢弃）
@@ -103,6 +102,12 @@ KEEP_COLUMNS = [
 
 # 视为缺失值的哨兵字符串（大小写不敏感）
 SENTINEL_VALUES = {'nan', 'none', 'not given', 'unknown', '-'}
+
+DEFAULT_NAME_TO_SMILES_PATH = Path(__file__).resolve().with_name('name_to_smiles.tsv')
+DEFAULT_MIN_LABEL_FREQ = 6
+DEFAULT_LABEL_FREQ_SCOPE = 'family'
+DEFAULT_MIN_YIELD = 25.0
+VALID_LABEL_FREQ_SCOPES = {'global', 'family'}
 
 # ──────────────────────────────────────────────────────
 # 1. 文件读写
@@ -132,9 +137,10 @@ def load_file(file_path: str) -> pd.DataFrame:
 
 def load_name_to_smiles(path: str) -> dict:
     """
-    加载 name→SMILES 映射表（可选，用于标签标准化）。
-    文件格式：每行  name<TAB>canonical_SMILES
-    返回 {小写名称: canonical SMILES} 字典。
+    加载 name→canonical token 映射表（可选，用于标签标准化）。
+    文件格式：每行  name<TAB>canonical_token
+    其中 canonical_token 可以是 canonical SMILES，也可以是归并后的规范标签。
+    返回 {小写名称: canonical_token} 字典。
     """
     mapping = {}
     if not path or not os.path.exists(path):
@@ -150,6 +156,14 @@ def load_name_to_smiles(path: str) -> dict:
                 if smi and smi.lower() != 'none':
                     mapping[name.lower()] = smi
     return mapping
+
+
+def resolve_name_to_smiles_path(path: Optional[str] = None) -> Optional[Path]:
+    """解析映射表路径；未显式传入时自动查找 data_preprocess/name_to_smiles.tsv。"""
+    if path:
+        candidate = Path(path).expanduser().resolve()
+        return candidate if candidate.exists() else None
+    return DEFAULT_NAME_TO_SMILES_PATH if DEFAULT_NAME_TO_SMILES_PATH.exists() else None
 
 
 # ──────────────────────────────────────────────────────
@@ -379,14 +393,42 @@ def hydrate_strip(name: str) -> str:
     return name.strip()
 
 
+def normalize_legacy_name_artifacts(name: str) -> str:
+    """
+    修正旧 Reaxys 标签里常见的历史书写问题。
+
+    当前处理：
+      1. 将 ``?`` 统一替换为 ``-``，如 ``beta?cyclodextrin`` → ``beta-cyclodextrin``
+      2. 将括号中的小写罗马数字 / ``l``-型误写统一为标准大写形式，
+         如 ``copper(l) iodide`` → ``copper(I) iodide``，``iron(iii)`` → ``iron(III)``
+    """
+    if not name:
+        return name
+
+    normalized = name.replace('?', '-')
+
+    def _fix_parenthetical_oxidation(match: re.Match) -> str:
+        token = match.group(1)
+        if not token:
+            return match.group(0)
+        converted = token.replace('l', 'I').replace('L', 'I').upper()
+        if re.fullmatch(r'[IVX]+', converted):
+            return f'({converted})'
+        return match.group(0)
+
+    normalized = re.sub(r'\(([ivxlIVXL]+)\)', _fix_parenthetical_oxidation, normalized)
+    return normalized
+
+
 def normalize_label(name: str) -> Optional[str]:
     """
-    标签规范化：转小写 → 去首尾空格 → 去水合物后缀 → 合并多余空格。
+    标签规范化：去首尾空格 → 修正旧标签书写问题 → 去水合物后缀 → 合并多余空格。
     返回 None 表示标签无效。
     """
     if is_nan(name) or not name:
         return None
     name = str(name).strip()
+    name = normalize_legacy_name_artifacts(name)
     name = hydrate_strip(name)
     name = re.sub(r'\s+', ' ', name)   # 合并连续空格
     return name
@@ -545,11 +587,12 @@ def merge_reagent_catalyst(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def filter_valid_entries(df: pd.DataFrame) -> pd.DataFrame:
+def filter_valid_entries(df: pd.DataFrame, min_yield: float = DEFAULT_MIN_YIELD) -> pd.DataFrame:
     """
     (a) 合法性检查，依次删除以下记录：
       - 反应物或产物 SMILES 无法被 RDKit 解析
       - 缺失产率（无法计算 relevance score）
+      - 低于最小产率阈值的记录（默认 yield < 25）
       - 缺失溶剂（溶剂是预测目标之一）
     """
     df = split_reaction_smiles(df)
@@ -562,6 +605,16 @@ def filter_valid_entries(df: pd.DataFrame) -> pd.DataFrame:
     # 产率必须存在
     bad = df['Yield (numerical)'].apply(is_nan)
     df = df[~bad].reset_index(drop=True)
+
+    # 过滤低产率记录
+    if min_yield is not None:
+        def _keep_yield(value) -> bool:
+            try:
+                return float(value) >= float(min_yield)
+            except (TypeError, ValueError):
+                return False
+        good = df['Yield (numerical)'].apply(_keep_yield)
+        df = df[good].reset_index(drop=True)
 
     # 溶剂必须存在
     bad = df['Solvent (Reaction Details)'].apply(is_nan)
@@ -675,20 +728,19 @@ def reassign_roles_all_families(raw_data: dict) -> dict:
     return raw_data
 
 
-def filter_rare_labels_all_families(raw_data: dict, min_freq: int = 10) -> dict:
+def filter_rare_labels_all_families(raw_data: dict,
+                                    min_freq: int = DEFAULT_MIN_LABEL_FREQ,
+                                    scope: str = DEFAULT_LABEL_FREQ_SCOPE) -> dict:
     """
-    (g) 低频标签过滤（跨所有反应族全局执行）。
+    (g) 低频标签过滤。
 
-    统计所有 family 的 reagent / solvent 标签频次。
-    频次 < min_freq（默认10）的标签视为不可靠，删除包含它的整条记录。
+    - scope='global'：跨所有 family 共享频次统计
+    - scope='family'：每个 family 单独统计标签频次
+
+    频次 < min_freq 的标签视为不可靠，删除包含它的整条记录。
     """
-    # 全局统计
-    all_data = pd.concat(raw_data.values(), ignore_index=True)
-    reagent_freq = build_frequency_dict(all_data['Reagent'])
-    solvent_freq = build_frequency_dict(all_data['Solvent (Reaction Details)'])
-
-    rare_r = {k for k, v in reagent_freq.items() if v < min_freq}
-    rare_s = {k for k, v in solvent_freq.items() if v < min_freq}
+    if scope not in VALID_LABEL_FREQ_SCOPES:
+        raise ValueError(f'unsupported label frequency scope: {scope}')
 
     def _has_rare(val, rare_set):
         """检查当前行的标签是否包含低频 token。"""
@@ -696,13 +748,31 @@ def filter_rare_labels_all_families(raw_data: dict, min_freq: int = 10) -> dict:
             return False
         return any(t in rare_set for t in str(val).split('; '))
 
+    if scope == 'global':
+        all_data = pd.concat(raw_data.values(), ignore_index=True)
+        shared_reagent_freq = build_frequency_dict(all_data['Reagent'])
+        shared_solvent_freq = build_frequency_dict(all_data['Solvent (Reaction Details)'])
+        shared_rare_r = {k for k, v in shared_reagent_freq.items() if v < min_freq}
+        shared_rare_s = {k for k, v in shared_solvent_freq.items() if v < min_freq}
+    else:
+        shared_rare_r = None
+        shared_rare_s = None
+
+    filtered: dict = {}
     for rtype, df in raw_data.items():
+        if scope == 'family':
+            reagent_freq = build_frequency_dict(df['Reagent'])
+            solvent_freq = build_frequency_dict(df['Solvent (Reaction Details)'])
+            rare_r = {k for k, v in reagent_freq.items() if v < min_freq}
+            rare_s = {k for k, v in solvent_freq.items() if v < min_freq}
+        else:
+            rare_r = shared_rare_r
+            rare_s = shared_rare_s
+
         bad_r = df['Reagent'].apply(lambda x: _has_rare(x, rare_r))
-        bad_s = df['Solvent (Reaction Details)'].apply(
-            lambda x: _has_rare(x, rare_s))
-        df = df[~(bad_r | bad_s)].reset_index(drop=True)
-        raw_data[rtype] = df
-    return raw_data
+        bad_s = df['Solvent (Reaction Details)'].apply(lambda x: _has_rare(x, rare_s))
+        filtered[rtype] = df[~(bad_r | bad_s)].reset_index(drop=True)
+    return filtered
 
 
 def deduplicate_condition_records(df: pd.DataFrame) -> pd.DataFrame:
@@ -857,15 +927,16 @@ def write_summary(summary: dict, path: str):
 # ──────────────────────────────────────────────────────
 
 def cleanup_to_complexity(rtype: str, df: pd.DataFrame,
-                           name_to_smiles: dict) -> pd.DataFrame:
+                           name_to_smiles: dict,
+                           min_yield: float = DEFAULT_MIN_YIELD) -> pd.DataFrame:
     """
-    单个反应族的前半段清洗：执行步骤 (a) 到 (f)。
+    单个反应族的前半段清洗：执行步骤 (a) 到 (g)。
 
     输入：原始 DataFrame（已加载并做了角色重分配）
     输出：清洗后的 DataFrame（未去重、未划分）
     """
     # (a) 合法性检查
-    df = filter_valid_entries(df)
+    df = filter_valid_entries(df, min_yield=min_yield)
 
     # (b) 温度处理
     df = process_temperature(df)
@@ -1155,19 +1226,28 @@ def strip_atom_mapping(mapped_smiles: str) -> str:
     return _ATOM_MAP_RE.sub('', str(mapped_smiles))
 
 
+def canonical_key_from_unmapped_reaction(rxn_smiles: str) -> str:
+    """把去原子映射后的 reactants>>product 反应式转成 canonical key。"""
+    if '>>' not in str(rxn_smiles):
+        return ''
+    reactants, product = str(rxn_smiles).split('>>', 1)
+    return make_canonical_reaction_key(reactants, product)
+
+
 def process_uspto_data(output_dir: str, seed: int = 45):
     """
     处理 USPTO_full 数据：
       1. 合并 raw_train/raw_val/raw_test.csv
-      2. 去除原子映射 → 转为普通 SMILES
+      2. 用去原子映射后的反应式构造 canonical key（仅用于去重/防泄露）
       3. 与所有 Stage 2 测试集对比，删除重叠反应（防泄露）
       4. 按 8:2 划分为训练/验证集
-      5. 输出到 editretro/datasets/USPTO_STAGE2_FILTERED/
+      5. 保留原始 mapped reaction 作为 EditRetro 训练输入，输出到
+         editretro/datasets/USPTO_STAGE2_FILTERED/raw/
     """
     uspto_dir = os.path.join(output_dir, 'editretro', 'datasets', 'USPTO_full')
     if not os.path.isdir(uspto_dir):
         print('  跳过 USPTO 处理：目录不存在')
-        return
+        return {}
 
     print(f'\n{"=" * 60}')
     print('USPTO 数据处理')
@@ -1175,36 +1255,53 @@ def process_uspto_data(output_dir: str, seed: int = 45):
 
     # ── 1. 合并 ──
     dfs = []
+    input_counts = {}
     for fname in ['raw_train.csv', 'raw_val.csv', 'raw_test.csv']:
         fp = os.path.join(uspto_dir, fname)
         if os.path.exists(fp):
-            dfs.append(pd.read_csv(fp))
-            print(f'  {fname}: {len(dfs[-1])} 条')
+            current = pd.read_csv(fp)
+            dfs.append(current)
+            input_counts[fname] = int(len(current))
+            print(f'  {fname}: {len(current)} 条')
     uspto = pd.concat(dfs, ignore_index=True)
     print(f'  合并后: {len(uspto)} 条')
+    stats = {
+        'input_counts': input_counts,
+        'merged_raw': int(len(uspto)),
+    }
 
-    # ── 2. 去原子映射 + 拆分反应式 ──
-    print('  去除原子映射...')
-    rxns = uspto['reactants>reagents>production'].apply(strip_atom_mapping)
+    # ── 2. 基于去映射反应式构造 canonical key（训练仍保留原始 mapped reaction） ──
+    print('  基于去原子映射反应式构造 canonical keys...')
+    rxns = uspto['reactants>reagents>production'].fillna('').astype(str).apply(
+        strip_atom_mapping)
 
-    # 拆分为 reactants 和 product
-    def split_rxn(smi):
-        if '>>' in str(smi):
-            parts = str(smi).split('>>', 1)
-            return pd.Series([parts[0], parts[1]])
-        return pd.Series(['', ''])
-
-    uspto[['reactants', 'product']] = rxns.apply(split_rxn)
+    # 向量化拆分为 reactants 和 product
+    split = rxns.str.split('>>', n=1, expand=True)
+    if split.shape[1] < 2:
+        split[1] = ''
+    uspto['reactants'] = split[0].fillna('')
+    uspto['product'] = split[1].fillna('')
 
     # ── 3. 生成 canonical key ──
-    print('  生成 canonical keys...')
-    uspto['canonical_key'] = uspto.apply(
-        lambda row: make_canonical_reaction_key(row['reactants'],
-                                                 row['product']), axis=1)
+    unique_rxns = pd.Index(rxns.unique())
+    n_proc = min(max(multiprocessing.cpu_count() // 2, 1), 16)
+    print(f'  并行计算 canonical keys: {len(unique_rxns)} 条唯一反应, processes={n_proc}')
+    with multiprocessing.Pool(processes=n_proc) as pool:
+        canonical_keys = list(
+            tqdm(
+                pool.imap(canonical_key_from_unmapped_reaction, unique_rxns),
+                total=len(unique_rxns),
+                desc='  canonical keys',
+            )
+        )
+    key_map = dict(zip(unique_rxns, canonical_keys))
+    uspto['canonical_key'] = rxns.map(key_map)
     # 删掉 key 为空的
     before = len(uspto)
     uspto = uspto[uspto['canonical_key'] != ''].reset_index(drop=True)
     print(f'  合法反应: {len(uspto)} 条（丢弃 {before - len(uspto)} 条无效）')
+    stats['valid_after_canonicalization'] = int(len(uspto))
+    stats['removed_invalid'] = int(before - len(uspto))
 
     # ── 4. 收集所有 Stage 2 测试集 canonical key ──
     print('  收集 Stage 2 测试集 reaction keys...')
@@ -1226,17 +1323,23 @@ def process_uspto_data(output_dir: str, seed: int = 45):
                     if k:
                         stage2_test_keys.add(k)
     print(f'  Stage 2 测试集共有 {len(stage2_test_keys)} 个独特反应')
+    stats['stage2_test_unique_reactions'] = int(len(stage2_test_keys))
 
     # 去重
     before = len(uspto)
     uspto = uspto[~uspto['canonical_key'].isin(stage2_test_keys)]
     uspto = uspto.reset_index(drop=True)
     print(f'  过滤后: {len(uspto)} 条（移除 {before - len(uspto)} 条重叠）')
+    stats['after_overlap_filter'] = int(len(uspto))
+    stats['removed_overlap'] = int(before - len(uspto))
 
     # ── 5. 按 canonical key 去重（USPTO 可能有重复反应） ──
+    before = len(uspto)
     uspto = uspto.drop_duplicates(subset='canonical_key', keep='first')
     uspto = uspto.reset_index(drop=True)
     print(f'  去重独特反应: {len(uspto)} 条')
+    stats['after_dedup'] = int(len(uspto))
+    stats['removed_duplicates'] = int(before - len(uspto))
 
     # ── 6. 8:2 划分 ──
     keys = uspto['canonical_key'].unique()
@@ -1254,17 +1357,17 @@ def process_uspto_data(output_dir: str, seed: int = 45):
     # ── 7. 输出 ──
     out_dir = os.path.join(output_dir, 'editretro', 'datasets',
                            'USPTO_STAGE2_FILTERED')
-    os.makedirs(out_dir, exist_ok=True)
+    raw_out_dir = os.path.join(out_dir, 'raw')
+    os.makedirs(raw_out_dir, exist_ok=True)
 
     for name, sub in [('train', train_df), ('val', val_df)]:
-        out = sub[['id', 'reactants', 'product']].copy()
-        # 还原为 reactants>>product 格式（无原子映射）
-        out['reactants>reagents>production'] = (
-            out['reactants'] + '>>' + out['product'])
-        out = out[['id', 'reactants>reagents>production']]
-        out_path = os.path.join(out_dir, f'raw_{name}.csv')
+        # EditRetro 训练需要带 atom mapping 的原始反应串；
+        # 上面的 strip_atom_mapping 仅用于构造 canonical key。
+        out = sub[['id', 'reactants>reagents>production']].copy()
+        out_path = os.path.join(raw_out_dir, f'raw_{name}.csv')
         out.to_csv(out_path, index=False)
         print(f'  {name}: {len(out)} 条 → {out_path}')
+        stats[name] = int(len(out))
 
     # 泄露验证
     train_key_set = set(train_df['canonical_key'])
@@ -1272,6 +1375,19 @@ def process_uspto_data(output_dir: str, seed: int = 45):
     print(f'  验证: train={len(train_key_set)}, val={len(val_key_set)}, '
           f'重叠={len(train_key_set & val_key_set)}, '
           f'与S2 test重叠={len((train_key_set | val_key_set) & stage2_test_keys)}')
+    stats['train_unique_reactions'] = int(len(train_key_set))
+    stats['val_unique_reactions'] = int(len(val_key_set))
+    stats['train_val_overlap'] = int(len(train_key_set & val_key_set))
+    stats['train_val_vs_stage2_test_overlap'] = int(len((train_key_set | val_key_set) & stage2_test_keys))
+    stats['canonical_key_uses_unmapped_reaction'] = True
+    stats['training_reaction_preserves_atom_mapping'] = True
+
+    summary_path = os.path.join(out_dir, 'summary.json')
+    with open(summary_path, 'w', encoding='utf-8') as f:
+        json.dump(stats, f, indent=2, ensure_ascii=False)
+        f.write('\n')
+    print(f'  摘要: {summary_path}')
+    return stats
 
 
 # ──────────────────────────────────────────────────────
@@ -1280,25 +1396,31 @@ def process_uspto_data(output_dir: str, seed: int = 45):
 
 def main(input_dir: str, output_dir: str, name_to_smiles_path: str = None,
          skip_raw_clean: bool = False, do_stage1: bool = False,
-         process_uspto: bool = False):
+         process_uspto: bool = False,
+         min_label_freq: int = DEFAULT_MIN_LABEL_FREQ,
+         label_freq_scope: str = DEFAULT_LABEL_FREQ_SCOPE,
+         min_yield: float = DEFAULT_MIN_YIELD):
     """
     总调度函数，按 data_process.md 规定的顺序执行全流程：
 
       Step 0：原始文件预清理
         → 加载全部反应族
         → (d) 全局角色重分配
-        → 逐族 (a)(b)(c)(e)(f) → (g) 全局低频过滤 → 逐族 (h)(i) + 输出
+        → 逐族 (a)(b)(c)(d)(f)(g) → (h) 全局低频过滤 → 逐族 (i)(j) + 输出
         → (可选) Stage 1 逆合成路线数据
         → (可选) USPTO 数据过滤处理
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    # 可选加载 name→SMILES 映射表
+    resolved_mapping_path = resolve_name_to_smiles_path(name_to_smiles_path)
     name_to_smiles = (
-        load_name_to_smiles(name_to_smiles_path) if name_to_smiles_path else {}
+        load_name_to_smiles(str(resolved_mapping_path)) if resolved_mapping_path else {}
     )
     if name_to_smiles:
-        print(f'已加载 {len(name_to_smiles)} 条 name→SMILES 映射')
+        print(f'已加载 {len(name_to_smiles)} 条 name→canonical token 映射: {resolved_mapping_path}')
+    else:
+        print('未加载 name→canonical token 映射表，使用纯字符串标准化')
+    print(f'最小保留产率阈值: yield >= {min_yield}')
 
     # ═══════════════════════════════════════════
     # 步骤 0：原始文件预清理
@@ -1359,17 +1481,21 @@ def main(input_dir: str, output_dir: str, name_to_smiles_path: str = None,
     for rtype in raw_data:
         raw_before = len(raw_data[rtype])
         raw_data[rtype] = cleanup_to_complexity(
-            rtype, raw_data[rtype], name_to_smiles)
+            rtype, raw_data[rtype], name_to_smiles, min_yield=min_yield)
         print(f'  {rtype}: {raw_before} → {len(raw_data[rtype])} 条')
 
     # ═══════════════════════════════════════════
     # 步骤 (g)：全局低频标签过滤
     # ═══════════════════════════════════════════
     print('\n' + '=' * 60)
-    print('(g) 低频标签过滤（全局，频次 < 10）')
+    print(f'(g) 低频标签过滤（scope={label_freq_scope}, 频次 < {min_label_freq}）')
     print('=' * 60)
     all_entries_before = sum(len(v) for v in raw_data.values())
-    raw_data = filter_rare_labels_all_families(raw_data, min_freq=10)
+    raw_data = filter_rare_labels_all_families(
+        raw_data,
+        min_freq=min_label_freq,
+        scope=label_freq_scope,
+    )
     all_entries_after = sum(len(v) for v in raw_data.values())
     print(f'  {all_entries_before} → {all_entries_after} 条')
 
@@ -1439,13 +1565,21 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', type=str, required=True,
                         help='输出目录路径')
     parser.add_argument('--name_to_smiles', type=str, default=None,
-                        help='可选 TSV 文件: name<TAB>canonical_SMILES')
+                        help='可选 TSV 文件: name<TAB>canonical_token；不传则自动查找 data_preprocess/name_to_smiles.tsv')
     parser.add_argument('--skip_raw_clean', action='store_true',
                         help='跳过 Step 0 原始文件预清理（数据已清理时使用）')
     parser.add_argument('--do_stage1', action='store_true',
                         help='生成 Stage 1 逆合成路线数据（需安装 RXNMapper）')
     parser.add_argument('--process_uspto', action='store_true',
                         help='处理 USPTO 逆合成数据（去原子映射 + 防泄露过滤）')
+    parser.add_argument('--min_label_freq', type=int, default=DEFAULT_MIN_LABEL_FREQ,
+                        help=f'低频标签过滤阈值，默认 {DEFAULT_MIN_LABEL_FREQ}')
+    parser.add_argument('--label_freq_scope', type=str, default=DEFAULT_LABEL_FREQ_SCOPE,
+                        choices=sorted(VALID_LABEL_FREQ_SCOPES),
+                        help=f'低频标签频次统计范围，默认 {DEFAULT_LABEL_FREQ_SCOPE}')
+    parser.add_argument('--min_yield', type=float, default=DEFAULT_MIN_YIELD,
+                        help=f'最小保留产率阈值，默认 {DEFAULT_MIN_YIELD}；低于该值的记录会被删除')
     args = parser.parse_args()
     main(args.input_dir, args.output_dir, args.name_to_smiles,
-         args.skip_raw_clean, args.do_stage1, args.process_uspto)
+         args.skip_raw_clean, args.do_stage1, args.process_uspto,
+         args.min_label_freq, args.label_freq_scope, args.min_yield)

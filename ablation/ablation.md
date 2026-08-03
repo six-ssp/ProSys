@@ -1,279 +1,266 @@
+# Legacy Ablation Plan (Superseded)
+
+> This document records the earlier KNN-XGBoost plan and is retained only for history.
+> The maintained ReaFNN + Reaction-GNN ablation protocol and result interpretation are in
+> [`ablation_reafnn_gnn_protocol.md`](ablation_reafnn_gnn_protocol.md), with the completed
+> corrected result tables and paper-safe conclusions in
+> [`current_mainline_ablation_results_20260727.md`](current_mainline_ablation_results_20260727.md).
+
 # ProSys Ablation 实验规划
 
-更新日期：`2026-07-05`
-
-实现细节文档：
-
-- `ablation/stage2_ablation_implementation_detail.md`
-- `ablation/stage3_ablation_implementation_detail.md`
-- `ablation/run_non_oracle_ablation.py`
+更新日期：`2026-07-14`
 
 ## 1. 这轮 ablation 的定位
 
-这轮 ablation 只围绕当前主线：
+这轮消融只围绕当前主线展开：
 
-- `KNN + XGBoost`
+- Stage 1：`EditRetro base model -> family-specific finetuned model`
+- Stage 2：`KNN` 可行条件筛选
+- Stage 3：`XGBoost` 重排序
 
-来做模块替换分析。
+目标不是再去比较很多“外部方法”，而是把主线拆开，分别回答下面 3 个问题：
 
-目标不是证明“哪个历史方法更强”，而是回答两个更直接的问题：
+1. Stage 1 的家族微调是否真的提升了 route 推荐能力
+2. Stage 2 的 `KNN` 候选池是否真的比简单高频条件池更有效
+3. Stage 3 的 `XGBoost` 重排序是否真的有必要，还是只靠 Stage 1 和 Stage 2 的先验信息就够了
 
-1. `XGBoost` 为什么比别的经典 ML 排序器更适合放在 Stage 3
-2. `KNN` 为什么比别的候选池方案更适合放在 Stage 2
+这样组织后，消融和主线是一一对应的，逻辑最干净。
 
-因此这轮 ablation 的逻辑是：
 
-- 固定一半模块
-- 替换另一半模块
-- 看 Non-Oracle end-to-end 指标怎么变
+## 2. 统一实验原则
 
+这轮 ablation 统一采用 **Non-Oracle** 设定。
 
-## 2. 只做 Non-Oracle
+统一原则：
 
-这轮 ablation 只做 **Non-Oracle end-to-end**。
+- 所有实验都使用真实 Stage 1 输出，不使用 oracle route
+- 每个消融只改动当前要讨论的那个模块
+- 其他模块尽量保持与主线一致
+- 指标按家族分别统计，并给出宏平均
 
-统一设定：
+主线参考组定义为：
 
-- 固定 Stage 1 已有的 `route_cache.json`
-- 只比较 Stage 1 之后的模块替换
-- 所有结果都在同一个真实误差传播条件下汇报
+- `A0 = Finetuned Stage1 + KNN Stage2 + XGBoost Stage3`
 
-这样做的好处是：
+后面的所有对比，都是相对 `A0` 来解释。
 
-- 结论会直接对应最终使用场景
-- 不需要在正文里来回切换不同设定
 
+## 3. Ablation A1：Stage 1 微调是否有用
 
-## 3. 主线参考组
+### 3.1 要回答的问题
 
-## 3.1 A0：`KNN + XGBoost`
+- 同样面对各家族测试集，`base retrosynthesis model` 和 `family-tuned model` 的 route 命中率差多少
 
-定义：
+### 3.2 对比设置
 
-- Stage 2：`KNN` candidate pool
-- Stage 3 排序：`XGBRanker`
-- 温度：`XGBRegressor`
+比较两组 Stage 1 输出：
 
-作用：
+- `Base`
+  - 使用全局基模直接在各家族测试集上推理
+- `Finetuned`
+  - 先用对应家族训练集微调，再在该家族测试集上推理
 
-- 当前主线
-- 也是所有 ablation 的参考上界
+这里不往后接 Stage 2/3，只看 Stage 1 本身的 route 能力变化。
 
+### 3.3 指标
 
-## 4. Stage 3 消融：固定 KNN，只换排序器
+- `route@1`
+- `route@3`
+- `route@5`
+- `route@10`
 
-这一组实验只回答一件事：
+### 3.4 已有数据支撑
 
-- 在同样的 `KNN` 候选池上，`XGBoost` 是否真的比常见 ML 排序器更合适
+当前仓库里已经有现成统计口径：
 
+- `outputs/checklist_stats/07_stage1_base_vs_tuned.csv`
+- `outputs/stage1_base_vs_tuned/overview.md`
 
-## 4.1 A1：`KNN + RandomForest`
+因此这部分不是新造实验，只需要按现有结果整理成论文表格即可。
 
-定义：
+### 3.5 预期结论
 
-- Stage 2：固定 `KNN`
-- Stage 3 排序：`RandomForestClassifier`
-- 温度：`RandomForestRegressor`
+如果 `Finetuned` 在大多数家族上都高于 `Base`，就可以说明：
 
-预期：
+- Stage 1 的家族适配是必要的
+- 后续系统推荐提升的上游来源之一，确实来自更好的 route 候选
 
-- 会是一个合理的 classical baseline
-- 但大概率弱于 `KNN + XGBoost`
 
+## 4. Ablation A2：Stage 2 的 KNN 是否有用
 
-## 4.2 A2：`KNN + SVM`
+### 4.1 要回答的问题
 
-定义：
+- 在 Stage 1 和 Stage 3 都保持主线思路不变时，`KNN` 候选池是否真的比“直接取高频条件”更有效
 
-- Stage 2：固定 `KNN`
-- Stage 3 排序：线性 `SVM`
-- 温度：`LinearSVR`
+### 4.2 对比设置
 
-说明：
+固定：
 
-- 这里优先使用线性版本
-- 不建议核 `SVM`
+- Stage 1：使用 `Finetuned` route cache
+- Stage 3：使用 `XGBoost` 排序与温度模型
 
-原因：
+比较两种 Stage 2 候选池：
 
-- Non-Oracle candidate table 规模不小
-- 核方法成本高且不稳定
-- 线性版更适合当高效基线
+- `KNN pool`
+  - 对每条测试 route，从训练集检索局部近邻条件
+- `Top-K frequency pool`
+  - 不做近邻检索，直接从该家族训练集取全局频率最高的 `K` 个条件组合作为候选
 
-预期：
+其中：
 
-- 会比 Bayes 稍强
-- 但通常仍难超过 `XGBoost`
+- `K` 必须与 `KNN` 的候选池大小超参保持一致
+- 也就是复用当前主线的 `max_contexts`
+- 如果主线当前使用 `max_contexts = 20`，那么频率池也固定取 top-20
 
+### 4.3 实现注意事项
 
-## 4.3 A3：`KNN + Bayes`
+为了保证公平，Stage 2 一旦变化，后续 Stage 3 不能直接沿用旧模型，而应该：
 
-定义：
+- 分别基于各自的候选池重建 `train / val / test table`
+- 在对应 table 上各自训练一套 `XGBoost`
+- 最终都在 Non-Oracle 测试集上评估 `sys@k`
 
-- Stage 2：固定 `KNN`
-- Stage 3 排序：`GaussianNB`
-- 温度：`BayesianRidge`
+原因是：
 
-说明：
+- 候选池变了，候选分布和正负样本构成也变了
+- 如果不重训 Stage 3，会把 Stage 2 的影响和 Stage 3 的失配混在一起
 
-- 这里的“Bayes”是一个组合定义
-- 排序和温度分别用最自然的贝叶斯系模型
+### 4.4 指标
 
-预期：
-
-- 是一个偏弱但有代表性的 lower baseline
-- 主要用于证明极简概率模型在这个任务上不够强
-
-
-## 5. Stage 2 消融：固定 XGBoost，只换候选池
-
-这一组实验只回答一件事：
-
-- 在同样的 `XGBoost` reranker 下，`KNN` 是否真的比其他候选池更适合做可行条件筛选
-
-
-## 5.1 A4：`Cluster + XGBoost`
-
-定义：
-
-- Stage 2：`cluster` candidate pool
-- Stage 3 排序：固定 `XGBRanker`
-- 温度：固定 `XGBRegressor`
-
-它回答的是：
-
-- 如果把局部近邻筛选换成更粗粒度的 cluster memory，结果会怎样
-
-预期：
-
-- `sys@k` 会弱于 `KNN + XGBoost`
-- 差距通常会体现在：
-  - 候选池不够细粒度
-  - `sys@10` 和整体覆盖更弱
-
-
-## 5.2 A5：`FNN pool + XGBoost`
-
-定义：
-
-- Stage 2：原始 FNN candidate generation
-- Stage 3 排序：固定 `XGBRanker`
-- 温度：固定 `XGBRegressor`
-
-这里要特别说明：
-
-- 在 `baseline` 里，`FNN` 表示原始整条流水线
-- 在 `ablation` 里，`FNN pool + XGBoost` 只表示“拿 FNN 当 Stage 2 候选池生成器”
-
-这样做的作用是把问题拆干净：
-
-- baseline 负责比较“整条旧系统 vs 整条新系统”
-- ablation 负责比较“只换 Stage 2 候选池，会发生什么”
-
-这组实验回答的是：
-
-- 如果候选池换回 FNN 风格，单靠 `XGBoost` 能不能把结果救回来
-
-预期：
-
-- 会弱于 `KNN + XGBoost`
-- 如果差距明显，就能说明 `KNN` 的主要价值在于 candidate screening
-
-
-## 6. 为什么这版逻辑更好
-
-这版组织方式确实更顺。
-
-原因在于现在三层关系很清楚：
-
-1. `baseline`
-   - 只保留 `Original Prototype-FNN`
-   - 只回答“当前主线相对原始项目提升多少”
-
-2. `Stage 3 ablation`
-   - `KNN + RF / SVM / Bayes / XGBoost`
-   - 只回答“为什么主线选 XGBoost”
-
-3. `Stage 2 ablation`
-   - `KNN / Cluster / FNN pool + XGBoost`
-   - 只回答“为什么主线选 KNN”
-
-这样不会再出现：
-
-- baseline 和 ablation 混在一起
-- 历史方法和模块替换同时出现，导致解释混乱
-
-
-## 7. 指标口径
-
-这轮 ablation 的主指标固定成：
+主指标：
 
 - `sys@1`
+- `sys@3`
 - `sys@5`
 - `sys@10`
-- `Temp MAE`
-- `Temp±5C`
-- `Temp±10C`
-- `Temp±20C`
 
-对于 Stage 2 消融，再保留一个辅助解释指标：
+辅助解释指标：
 
 - `pool_coverage`
 
-说明：
+`pool_coverage` 不是 headline metric，但它能帮助解释：
 
-- 它不是最后最主要的 headline metric
-- 但对解释 `KNN` 为什么更好非常有帮助
+- `KNN` 是不是更容易把正确条件放进候选池
 
+### 4.5 预期结论
 
-## 8. 温度口径
+如果 `KNN pool + XGBoost` 明显优于 `Top-K frequency pool + XGBoost`，就可以说明：
 
-温度评估和 baseline 完全统一：
-
-- 对每个样本取最高排名的 exact-positive system
-- 只在该 system 温度标注和预测都有效时纳入统计
-- 汇总 `Temp MAE` 与 `Temp±5C / Temp±10C / Temp±20C`
-
-这样表格才可以直接横向比较。
+- Stage 2 的价值不只是“给一些常见条件”
+- 它确实提供了 route-conditioned、局部化、可行性更高的候选筛选
 
 
-## 9. 推荐的最终表格组织
+## 5. Ablation A3：Stage 3 的 XGBoost 是否有用
 
-建议最终至少整理成两张 Non-Oracle 表。
+### 5.1 要回答的问题
 
-### 表 A：Stage 3 消融
+- 在候选池已经由 `KNN` 给出的前提下，是否还需要一个显式的学习式重排序器
 
-- `KNN + XGBoost`
-- `KNN + RandomForest`
-- `KNN + SVM`
-- `KNN + Bayes`
+### 5.2 对比设置
 
-这张表主要说明：
+固定：
 
-- 为什么主线 Stage 3 选 `XGBoost`
+- Stage 1：使用 `Finetuned` route cache
+- Stage 2：使用 `KNN` candidate pool
+
+比较两种排序方式：
+
+- `w/ Stage3`
+  - 保留当前主线 `XGBoost` 重排序
+- `w/o Stage3`
+  - 去掉学习式 reranker，只使用 Stage 1 和 Stage 2 已经产生的先验信息做确定性排序
+
+### 5.3 去掉 Stage 3 时的排序规则
+
+`w/o Stage3` 不能再额外引入新的学习模型，否则就不叫“去掉 Stage 3”了。
+
+因此建议采用固定的 heuristic ranking。候选按下面顺序排序：
+
+1. `retro_rank` 升序
+2. `retro_probability` 降序
+3. `knn_similarity_sum` 降序
+4. `knn_similarity_max` 降序
+5. `knn_neighbor_count` 降序
+6. `knn_weighted_mean_yield` 降序
+
+这个定义的优点是：
+
+- 完全不训练新模型
+- 只依赖 Stage 1 和 Stage 2 已经生成的字段
+- 可复现、可解释，也最符合“只去掉 Stage 3”的设定
+
+### 5.4 指标
+
+- `sys@1`
+- `sys@3`
+- `sys@5`
+- `sys@10`
+
+这组实验的重点是看：
+
+- `sys@1` 能否明显提升
+- `sys@5 / sys@10` 能否进一步拉开
+
+因为这最能体现 `XGBoost` 在候选重排上的价值。
+
+### 5.5 预期结论
+
+如果 `w/ Stage3` 稳定优于 `w/o Stage3`，就可以说明：
+
+- Stage 2 负责“把可行候选找进来”
+- Stage 3 负责“把真正正确的系统往前排”
+- 两者功能不同，不能互相替代
 
 
-### 表 B：Stage 2 消融
+## 6. 最终建议表格
 
-- `KNN + XGBoost`
-- `Cluster + XGBoost`
-- `FNN pool + XGBoost`
+建议论文里至少整理成 3 张表。
 
-这张表主要说明：
+### 表 A：Stage 1 微调消融
 
-- 为什么主线 Stage 2 选 `KNN`
+列建议：
 
-## 10. 当前结果位置
+- `family`
+- `base route@1/3/5/10`
+- `finetuned route@1/3/5/10`
+- `delta@1/3/5/10`
 
-- `outputs/stage23_non_oracle_all10/ablation_stage3.md`
-- `outputs/stage23_non_oracle_all10/ablation_stage2.md`
-- `outputs/stage23_non_oracle_all10/average_effect.md`
+这张表回答：
+
+- 家族微调是否真的改善了逆合成候选质量
+
+### 表 B：Stage 2 候选池消融
+
+列建议：
+
+- `family`
+- `KNN + XGB` 的 `sys@1/3/5/10`
+- `Top-K frequency + XGB` 的 `sys@1/3/5/10`
+- `pool_coverage`
+
+这张表回答：
+
+- `KNN` 候选池是否真的优于简单高频条件池
+
+### 表 C：Stage 3 重排序消融
+
+列建议：
+
+- `family`
+- `w/o Stage3` 的 `sys@1/3/5/10`
+- `w/ Stage3` 的 `sys@1/3/5/10`
+
+这张表回答：
+
+- `XGBoost` 学习式重排序是否真的必要
 
 
-## 10. 最终希望支持的结论
+## 7. 这版规划的优点
 
-如果结果符合预期，这轮 ablation 最终应支持下面这条叙事：
+这版消融逻辑有 3 个优点：
 
-- `XGBoost` 比 `RF / SVM / Bayes` 更适合在当前 candidate table 上做 reranking
-- `KNN` 比 `Cluster / FNN pool` 更适合做可行条件筛选
-- 因此当前主线 `KNN + XGBoost` 不是随意拼出来的，而是一个在 Non-Oracle end-to-end 设定下更合理的两阶段组合
+1. 每个实验只回答一个问题，因果关系清楚
+2. 完全围绕当前主线，不再引入额外旧模型干扰叙事
+3. 后续论文写作时，可以自然组织成“Stage 1 / Stage 2 / Stage 3 各自的必要性证明”
+
+因此，这一版可以直接作为后续 ablation 实验的执行规范。

@@ -13,9 +13,15 @@ bash data_preprocess/run.sh --stage1
 
 # 数据已清理过，跳过原始清理
 bash data_preprocess/run.sh --skip-clean --stage1
+
+# 检查 Stage 1 / Stage 2 划分是否干净
+python data_preprocess/audit_data_splits.py --strict
 ```
 
-所有处理逻辑在 `data_preprocess/preprocess.py` 一个文件中。
+核心预处理逻辑在 `data_preprocess/preprocess.py`，切分泄露审计在 `data_preprocess/audit_data_splits.py`。
+旧顶层 `preprocess_data/` 目录里仍有价值的标签清洗规则，现已并入这里的
+`normalize_label()` 与 `build_name_to_smiles_table.py`；旧的 OPSIN / ChemSpider /
+手工改名流水线不再作为当前主线依赖。
 
 ---
 
@@ -46,10 +52,8 @@ bash data_preprocess/run.sh --skip-clean --stage1
 
 ### 执行
 
-```bash
-python rxn_yield_context/preprocess_data/clean_reaxys_input.py \
-    --input_dir data/reaxys_input
-```
+这一步已经内置到当前的 `data_preprocess/preprocess.py` / `data_preprocess/run.sh`
+里；正常跑主预处理时会自动先执行原始文件清理，不再需要单独调用旧脚本。
 
 ### 清理规则
 
@@ -146,9 +150,10 @@ bash scripts/run_reaxys_catalystmerge_rebuild.sh
 #### (b) yield、solvent 缺失
 
 - 缺 `yield` → 删除
+- `yield < 25` → 删除
 - 缺 `solvent` → 删除
 
-> **原因**：排序训练需要 yield 生成 relevance；条件推荐显式预测 solvent。
+> **原因**：排序训练需要 yield 生成 relevance；条件推荐显式预测 solvent。另一个经验性处理是删除低产率（`yield < 25`）记录，以减少明显低可行性条件对主训练分布的干扰。
 
 #### (c) 温度
 
@@ -173,8 +178,9 @@ Reagent_final = 原 Reagent + 原 Catalyst（合并后不再单独预测 catalys
 
 1. 大小写归一化，清理多余空格
 2. 过滤无效值：`nan`, `none`, `not given`, `unknown`, `-`
-3. 通过 `name_to_smiles` 映射表把名称转为 canonical SMILES；多个名称映射到同一 canonical SMILES 的视为同一标签
-4. hydrate 后缀按无水形式归并（如 `sodium carbonate monohydrate` → `sodium carbonate`）
+3. 默认加载本地 `data_preprocess/name_to_smiles.tsv`，把俗名、缩写和拼写变体映射到统一 canonical token；该 token 可以是 canonical SMILES，也可以是规范标签（如 `neat (no solvent)`）
+4. 多个名称映射到同一 canonical token 的视为同一标签
+5. hydrate 后缀按无水形式归并（如 `sodium carbonate monohydrate` → `sodium carbonate`）
 
 #### (g) 条件复杂度过滤
 
@@ -182,7 +188,9 @@ Reagent_final = 原 Reagent + 原 Catalyst（合并后不再单独预测 catalys
 
 #### (h) 低频标签过滤
 
-统计全局 reagent / solvent 标签频次，删除频次 `< 10` 的标签。若某记录的 reagent_set 或 solvent_set 因此变空，删除该记录。
+默认按**各 family 内部**分别统计 reagent / solvent 标签频次，删除频次 `< 6` 的标签。若某记录的 reagent_set 或 solvent_set 因此变空，删除该记录。
+
+> 说明：这些阈值可配置，但当前主线默认使用 `min_yield=25`、`scope=family`、`min_freq=6`。
 
 #### (i) 条件记录去重
 

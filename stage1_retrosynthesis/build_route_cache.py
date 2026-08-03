@@ -87,8 +87,12 @@ def run_interactive(
     max_tokens: int,
 ) -> None:
     stage1_dir = repo_root / 'stage1_retrosynthesis'
+    fairseq_root = stage1_dir / 'fairseq'
+    interactive_py = fairseq_root / 'fairseq_cli' / 'interactive.py'
+    python_bin = sys.executable or 'python'
     cmd = [
-        'fairseq-interactive',
+        python_bin,
+        str(interactive_py),
         '--user-dir', 'editretro',
         str(databin),
         '-s', 'src', '-t', 'tgt',
@@ -114,6 +118,8 @@ def run_interactive(
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = device
     env.setdefault('OMP_NUM_THREADS', '8')
+    existing_pythonpath = env.get('PYTHONPATH', '')
+    env['PYTHONPATH'] = str(fairseq_root) + (os.pathsep + existing_pythonpath if existing_pythonpath else '')
     with output_file.open('w', encoding='utf-8') as out:
         subprocess.run(cmd, cwd=str(stage1_dir), env=env, stdout=out, check=True)
 

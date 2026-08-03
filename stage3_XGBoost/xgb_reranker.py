@@ -14,8 +14,10 @@ from prosys_shared.constants import (
     CONTEXT_DENSE_COLUMNS_V2,
     PRODUCT_DESCRIPTOR_COLUMNS_V2,
     ROUTE_DENSE_COLUMNS_V2,
+    ROUTE_GNN_FEATURE_COLUMNS_V2,
     SUPPORT_FEATURE_COLUMNS_V2,
 )
+from prosys_shared.mainline import evaluate_scored_frame
 
 TEXT_COLUMNS = {
     'family',
@@ -44,6 +46,7 @@ STANDARD_FEATURE_COLUMNS = (
     ROUTE_DENSE_COLUMNS_V2
     + CONTEXT_DENSE_COLUMNS_V2
     + PRODUCT_DESCRIPTOR_COLUMNS_V2
+    + ROUTE_GNN_FEATURE_COLUMNS_V2
     + SUPPORT_FEATURE_COLUMNS_V2
 )
 
@@ -60,6 +63,18 @@ RANK_FRAME_SORT_SPECS = [
     ('retro_probability', False),
     ('product', True),
     ('reactants', True),
+    ('reagent_norm', True),
+    ('solvent_norm', True),
+]
+
+HEURISTIC_STAGE3_SORT_SPECS = [
+    ('sample_index', True),
+    ('retro_rank', True),
+    ('retro_probability', False),
+    ('knn_similarity_sum', False),
+    ('knn_similarity_max', False),
+    ('knn_neighbor_count', False),
+    ('knn_weighted_mean_yield', False),
     ('reagent_norm', True),
     ('solvent_norm', True),
 ]
@@ -110,6 +125,81 @@ def _feature_matrix(frame: pd.DataFrame, feature_columns: list[str]) -> np.ndarr
     return work.loc[:, feature_columns].to_numpy(dtype=np.float32)
 
 
+def _sort_frame(
+    frame: pd.DataFrame,
+    sort_specs: list[tuple[str, bool]],
+) -> pd.DataFrame:
+    sort_columns: list[str] = []
+    ascending: list[bool] = []
+    for column, is_ascending in sort_specs:
+        if column in frame.columns:
+            sort_columns.append(column)
+            ascending.append(is_ascending)
+    if not sort_columns:
+        return frame.reset_index(drop=True)
+    return frame.sort_values(sort_columns, ascending=ascending, kind='mergesort').reset_index(drop=True)
+
+
+def _attach_stage2_heuristic_prior(frame: pd.DataFrame) -> pd.DataFrame:
+    work = _sort_frame(frame, HEURISTIC_STAGE3_SORT_SPECS).copy()
+    work['stage2_heuristic_rank'] = work.groupby('sample_index', sort=False).cumcount() + 1
+    group_size = work.groupby('sample_index', sort=False)['stage2_heuristic_rank'].transform('max').astype(np.float32)
+    denom = np.maximum(group_size.to_numpy(dtype=np.float32) - 1.0, 1.0)
+    rank = work['stage2_heuristic_rank'].to_numpy(dtype=np.float32)
+    work['stage2_heuristic_prior'] = 1.0 - ((rank - 1.0) / denom)
+    return work
+
+
+def _attach_groupwise_score_columns(frame: pd.DataFrame, raw_score_column: str) -> pd.DataFrame:
+    work = frame.copy()
+    group_mean = work.groupby('sample_index', sort=False)[raw_score_column].transform('mean')
+    group_std = work.groupby('sample_index', sort=False)[raw_score_column].transform('std').fillna(0.0)
+    denom = group_std.replace(0.0, 1.0)
+    work['xgb_score_z'] = ((work[raw_score_column] - group_mean) / denom).astype(np.float32)
+    return work
+
+
+def _score_fusion_grid() -> np.ndarray:
+    return np.linspace(0.0, 2.0, 41, dtype=np.float32)
+
+
+def _select_stage3_fusion_weight(val_frame: pd.DataFrame) -> dict:
+    if val_frame.empty or 'label' not in val_frame.columns:
+        return {
+            'enabled': False,
+            'heuristic_weight': 0.0,
+            'selection_metric': 'system_top10_all',
+            'tie_break_metric': 'system_top1_all',
+        }
+
+    best_weight = 0.0
+    best_sys10 = float('-inf')
+    best_sys1 = float('-inf')
+    for weight in _score_fusion_grid():
+        work = val_frame.copy()
+        work['stage3_score_fused'] = (
+            work['xgb_score_z'].to_numpy(dtype=np.float32)
+            + (float(weight) * work['stage2_heuristic_prior'].to_numpy(dtype=np.float32))
+        )
+        metrics = evaluate_scored_frame(work, score_column='stage3_score_fused')
+        sys10 = float(metrics.get('system_top10_all', 0.0))
+        sys1 = float(metrics.get('system_top1_all', 0.0))
+        if sys10 > best_sys10 + 1e-12 or (abs(sys10 - best_sys10) <= 1e-12 and sys1 > best_sys1):
+            best_weight = float(weight)
+            best_sys10 = sys10
+            best_sys1 = sys1
+
+    return {
+        'enabled': True,
+        'heuristic_weight': best_weight,
+        'selection_metric': 'system_top10_all',
+        'tie_break_metric': 'system_top1_all',
+        'val_system_top10_all': best_sys10,
+        'val_system_top1_all': best_sys1,
+        'score_definition': 'xgb_score_z + heuristic_weight * stage2_heuristic_prior',
+    }
+
+
 def _positive_temperature_rows(frame: pd.DataFrame) -> pd.DataFrame:
     if 'temperature_gold' not in frame.columns or 'label' not in frame.columns:
         return frame.iloc[0:0].copy()
@@ -136,6 +226,7 @@ def _train_temperature_regressor(
     subsample: float,
     colsample_bytree: float,
     reg_lambda: float,
+    n_jobs: int,
 ) -> tuple[str | None, str, int]:
     train_temp = _positive_temperature_rows(train_frame)
     val_temp = _positive_temperature_rows(val_frame)
@@ -156,6 +247,7 @@ def _train_temperature_regressor(
             'colsample_bytree': colsample_bytree,
             'reg_lambda': reg_lambda,
             'random_state': random_state,
+            'n_jobs': n_jobs,
         },
     }
 
@@ -178,6 +270,7 @@ def _train_temperature_regressor(
         reg_lambda=reg_lambda,
         tree_method='hist',
         random_state=random_state,
+        n_jobs=n_jobs,
     )
 
     if val_temp.empty:
@@ -194,6 +287,57 @@ def _train_temperature_regressor(
     return str(model_file), str(metadata_file), int(len(train_temp))
 
 
+def train_xgb_temperature_regressor(
+    train_table_file: str | Path,
+    val_table_file: str | Path,
+    output_dir: str | Path,
+    *,
+    random_state: int = 0,
+    n_estimators: int = 300,
+    learning_rate: float = 0.05,
+    max_depth: int = 6,
+    subsample: float = 0.8,
+    colsample_bytree: float = 0.8,
+    reg_lambda: float = 1.0,
+    n_jobs: int = 1,
+) -> dict:
+    """Train only the Stage 3 temperature regressor on a candidate table.
+
+    This supports architectures where ranking and temperature intentionally use
+    different feature sets, while retaining the same train/validation protocol
+    as :func:`train_xgb_ranker_and_temperature`.
+    """
+    train_frame = _prepare_rank_frame(train_table_file)
+    val_frame = _prepare_rank_frame(val_table_file)
+    feature_columns = infer_xgb_feature_columns(train_frame)
+    if not feature_columns:
+        raise ValueError(f'No feature columns inferred from {train_table_file}')
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    model_file, metadata_file, num_train = _train_temperature_regressor(
+        train_frame=train_frame,
+        val_frame=val_frame,
+        feature_columns=feature_columns,
+        output_dir=output_path,
+        random_state=random_state,
+        n_estimators=n_estimators,
+        learning_rate=learning_rate,
+        max_depth=max_depth,
+        subsample=subsample,
+        colsample_bytree=colsample_bytree,
+        reg_lambda=reg_lambda,
+
+        n_jobs=n_jobs,
+    )
+    return {
+        'output_dir': str(output_path),
+        'model_file': model_file,
+        'metadata_file': metadata_file,
+        'feature_columns': feature_columns,
+        'temperature_num_train': num_train,
+    }
+
 def train_xgb_ranker_and_temperature(
     train_table_file: str | Path,
     val_table_file: str | Path,
@@ -209,6 +353,7 @@ def train_xgb_ranker_and_temperature(
     temperature_n_estimators: int | None = None,
     temperature_learning_rate: float | None = None,
     temperature_max_depth: int | None = None,
+    n_jobs: int = 1,
 ) -> dict:
     train_frame = _prepare_rank_frame(train_table_file)
     val_frame = _prepare_rank_frame(val_table_file)
@@ -236,6 +381,7 @@ def train_xgb_ranker_and_temperature(
         tree_method='hist',
         random_state=random_state,
         early_stopping_rounds=30,
+        n_jobs=n_jobs,
     )
     model.fit(
         x_train,
@@ -251,9 +397,17 @@ def train_xgb_ranker_and_temperature(
     model_file = output_path / RANKER_MODEL_FILE_NAME
     metadata_file = output_path / RANKER_METADATA_FILE_NAME
     model.save_model(model_file)
+
+    val_scored = val_frame.copy()
+    val_scored['xgb_score_raw'] = model.predict(x_val).astype(np.float32)
+    val_scored = _attach_stage2_heuristic_prior(val_scored)
+    val_scored = _attach_groupwise_score_columns(val_scored, 'xgb_score_raw')
+    score_fusion = _select_stage3_fusion_weight(val_scored)
+
     metadata = {
         'feature_columns': feature_columns,
         'best_iteration': int(model.best_iteration) if model.best_iteration is not None else None,
+        'score_fusion': score_fusion,
         'params': {
             'objective': 'rank:ndcg',
             'eval_metric': 'ndcg@10',
@@ -264,6 +418,7 @@ def train_xgb_ranker_and_temperature(
             'colsample_bytree': colsample_bytree,
             'reg_lambda': reg_lambda,
             'random_state': random_state,
+            'n_jobs': n_jobs,
         },
     }
     metadata_file.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
@@ -280,6 +435,7 @@ def train_xgb_ranker_and_temperature(
         subsample=subsample,
         colsample_bytree=colsample_bytree,
         reg_lambda=reg_lambda,
+        n_jobs=n_jobs,
     )
 
     return {
@@ -349,7 +505,19 @@ def score_table_with_xgb(
 
     work = _feature_frame(frame, feature_columns)
     ranker = load_xgb_ranker(model_file)
-    work['xgb_score'] = ranker.predict(work.loc[:, feature_columns].to_numpy(dtype=np.float32))
+    work['xgb_score_raw'] = ranker.predict(work.loc[:, feature_columns].to_numpy(dtype=np.float32)).astype(np.float32)
+    work = _attach_stage2_heuristic_prior(work)
+    work = _attach_groupwise_score_columns(work, 'xgb_score_raw')
+
+    score_fusion = metadata.get('score_fusion') or {}
+    if bool(score_fusion.get('enabled')):
+        weight = float(score_fusion.get('heuristic_weight', 0.0))
+        work['xgb_score'] = (
+            work['xgb_score_z'].to_numpy(dtype=np.float32)
+            + (weight * work['stage2_heuristic_prior'].to_numpy(dtype=np.float32))
+        ).astype(np.float32)
+    else:
+        work['xgb_score'] = work['xgb_score_raw'].to_numpy(dtype=np.float32)
 
     temp_model_path, temp_meta = _resolve_temperature_artifacts(
         model_file=model_file,

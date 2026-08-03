@@ -36,7 +36,6 @@ from baseline.common import (
     stable_sort_candidate_frame,
     train_xgb_ranker,
 )
-from baseline.legacy_models import LegacyRankingEvaluator
 from baseline.run_non_oracle_baselines import stage1_route_recall
 from baseline.run_oracle_baselines import (
     ClusterContextPoolBuilder,
@@ -55,7 +54,7 @@ TOPKS = (1, 3, 5, 10)
 
 HISTORICAL_BASELINES = ['prototype_fnn', 'knn_xgb']
 STAGE3_BASELINES = ['knn_xgb', 'knn_rf', 'knn_svm', 'knn_bayes']
-STAGE2_BASELINES = ['knn_xgb', 'cluster_xgb', 'fnnpool_xgb']
+STAGE2_BASELINES = ['knn_xgb', 'cluster_xgb']
 ALL_BASELINES = [
     'prototype_fnn',
     'knn_xgb',
@@ -63,7 +62,6 @@ ALL_BASELINES = [
     'knn_svm',
     'knn_bayes',
     'cluster_xgb',
-    'fnnpool_xgb',
 ]
 ABLATION_BASELINES = [baseline for baseline in ALL_BASELINES if baseline != 'prototype_fnn']
 RUN_SETS = {
@@ -81,7 +79,6 @@ BASELINE_LABELS = {
     'knn_svm': 'KNN+SVM',
     'knn_bayes': 'KNN+Bayes',
     'cluster_xgb': 'Cluster+XGB',
-    'fnnpool_xgb': 'FNN-pool+XGB',
 }
 
 REPORT_FILTER_BASELINE = 'knn_xgb'
@@ -254,162 +251,6 @@ def _ensure_cluster_tables(
                 }
             )
     stable_sort_candidate_frame(pd.DataFrame(rows)).to_csv(paths['candidate_test'], index=False)
-
-    label_candidate_table(paths['candidate_train'], split_file_for_family(repo_root, family, 'train'), paths['table_train'])
-    label_candidate_table(paths['candidate_val'], split_file_for_family(repo_root, family, 'val'), paths['table_val'])
-    label_candidate_table(paths['candidate_test'], split_file_for_family(repo_root, family, 'test'), paths['table_test'])
-    return paths
-
-
-def _build_fnn_pool_non_oracle_table(
-    repo_root: Path,
-    family: str,
-    route_cache: Path,
-    output_file: Path,
-    *,
-    legacy_max_contexts: int,
-) -> Path:
-    routes = load_route_records_from_cache(route_cache, family=family)
-    mt, _ = _load_legacy_evaluators(repo_root, with_ranker=False)
-    context_builder = LegacyRankingEvaluator(mt.solvent_classes, mt.reagent_classes)
-    total_routes = len(routes)
-
-    rows: list[dict] = []
-    with torch.inference_mode():
-        for route_idx, record in enumerate(routes, start=1):
-            base = base_candidate_row(record)
-            base['from_fnn'] = 1
-            rxn_fp = torch.as_tensor(
-                _legacy_reaction_fp(
-                    record.reactants,
-                    record.product,
-                    fpsize=mt.args_MT.fpsize,
-                    radius=mt.args_MT.radius,
-                ),
-                dtype=torch.float32,
-            )
-            input_solvents, input_reagents = mt.make_input_rxn_condition(rxn_fp)
-            contexts = context_builder.make_contexts(input_solvents, input_reagents)
-
-            seen = set()
-            for rank, (solvent_norm, reagent_norm) in enumerate(contexts, start=1):
-                key = (normalize_condition_labels(reagent_norm), normalize_condition_labels(solvent_norm))
-                if key in seen:
-                    continue
-                seen.add(key)
-                rows.append(
-                    {
-                        **base,
-                        'reagent_norm': key[0],
-                        'solvent_norm': key[1],
-                        'legacy_rank': rank,
-                    }
-                )
-                if len(seen) >= legacy_max_contexts:
-                    break
-            if route_idx % 100 == 0 or route_idx == total_routes:
-                print(f'[stage23-nonoracle] {family} fnnpool-test {route_idx}/{total_routes}', flush=True)
-
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    stable_sort_candidate_frame(pd.DataFrame(rows)).to_csv(output_file, index=False)
-    return output_file
-
-
-def _build_fnn_pool_split_table(
-    repo_root: Path,
-    family: str,
-    split: str,
-    output_file: Path,
-    *,
-    legacy_max_contexts: int,
-    max_routes: int | None,
-) -> Path:
-    records = load_route_records(split_file_for_family(repo_root, family, split), family=family)
-    if max_routes is not None:
-        records = records[:max_routes]
-
-    mt, _ = _load_legacy_evaluators(repo_root, with_ranker=False)
-    context_builder = LegacyRankingEvaluator(mt.solvent_classes, mt.reagent_classes)
-    total_records = len(records)
-    rows: list[dict] = []
-    with torch.inference_mode():
-        for route_idx, record in enumerate(records, start=1):
-            base = base_candidate_row(record)
-            base['from_fnn'] = 1
-            rxn_fp = torch.as_tensor(
-                _legacy_reaction_fp(
-                    record.reactants,
-                    record.product,
-                    fpsize=mt.args_MT.fpsize,
-                    radius=mt.args_MT.radius,
-                ),
-                dtype=torch.float32,
-            )
-            input_solvents, input_reagents = mt.make_input_rxn_condition(rxn_fp)
-            contexts = context_builder.make_contexts(input_solvents, input_reagents)
-
-            seen = set()
-            for rank, (solvent_norm, reagent_norm) in enumerate(contexts, start=1):
-                key = (normalize_condition_labels(reagent_norm), normalize_condition_labels(solvent_norm))
-                if key in seen:
-                    continue
-                seen.add(key)
-                rows.append(
-                    {
-                        **base,
-                        'reagent_norm': key[0],
-                        'solvent_norm': key[1],
-                        'legacy_rank': rank,
-                    }
-                )
-                if len(seen) >= legacy_max_contexts:
-                    break
-            if route_idx % 100 == 0 or route_idx == total_records:
-                print(f'[stage23-nonoracle] {family} fnnpool-{split} {route_idx}/{total_records}', flush=True)
-
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    stable_sort_candidate_frame(pd.DataFrame(rows)).to_csv(output_file, index=False)
-    return output_file
-
-
-def _ensure_fnnpool_tables(
-    repo_root: Path,
-    family: str,
-    route_cache: Path,
-    shared_root: Path,
-    *,
-    legacy_max_contexts: int,
-    max_train_routes: int,
-    max_val_routes: int,
-) -> dict[str, Path]:
-    paths = _shared_paths(shared_root)
-    if all(path.exists() for path in paths.values()):
-        return paths
-
-    _build_fnn_pool_split_table(
-        repo_root=repo_root,
-        family=family,
-        split='train',
-        output_file=paths['candidate_train'],
-        legacy_max_contexts=legacy_max_contexts,
-        max_routes=max_train_routes,
-    )
-    _build_fnn_pool_split_table(
-        repo_root=repo_root,
-        family=family,
-        split='val',
-        output_file=paths['candidate_val'],
-        legacy_max_contexts=legacy_max_contexts,
-        max_routes=max_val_routes,
-    )
-
-    _build_fnn_pool_non_oracle_table(
-        repo_root=repo_root,
-        family=family,
-        route_cache=route_cache,
-        output_file=paths['candidate_test'],
-        legacy_max_contexts=legacy_max_contexts,
-    )
 
     label_candidate_table(paths['candidate_train'], split_file_for_family(repo_root, family, 'train'), paths['table_train'])
     label_candidate_table(paths['candidate_val'], split_file_for_family(repo_root, family, 'val'), paths['table_val'])
@@ -765,16 +606,6 @@ def main(argv: list[str] | None = None) -> None:
             max_train_routes=args.max_train_routes,
             max_val_routes=args.max_val_routes,
         )
-        fnnpool_tables = _ensure_fnnpool_tables(
-            repo_root=repo_root,
-            family=family,
-            route_cache=route_cache,
-            shared_root=family_root / '_shared_fnnpool',
-            legacy_max_contexts=args.legacy_max_contexts,
-            max_train_routes=args.max_train_routes,
-            max_val_routes=args.max_val_routes,
-        )
-
         if 'prototype_fnn' in selected_baselines:
             summary_rows.append(
                 _run_prototype_fnn(
@@ -838,17 +669,6 @@ def main(argv: list[str] | None = None) -> None:
                     baseline_name='cluster_xgb',
                 )
             )
-        if 'fnnpool_xgb' in selected_baselines:
-            summary_rows.append(
-                _run_xgb_from_tables(
-                    family=family,
-                    route_cache=route_cache,
-                    output_dir=family_root / 'fnnpool_xgb' / 'non_oracle',
-                    table_paths=fnnpool_tables,
-                    baseline_name='fnnpool_xgb',
-                )
-            )
-
     flat = _flatten_rows(summary_rows)
     flat = flat.sort_values(['family', 'baseline']).reset_index(drop=True)
     flat.to_csv(output_root / 'results_flat.csv', index=False)

@@ -21,6 +21,9 @@ OUTPUT_DIR="$PROJECT_DIR/data"
 DO_STAGE1=""
 SKIP_CLEAN=""
 DO_USPTO=""
+MIN_LABEL_FREQ="${MIN_LABEL_FREQ:-6}"
+LABEL_FREQ_SCOPE="${LABEL_FREQ_SCOPE:-family}"
+MIN_YIELD="${MIN_YIELD:-25}"
 
 # 解析参数
 for arg in "$@"; do
@@ -40,6 +43,8 @@ echo " 输出目录: $OUTPUT_DIR"
 echo " Stage 1:  ${DO_STAGE1:+是}${DO_STAGE1:-否}"
 echo " USPTO:    ${DO_USPTO:+是}${DO_USPTO:-否}"
 echo " 原始清理: ${SKIP_CLEAN:+跳过}${SKIP_CLEAN:-是}"
+echo " 最小产率: yield >= $MIN_YIELD"
+echo " 低频过滤: scope=$LABEL_FREQ_SCOPE, min_freq=$MIN_LABEL_FREQ"
 echo "============================================"
 echo ""
 
@@ -48,6 +53,9 @@ cd "$PROJECT_DIR"
 python "$SCRIPT_DIR/preprocess.py" \
     --input_dir "$INPUT_DIR" \
     --output_dir "$OUTPUT_DIR" \
+    --min_yield "$MIN_YIELD" \
+    --min_label_freq "$MIN_LABEL_FREQ" \
+    --label_freq_scope "$LABEL_FREQ_SCOPE" \
     $SKIP_CLEAN \
     $DO_STAGE1 \
     $DO_USPTO

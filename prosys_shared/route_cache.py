@@ -70,3 +70,24 @@ def load_route_records_from_cache(route_cache_file: str | Path, family: str) -> 
                 )
             )
     return records
+
+
+def load_route_cache_sample_indices(route_cache_file: str | Path) -> list[int]:
+    """Return all cached test identities without exposing their gold routes."""
+
+    import json
+
+    with open(route_cache_file, 'r', encoding='utf-8') as handle:
+        cache = json.load(handle)
+
+    sample_indices: list[int] = []
+    seen: set[int] = set()
+    for reaction in cache.get('reactions', []):
+        sample_index = int(reaction['sample_index'])
+        if sample_index in seen:
+            raise ValueError(f'Duplicate sample_index={sample_index} in {route_cache_file}.')
+        seen.add(sample_index)
+        sample_indices.append(sample_index)
+    if not sample_indices:
+        raise ValueError(f'Route cache contains no reaction identities: {route_cache_file}')
+    return sample_indices

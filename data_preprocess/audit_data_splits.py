@@ -58,26 +58,33 @@ def audit_stage2(data_root: Path) -> list[str]:
 
 
 def audit_stage1(data_root: Path) -> list[str]:
-    lines = ['', 'Stage1 route audit', 'family\traw_train\traw_val\ttrain_val\tstage2_test_overlap']
+    lines = [
+        '',
+        'Stage1 route audit',
+        'family\traw_train\traw_val\traw_test\ttrain_val\ttrain_test\tval_test\tval_vs_stage2_val\ttest_vs_stage2_test\ttrainval_vs_stage2_test',
+    ]
     dataset_root = data_root / 'editretro' / 'datasets'
     for family_dir in sorted(dataset_root.glob('REAXYS_*_SINGLE_CATMERGE')):
         family_name = family_dir.name.replace('REAXYS_', '').replace('_SINGLE_CATMERGE', '')
+        stage2_train = set()
+        stage2_val = set()
         stage2_test = set()
-        stage2_test_path = (
-            data_root / f'reaction_processed_{family_name}_catmerge'
-            / 'For_second_part_model'
-            / 'Splitted_second_test_labels_processed.txt'
-        )
-        with stage2_test_path.open(encoding='utf-8') as handle:
-            for line in handle:
-                parts = line.rstrip('\n').split('\t')
-                if len(parts) >= 3:
-                    key = canonical_reaction_key(parts[1], parts[2])
-                    if key:
-                        stage2_test.add(key)
+        for split_name, holder in [('train', stage2_train), ('validate', stage2_val), ('test', stage2_test)]:
+            stage2_path = (
+                data_root / f'reaction_processed_{family_name}_catmerge'
+                / 'For_second_part_model'
+                / f'Splitted_second_{split_name}_labels_processed.txt'
+            )
+            with stage2_path.open(encoding='utf-8') as handle:
+                for line in handle:
+                    parts = line.rstrip('\n').split('\t')
+                    if len(parts) >= 3:
+                        key = canonical_reaction_key(parts[1], parts[2])
+                        if key:
+                            holder.add(key)
 
         split_keys = {}
-        for split in ['train', 'val']:
+        for split in ['train', 'val', 'test']:
             keys = set()
             with (family_dir / 'raw' / f'raw_{split}.csv').open(newline='', encoding='utf-8') as handle:
                 reader = csv.DictReader(handle)
@@ -89,11 +96,16 @@ def audit_stage1(data_root: Path) -> list[str]:
             split_keys[split] = keys
 
         lines.append(
-            '{}\t{}\t{}\t{}\t{}'.format(
+            '{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}'.format(
                 family_name,
                 len(split_keys['train']),
                 len(split_keys['val']),
+                len(split_keys['test']),
                 len(split_keys['train'] & split_keys['val']),
+                len(split_keys['train'] & split_keys['test']),
+                len(split_keys['val'] & split_keys['test']),
+                len(split_keys['val'] ^ stage2_val),
+                len(split_keys['test'] ^ stage2_test),
                 len((split_keys['train'] | split_keys['val']) & stage2_test),
             )
         )
@@ -123,7 +135,7 @@ def main() -> None:
                 leaks.append(line)
         for line in stage1_lines[3:]:
             fields = line.split('\t')
-            if any(int(value) != 0 for value in fields[-2:]):
+            if any(int(value) != 0 for value in fields[-6:]):
                 leaks.append(line)
         if leaks:
             raise SystemExit('split leakage detected:\n' + '\n'.join(leaks))
