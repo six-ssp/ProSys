@@ -1,4 +1,4 @@
-"""Run the maintained ProSys ablation suite for the ReaFNN-GNN mainline.
+"""Run the historical ReaFNN--R-GNN ranking ablation snapshot.
 
 The suite uses the existing family-tuned Stage 1 route caches and evaluates
 every method against the complete cache identity manifest.  It intentionally
@@ -53,12 +53,12 @@ TARGET_COLUMNS = {
 }
 
 METHOD_LABELS = {
-    'full_mainline': 'KNN + ReaFNN + Reaction-GNN + XGBoost',
-    'knn_only_xgb': 'KNN only + Reaction-GNN + XGBoost',
-    'frequency_top20_xgb': 'Top-20 frequency + Reaction-GNN + XGBoost',
-    'no_gnn_xgb': 'KNN + ReaFNN + XGBoost (w/o Reaction-GNN)',
-    'knn_only_no_gnn_xgb': 'KNN only + XGBoost (w/o ReaFNN and Reaction-GNN)',
-    'no_stage3': 'KNN + ReaFNN (w/o XGBoost)',
+    'full_mainline': 'Historical KNN + ReaFNN + R-GNN + XGB-LTR',
+    'knn_only_xgb': 'Historical KNN only + R-GNN + XGB-LTR',
+    'frequency_top20_xgb': 'Historical Top-20 frequency + R-GNN + XGB-LTR',
+    'no_gnn_xgb': 'Historical KNN + ReaFNN + XGB-LTR (without R-GNN)',
+    'knn_only_no_gnn_xgb': 'Historical KNN only + XGB-LTR (without ReaFNN or R-GNN)',
+    'no_stage3': 'Historical KNN + ReaFNN (without XGB-LTR)',
 }
 
 
@@ -152,7 +152,7 @@ def _candidate_budget(frame: pd.DataFrame, expected_sample_indices: Iterable[int
 def _assert_feature_contract(feature_columns: list[str]) -> None:
     leaked = sorted(set(feature_columns) & TARGET_COLUMNS)
     if leaked:
-        raise ValueError(f'Leaky target columns entered the XGBoost feature matrix: {leaked}')
+        raise ValueError(f'Leaky target columns entered the XGB-LTR feature matrix: {leaked}')
 
 
 def _frequency_context_rows(train_split_file: Path, max_contexts: int) -> list[dict]:
@@ -329,7 +329,7 @@ def _ensure_gnn_features(
     if not force and _all_exist(paths.values()):
         return paths
     if not source_gnn_model.exists():
-        raise FileNotFoundError(f'Missing frozen mainline Reaction-GNN model: {source_gnn_model}')
+        raise FileNotFoundError(f'Missing frozen historical R-GNN model: {source_gnn_model}')
 
     for split in ('train', 'val', 'test'):
         augment_table_with_reaction_gnn_features(
@@ -473,7 +473,7 @@ def _mainline_reference(
         table_paths=table_paths,
         result_root=output_root,
         force=force,
-        source='saved current ReaFNN + Reaction-GNN tables; deterministic XGBoost retraining for matched ablation protocol',
+        source='saved historical ReaFNN + R-GNN tables; deterministic XGB-LTR retraining for the matched ablation protocol',
     )
 
 
@@ -570,7 +570,7 @@ def _run_knn_only_no_gnn_xgb(
     output_root: Path,
     force: bool,
 ) -> dict:
-    """Isolate the combined removal of ReaFNN and Reaction-GNN features."""
+    """Isolate the combined removal of ReaFNN and R-GNN features."""
 
     source_root = output_root / family / '_shared_knn_only' / 'training_tables'
     table_paths = {
@@ -590,7 +590,7 @@ def _run_knn_only_no_gnn_xgb(
         table_paths=table_paths,
         result_root=output_root,
         force=force,
-        source='KNN-only candidate pool with all ReaFNN and Reaction-GNN features absent',
+        source='KNN-only candidate pool with all ReaFNN and R-GNN features absent',
     )
 
 
@@ -602,7 +602,8 @@ def _metric_row(result: dict) -> dict:
         'family': result['family'],
         'display_family': display_family_name(result['family']),
         'method': result['method'],
-        'method_label': result['method_label'],
+        # Persisted result JSON may carry legacy labels; render canonical names.
+        'method_label': METHOD_LABELS.get(result['method'], result.get('method_label', result['method'])),
         'test_n': metrics.get('num_slates'),
         'candidate_slates': metrics.get('candidate_slates'),
         'missing_candidate_slates': metrics.get('missing_candidate_slates'),
@@ -677,7 +678,7 @@ def _render_stage1(rows: list[dict]) -> str:
         '',
         'Both cache sets were checked to contain the identical ordered test identity manifest for every family.',
         '',
-        '| Family | Test n | Base@1 | Tuned@1 | Base@3 | Tuned@3 | Base@5 | Tuned@5 | Base@10 | Tuned@10 | Delta@10 |',
+        '| Family | Test n | Base Route@1 | Tuned Route@1 | Base Route@3 | Tuned Route@3 | Base Route@5 | Tuned Route@5 | Base Route@10 | Tuned Route@10 | Delta Route@10 |',
         '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     ]
     ordered = sorted(rows, key=lambda row: _family_sort_key(row['family']))
@@ -713,7 +714,7 @@ def _render_stage1(rows: list[dict]) -> str:
 def _render_method_table(frame: pd.DataFrame, title: str, introduction: str) -> str:
     lines = [f'# {title}', '', introduction, '']
     lines.extend([
-        '| Family | Method | Cover | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 | Temp MAE | Temp+/-5C | Temp+/-10C | Temp+/-20C | Temp n | Candidate slates |',
+        '| Family | Method | CR | FS@1 | FS@3 | FS@5 | FS@10 | MRR | nDCG@10 | MAE (deg C) | Within +/-5 deg C | Within +/-10 deg C | Within +/-20 deg C | N_temp | Candidate slates |',
         '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     ])
     family_order = {family: idx for idx, family in enumerate(FAMILY_ORDER)}
@@ -757,7 +758,7 @@ def _write_reports(
             _render_method_table(
                 stage2_frame,
                 'Stage 2 Ablation: Candidate Screening',
-                'Only the candidate-pool construction changes. Each pool receives its own XGBoost model trained on the corresponding train/validation tables; the frozen family Reaction-GNN encoder is identical across rows.',
+                'Only the candidate-pool construction changes. Each pool receives its own XGB-LTR model trained on the corresponding train/validation tables; the frozen family R-GNN encoder is identical across rows.',
             ),
             encoding='utf-8',
         )
@@ -766,7 +767,7 @@ def _write_reports(
         (output_root / 'stage3_reranking_ablation.md').write_text(
             _render_method_table(
                 stage3_frame,
-                'Stage 3 Ablation: Reaction-GNN and XGBoost',
+                'Historical Stage 3 Ablation: R-GNN and XGB-LTR',
                 'All rows use the saved full KNN+ReaFNN Stage 2 candidate tables. The no-Stage-3 row has no temperature regressor, so its temperature cells are intentionally N/A.',
             ),
             encoding='utf-8',
@@ -777,22 +778,22 @@ def _write_reports(
             _render_method_table(
                 interaction_frame,
                 'Stage 2/3 Interaction Control',
-                'This factorial control separates the ReaFNN candidate-pool contribution from the Reaction-GNN feature contribution. All rows share the same Stage 1 routes, full-manifest denominator, candidate cap, and train/validation-only model fitting.',
+                'This factorial control separates the ReaFNN candidate-pool contribution from the R-GNN feature contribution. All rows share the same Stage 1 routes, full-manifest denominator, candidate cap, and train/validation-only model fitting.',
             ),
             encoding='utf-8',
         )
 
     overview = [
-        '# Current-Mainline Ablation Results',
+        '# Historical Stage 1--3 Ablation Snapshot',
         '',
-        'This result root supersedes the legacy KNN-XGBoost ablation outputs. Every Stage 2/3 metric uses all reaction identities in the Stage 1 test cache as the denominator; samples without a Stage 1 route are retained as zero-hit slates.',
+        'This result root is retained as controlled historical design evidence. It is not the maintained headline mainline; use CURRENT_RESULTS.md for the current tabular XGB-LTR ranking and validation-gated R-GNN temperature configuration. Every Stage 2/3 metric uses all reaction identities in the Stage 1 test cache as the denominator; samples without a Stage 1 route are retained as zero-hit slates.',
         '',
         'Generated tables:',
         '',
         '- `stage1_route_ablation.md`: base model versus family-tuned route recall.',
         '- `stage2_pool_ablation.md`: full KNN+ReaFNN pool, KNN-only pool, and Top-20 training-frequency pool.',
-        '- `stage3_reranking_ablation.md`: full model, no Reaction-GNN feature, and no XGBoost reranker.',
-        '- `stage23_interaction_ablation.md`: a 2x2 control across ReaFNN pooling and Reaction-GNN features.',
+        '- `stage3_reranking_ablation.md`: historical full model, no R-GNN feature, and no XGB-LTR reranker.',
+        '- `stage23_interaction_ablation.md`: a 2x2 historical control across ReaFNN pooling and R-GNN features.',
         '',
         'Training KNN candidate pools use leave-one-reaction-out retrieval and query-adjusted global support statistics. Validation and test routes are outside the train memory.',
         '',
@@ -803,7 +804,7 @@ def _write_reports(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description='Run current-mainline ProSys ablations.')
+    parser = argparse.ArgumentParser(description='Run the historical ProSys ReaFNN--R-GNN ranking ablation snapshot.')
     parser.add_argument('--repo_root', type=str, default='.')
     parser.add_argument('--families', type=str, default='all')
     parser.add_argument('--run_set', choices=['all', 'stage1', 'stage2', 'stage3', 'interaction'], default='all')
@@ -907,7 +908,7 @@ def main() -> None:
                 table_paths=knn_gnn,
                 result_root=output_root,
                 force=args.force,
-                source='KNN candidate pool without ReaFNN; frozen current-mainline Reaction-GNN encoder',
+                source='KNN candidate pool without ReaFNN; frozen historical R-GNN encoder',
             )
 
             frequency_pool = _build_frequency_tables(
@@ -932,7 +933,7 @@ def main() -> None:
                 table_paths=frequency_gnn,
                 result_root=output_root,
                 force=args.force,
-                source='Top-20 global context frequency from this family train split; frozen current-mainline Reaction-GNN encoder',
+                source='Top-20 global context frequency from this family train split; frozen historical R-GNN encoder',
             )
             stage2_results.extend([full, knn_only, frequency])
 

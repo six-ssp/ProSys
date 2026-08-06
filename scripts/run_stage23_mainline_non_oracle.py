@@ -1,4 +1,4 @@
-"""Run the maintained ProSys Non-Oracle mainline: KNN pool + XGBoost rerank."""
+"""Run the maintained ProSys Non-Oracle mainline: Stage 2 + tabular XGB-LTR."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ from prosys_shared.mainline import (
     stage1_route_recall,
     stable_sort_candidate_frame,
 )
+from prosys_shared.nomenclature import PUBLIC_METRIC_LABELS
 from prosys_shared.route_cache import load_route_cache_sample_indices
 from stage2_KNN import KNNContextPoolBuilder
 from stage2_KNN.reafnn_selector import ReaFNNConfig
@@ -610,10 +611,10 @@ def _format_percent(value: float | None) -> str:
     return f'{value * 100.0:.1f}'
 
 
-def _format_number(value: float | None) -> str:
+def _format_number(value: float | None, digits: int = 2) -> str:
     if value is None or pd.isna(value):
         return 'NA'
-    return f'{value:.2f}'
+    return f'{value:.{digits}f}'
 
 
 def _write_overview(flat: pd.DataFrame, output_root: Path) -> list[Path]:
@@ -628,8 +629,10 @@ def _write_overview(flat: pd.DataFrame, output_root: Path) -> list[Path]:
         'rr10': _mean_metric(flat['rr10'].tolist()),
         'pool_coverage': _mean_metric(flat['pool_coverage'].tolist()),
         'sys1': _mean_metric(flat['sys1'].tolist()),
+        'sys3': _mean_metric(flat['sys3'].tolist()),
         'sys5': _mean_metric(flat['sys5'].tolist()),
         'sys10': _mean_metric(flat['sys10'].tolist()),
+        'temp_n': int(pd.to_numeric(flat['temp_n'], errors='coerce').fillna(0).sum()),
         'temp_mae': _mean_metric(flat['temp_mae'].dropna().tolist()),
         'temp_within_5c': _mean_metric(flat['temp_within_5c'].dropna().tolist()),
         'temp_within_10c': _mean_metric(flat['temp_within_10c'].dropna().tolist()),
@@ -638,9 +641,9 @@ def _write_overview(flat: pd.DataFrame, output_root: Path) -> list[Path]:
 
     display_rows = flat.to_dict(orient='records') + [macro]
 
-    md_lines = ['# Non-Oracle mainline results', '', '## Route + System', '']
-    md_lines.append('| Family | rr@10 | cover | sys@1 | sys@5 | sys@10 |')
-    md_lines.append('| --- | ---: | ---: | ---: | ---: | ---: |')
+    md_lines = ['# ProSys Non-Oracle Mainline Results', '', '## Route and Full-System Metrics', '']
+    md_lines.append('| Family | Route@10 | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy |')
+    md_lines.append('| --- | ---: | ---: | ---: | ---: | ---: | ---: |')
     for row in display_rows:
         md_lines.append(
             '| '
@@ -650,21 +653,23 @@ def _write_overview(flat: pd.DataFrame, output_root: Path) -> list[Path]:
                     _format_percent(row.get('rr10')),
                     _format_percent(row.get('pool_coverage')),
                     _format_percent(row.get('sys1')),
+                    _format_percent(row.get('sys3')),
                     _format_percent(row.get('sys5')),
                     _format_percent(row.get('sys10')),
                 ]
             )
             + ' |'
         )
-    md_lines.extend(['', '## Temperature', ''])
-    md_lines.append('| Family | Temp MAE | Temp±5C | Temp±10C | Temp±20C |')
-    md_lines.append('| --- | ---: | ---: | ---: | ---: |')
+    md_lines.extend(['', '## Conditional Temperature Metrics', ''])
+    md_lines.append('| Family | N_temp | MAE (deg C) | Within +/-5 deg C | Within +/-10 deg C | Within +/-20 deg C |')
+    md_lines.append('| --- | ---: | ---: | ---: | ---: | ---: |')
     for row in display_rows:
         md_lines.append(
             '| '
             + ' | '.join(
                 [
                     display_family_name(str(row['family'])),
+                    _format_number(row.get('temp_n'), 0),
                     _format_number(row.get('temp_mae')),
                     _format_percent(row.get('temp_within_5c')),
                     _format_percent(row.get('temp_within_10c')),
@@ -678,15 +683,25 @@ def _write_overview(flat: pd.DataFrame, output_root: Path) -> list[Path]:
     outputs.append(overview_md)
 
     family_width = max(len(display_family_name(str(row['family']))) for row in display_rows)
-    txt_lines = ['Non-Oracle mainline results', f'{"family":<{family_width}}  {"rr@10":>5}  {"cover":>5}  {"sys@1":>5}  {"sys@5":>5}  {"sys@10":>6}']
+    route_label = PUBLIC_METRIC_LABELS['route_recall_top10']
+    cr_label = PUBLIC_METRIC_LABELS['pool_coverage']
+    fs1_label = PUBLIC_METRIC_LABELS['system_top1_all']
+    fs3_label = PUBLIC_METRIC_LABELS['system_top3_all']
+    fs5_label = PUBLIC_METRIC_LABELS['system_top5_all']
+    fs10_label = PUBLIC_METRIC_LABELS['system_top10_all']
+    txt_lines = [
+        'ProSys Non-Oracle Mainline Results',
+        f'{"family":<{family_width}}  {route_label:>8}  {cr_label:>5}  {fs1_label:>5}  {fs3_label:>5}  {fs5_label:>5}  {fs10_label:>5}',
+    ]
     for row in display_rows:
         txt_lines.append(
             f'{display_family_name(str(row["family"])):<{family_width}}  '
-            f'{_format_percent(row.get("rr10")):>5}  '
+            f'{_format_percent(row.get("rr10")):>8}  '
             f'{_format_percent(row.get("pool_coverage")):>5}  '
             f'{_format_percent(row.get("sys1")):>5}  '
+            f'{_format_percent(row.get("sys3")):>5}  '
             f'{_format_percent(row.get("sys5")):>5}  '
-            f'{_format_percent(row.get("sys10")):>6}'
+            f'{_format_percent(row.get("sys10")):>5}'
         )
     overview_txt = output_root / 'overview.txt'
     overview_txt.write_text('\n'.join(txt_lines) + '\n', encoding='utf-8')
@@ -723,7 +738,7 @@ def main() -> None:
     parser.add_argument('--gnn_force_retrain', action='store_true')
     parser.add_argument('--reuse_candidate_tables_root', type=str, default=None)
     parser.add_argument('--gnn_temperature_min_val_mae_improvement', type=float, default=0.25)
-    parser.add_argument('--seed', type=int, default=0, help='Shared random seed for ReaFNN, Reaction-GNN, and XGBoost.')
+    parser.add_argument('--seed', type=int, default=0, help='Shared random seed for ReaFNN, R-GNN, and XGB-LTR.')
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()

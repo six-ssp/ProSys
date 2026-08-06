@@ -11,8 +11,8 @@ The exact source URLs and commits are recorded in `source_manifest.json`.
 | Reference | ProSys role | Required adaptation |
 |---|---|---|
 | MolecularTransformer | Direct Product-to-System Transformer | Product-only source and tagged reactant/reagent/solvent target |
-| Reaction_condition_recommendation | Sequential FNN | Catalyst is merged into the reagent set; labels allow up to three reagents and two solvents |
-| reaction-gcnn | Reaction-GCNN | Six family-specific vocabularies replace the upstream hard-coded cross-coupling dictionaries |
+| Reaction_condition_recommendation | EditRetro + Sequential FNN | Catalyst is merged into the reagent set; labels allow up to three reagents and two solvents |
+| reaction-gcnn | EditRetro + Reaction-GCNN | Six family-specific vocabularies replace the upstream hard-coded cross-coupling dictionaries |
 
 The upstream FNN code targets legacy Keras/Python 2 conventions and the upstream
 GCNN code targets legacy Chainer with fixed dataset names. The vendor directories
@@ -45,9 +45,9 @@ The generator creates the following artifacts per family:
 from the same filtered USPTO corpus used by the Stage 1 base model. It does not
 use any Reaxys test record or condition label.
 
-## Formal Baseline 2/3 run
+## Formal Baseline 3/4 Run
 
-For the formal Sequential FNN and Reaction-GCNN comparison, reuse the existing
+For the formal EditRetro + Sequential FNN and EditRetro + Reaction-GCNN comparison, reuse the existing
 mainline test route caches and create a separate validation-only route cache.
 The validation cache is used only to select the relative route/condition score
 weight; it is not a second test set.

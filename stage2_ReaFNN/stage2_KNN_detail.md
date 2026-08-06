@@ -4,10 +4,11 @@
 
 当前这份文档对应的官方主线结果快照是：
 
-- `outputs/stage23_mainline_reafnn_gnn_fused_20260723/`
+- `outputs/stage23_mainline_gnn_temperature_gated_20260803/`
 
-`outputs/stage23_mainline/` 是修正前的历史快照，只保留用于追溯；当前
-指标和论文只能引用上面的 fused 结果目录或根目录的 `CURRENT_RESULTS.md`。
+`outputs/stage23_mainline/` 与
+`outputs/stage23_mainline_reafnn_gnn_fused_20260723/` 都是历史快照，只保留用于追溯；当前
+指标和论文只能引用上面的当前结果目录或根目录的 `CURRENT_RESULTS.md`。
 
 需要额外区分的是：
 
@@ -19,7 +20,7 @@
 
 - `KNN` 先做宽召回
 - `ReaFNN` 再做 token 级二次筛选
-- 最终把候选池交给 Stage 3 的 `Reaction-GNN + XGBoost`
+- 最终把候选池交给 Stage 3 的 `tabular XGB-LTR`，并由验证集门控的 `R-GNN` 温度分支输出温度
 
 ## 1. 模块目标
 
@@ -549,7 +550,7 @@ input route feature (8218)
 当前主线保留 novel context，不是为了让它在候选池里大量出现，而是为了满足两个更重要的目标：
 
 1. 明确说明系统并不被限制在历史完整组合空间里做封闭式选择。
-2. 又不让完全自由组合带来的长尾噪声压垮主线 `sys@k`。
+2. 又不让完全自由组合带来的长尾噪声压垮主线 `full-system Top-k accuracy`。
 
 因此当前策略是一个刻意保守的折中：
 
@@ -632,7 +633,7 @@ Non-Oracle 模式从 Stage 1 的 `route_cache.json` 中读取预测路线：
 - KNN 负责给出局部历史先验，family 内更稳
 - ReaFNN 负责避免候选池过于保守，补充更泛化的可行组合
 - 最终仍尽量落在历史已见组合上，控制长尾噪声
-- 输出的 `knn_* + reaffn_*` 特征可以直接送给 Stage 3 XGBoost 继续学习
+- 输出的 `knn_* + reaffn_*` 特征可以直接送给 Stage 3 XGB-LTR 继续学习
 
 这里尤其要注意：
 
@@ -655,18 +656,18 @@ Non-Oracle 模式从 Stage 1 的 `route_cache.json` 中读取预测路线：
 2. 生成 top-N 候选条件池
 3. 把候选及其 KNN 支持特征写入 csv
 4. 交给 `label_candidate_table(...)` 打标
-5. 再交给 Stage 3 XGBoost 重排
+5. 再交给 Stage 3 XGB-LTR 重排
 
 所以它输出的是“候选池 + 支持特征”，不是最终答案。
 
 
 ## 8.1 当前官方主线下的 Stage 2 效果
 
-在 `outputs/stage23_mainline_reafnn_gnn_fused_20260723/` 这轮官方主线结果里，Stage 2 的宏平均表现是：
+在 `outputs/stage23_mainline_gnn_temperature_gated_20260803/` 当前主线结果里，Stage 2 的宏平均表现是：
 
-- `route pool coverage = 63.20%`
-- `context pool coverage = 81.58%`
-- `full-system cover = 49.18%`
+- `Route recall = 63.20%`
+- `Condition recall = 81.58%`
+- `candidate recall = 49.18%`
 
 这说明当前 `KNN + ReaFNN` 的主要价值是：
 
@@ -675,7 +676,7 @@ Non-Oracle 模式从 Stage 1 的 `route_cache.json` 中读取预测路线：
 - 为 Stage 3 留下真实可学的 reranking 空间
 
 此外，当前维护代码还显式保留了少量 novel-context trial。
-这一步的意义主要是方法论上的，它说明主线不是只在历史完整组合空间里做封闭式选择，而不是单纯追求大幅改写 `cover`。
+这一步的意义主要是方法论上的，它说明主线不是只在历史完整组合空间里做封闭式选择，而不是单纯追求大幅改写 `candidate recall`。
 
 
 ## 9. 无泄露说明
@@ -735,18 +736,18 @@ python -m stage2_KNN.knn_condition_selector \
 
 ## 11. 预期效果
 
-Stage 2 KNN 的预期不是直接把 `sys@k` 拉满，而是：
+Stage 2 KNN 的预期不是直接把 `full-system Top-k accuracy` 拉满，而是：
 
 - 比全局高频条件更精准
 - 比 cluster 分桶更细粒度
 - 在不引入复杂 DL 筛选器的前提下，提供更高的候选覆盖率
-- 为 Stage 3 XGBoost 提供强支持特征
+- 为 Stage 3 XGB-LTR 提供强支持特征
 
 因此它的主要观察指标应当是：
 
-- `pool_coverage`
-- `context_topk`
-- `route_topk`
-- 为 Stage 3 提供的最终 `sys@k` 上限
+- `candidate recall`（内部字段为 `pool_coverage`）
+- `Condition recall`
+- `Route recall`
+- 为 Stage 3 提供的最终 `full-system Top-k accuracy` 上限
 
 如果 Stage 2 候选池没把正确条件放进来，Stage 3 再强也救不回来。

@@ -37,6 +37,11 @@ stage2/__pycache__/
 # Local manuscript drafts and paper-delivery bundles (kept outside the code repository)
 /manuscript/
 /ProSys*.docx
+/ProSys_SI_outline_based_on_V9.md
+/ProSys_Supplementary_Information.md
+/ProSys_Supplementary_Information.md.orig
+/audit/
+/scripts/render_paper_docx.py
 # External baseline repositories are reproducibly fetched from their upstream URLs.
 /baseline/MolecularTransformer/
 /baseline/Reaction_condition_recommendation/

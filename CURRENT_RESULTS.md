@@ -1,4 +1,6 @@
-# ProSys Current Verified Results
+# ProSys: A Product-to-System Framework for Target-Product-Driven Reaction-System Recommendation
+
+## Current Verified Results
 
 Date: `2026-08-03`
 
@@ -15,13 +17,13 @@ target product
   -> family-specific specialist artifacts selected by the evaluation partition
   -> family-tuned EditRetro route proposals
   -> KNN wide recall + ReaFNN condition-pool selection
-  -> no-GNN XGBoost reranking + validation-gated Reaction-GNN temperature prediction
+  -> tabular XGB-LTR full-system reranking + validation-gated R-GNN temperature prediction
   -> ranked reaction systems
 ```
 
 The family identifier selects the separately trained expert, condition memory,
 and label vocabulary outside the feature encoder. It is not concatenated to a
-product fingerprint, route representation, ReaFNN input, or XGBoost feature
+product fingerprint, route representation, ReaFNN input, or XGB-LTR feature
 row. Thus these results are not product-plus-reaction-type feature fusion;
 they are reported for family-specific specialists.
 
@@ -51,7 +53,7 @@ is no longer the source of current headline metrics.
 
 ## Mainline Performance
 
-| Family | Route@10 | Pool cover | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
+| Family | Route@10 | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy | MRR | nDCG@10 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Beckmann | 69.79 | 39.57 | 18.72 | 23.83 | 25.96 | 29.79 | 22.64 | 23.13 |
 | Buchwald-Hartwig | 69.97 | 48.68 | 37.22 | 44.68 | 45.77 | 46.77 | 41.03 | 42.17 |
@@ -63,11 +65,11 @@ is no longer the source of current headline metrics.
 
 | Temperature statistic | Value |
 | --- | ---: |
-| Valid conditional support | 1,603 |
-| Macro-average MAE | 11.11 C |
-| Macro-average within +/-5 C | 39.22% |
-| Macro-average within +/-10 C | 62.62% |
-| Macro-average within +/-20 C | 82.93% |
+| N_temp | 1,603 |
+| MAE (deg C) | 11.11 |
+| Within +/-5 deg C | 39.22% |
+| Within +/-10 deg C | 62.62% |
+| Within +/-20 deg C | 82.93% |
 
 
 ## Evidence Strength From Ablation
@@ -75,11 +77,11 @@ is no longer the source of current headline metrics.
 | Controlled comparison | Main result | Interpretation |
 | --- | --- | --- |
 | Base Stage 1 vs family-tuned Stage 1 | Route@10: `14.97% -> 63.20%` | Fine-tuning improves every family; the macro gain is `+48.22 pp`. |
-| Global top-20 frequency pool vs full Stage 2 | Cover: `25.63% -> 49.18%`; historical Sys@10: `17.72% -> 42.68%` | Route-conditioned local retrieval is essential. |
-| Reaction-GNN rank features | Historical ablation: `42.68%` with graph rank features vs `43.76%` without | Graph features have a mixed ranking effect and are not used by the current ranker. |
-| Validation-gated GNN temperature branch | Fixed-ranking Temp. MAE: `12.85 C -> 11.11 C`; Temp +/-10 C: `56.77% -> 62.62%` | The GNN is retained only where validation MAE improves by at least `0.25 C`; ranking metrics cannot decrease by design. |
-| Full Stage 2 vs KNN-only Stage 2 | Historical Sys@10: `42.68%` vs `43.33%` | ReaFNN changes candidate composition but is not a universal macro Sys@k gain in that control. |
-| Candidate-aware route-context GNN residual | Beckmann interaction pilot: selected alpha `0`; related six-family residual probe: `0/6` accepted | The branch is validation-gated and remains exploratory; it does not alter headline `Sys@k`. |
+| Global top-20 frequency pool vs full Stage 2 | candidate recall: `25.63% -> 49.18%`; historical full-system Top-10 accuracy: `17.72% -> 42.68%` | Route-conditioned local retrieval is essential. |
+| R-GNN rank features | Historical ablation: `42.68%` with graph rank features vs `43.76%` without | Graph features have a mixed ranking effect and are not used by the current ranker. |
+| Validation-gated R-GNN temperature branch | Fixed-ranking MAE (deg C): `12.85 -> 11.11`; Within +/-10 deg C: `56.77% -> 62.62%` | R-GNN is retained only where validation MAE improves by at least `0.25 C`; ranking metrics cannot decrease by design. |
+| Full Stage 2 vs KNN-only Stage 2 | Historical full-system Top-10 accuracy: `42.68%` vs `43.33%` | ReaFNN changes candidate composition but is not a universal macro full-system Top-k accuracy gain in that control. |
+| Candidate-aware route-context GNN residual | Beckmann interaction pilot: selected alpha `0`; related six-family residual probe: `0/6` accepted | The branch is validation-gated and remains exploratory; it does not alter headline `full-system Top-k accuracy`. |
 
 The new temperature gate is selected per family on validation MAE only. It
 enabled the GNN regressor for four of six families; the test set is used only
@@ -88,9 +90,9 @@ for the final, fixed-policy report.
 ## Candidate-aware GNN Update
 
 `stage3_XGBoost/condition_aware_gnn.py` adds a route-context interaction
-network on top of frozen 64-dimensional route-GNN features and learned reagent
+network on top of frozen 64-dimensional R-GNN features and learned reagent
 and solvent token embeddings. Its score fusion is selected on validation
-System@10 only. The completed Beckmann interaction-model pilot selected
+full-system Top-10 accuracy only. The completed Beckmann interaction-model pilot selected
 `alpha = 0`, and the related six-family auxiliary-token residual probe selected
 no nonzero residual. This implementation is preserved for further development,
 but it is not part of the official model or of the result tables above.
@@ -102,21 +104,21 @@ direct Product-to-Condition models, which predict contexts from the target
 product before pairing them with frozen Stage 1 routes; two are downstream
 route-conditioned baselines:
 
-- `Product-Bernoulli Naive Bayes Condition Prediction`: macro Sys@10 `21.48%`.
-- `Product-GNN Condition Prediction`: macro Sys@10 `23.05%`.
-- `EditRetro + Sequential FNN`: macro Sys@10 `31.67%`.
-- `EditRetro + Reaction-GCNN`: macro Sys@10 `21.03%`.
+- `Product-Bernoulli Naive Bayes` (product Bernoulli naive Bayes): macro full-system Top-10 accuracy `21.48%`.
+- `Product-GNN` (product graph neural network): macro full-system Top-10 accuracy `23.05%`.
+- `EditRetro + Sequential FNN`: macro full-system Top-10 accuracy `31.67%`.
+- `EditRetro + Reaction-GCNN`: macro full-system Top-10 accuracy `21.03%`.
 
-| Method | Cover | Sys@1 | Sys@10 | MRR | nDCG@10 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Product-Bernoulli Naive Bayes Condition Prediction | 31.68 | 9.10 | 21.48 | 13.15 | 14.56 |
-| Product-GNN Condition Prediction | 38.03 | 6.55 | 23.05 | 11.63 | 13.52 |
-| EditRetro + Sequential FNN | 45.99 | 17.06 | 31.67 | 22.27 | 23.84 |
-| EditRetro + Reaction-GCNN | 38.01 | 7.93 | 21.03 | 12.18 | 13.50 |
-| ProSys current mainline | 49.18 | 30.11 | 43.91 | 35.03 | 36.33 |
+| Method | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy | MRR | nDCG@10 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Product-Bernoulli Naive Bayes | 31.68 | 9.10 | 14.87 | 17.45 | 21.48 | 13.15 | 14.56 |
+| Product-GNN | 38.03 | 6.55 | 12.90 | 16.77 | 23.05 | 11.63 | 13.52 |
+| EditRetro + Sequential FNN | 45.99 | 17.06 | 24.64 | 27.98 | 31.67 | 22.27 | 23.84 |
+| EditRetro + Reaction-GCNN | 38.01 | 7.93 | 13.16 | 16.36 | 21.03 | 12.18 | 13.50 |
+| ProSys current mainline | 49.18 | 30.11 | 38.04 | 41.13 | 43.91 | 35.03 | 36.33 |
 
-The mainline exceeds the formal low-capacity Product-Naive-Bayes and
-Product-GNN direct controls at all reported macro cutoffs. The reaction-level
+The mainline exceeds the formal low-capacity Product-Bernoulli Naive Bayes and Product-GNN direct
+controls at all reported macro cutoffs. The reaction-level
 split is not product-disjoint, which remains a required disclosure for every
 product-only model.
 
@@ -136,7 +138,7 @@ verified compatible checkpoint was available. It is not a zero-valued baseline.
 - Mainline ablation audit: PASS; fixed manifest, candidate cap, target-feature
   exclusion, and full-reference equality all pass.
 - Canonical direct-baseline artifact and validation-only fusion audit: PASS for
-  all twelve Product-Naive-Bayes/Product-GNN family-model runs.
+  all twelve Product-Bernoulli Naive Bayes/Product-GNN family-model runs.
 - Validation-gated GNN temperature branch audit: PASS; all ranker feature lists
   exclude `route_gnn_feat_*`, and the four selected temperature branches were chosen without test labels.
 

@@ -210,11 +210,19 @@ atom-mapped route 表还不能直接训练，需要继续变成 EditRetro 可读
 
 ## 4. Stage 1B：基模型准备
 
+> **当前维护口径（`ProSys_8_9.docx`）。** 论文主线只使用
+> `USPTO_STAGE2_FILTERED` 这一份由 USPTO-FULL 构建的 benchmark-safe 共享基模：
+> 去原子映射、去除与 Reaxys 验证/测试锚点重叠的反应并按 canonical reaction 去重后，
+> 共 934,575 条路线，按 8:2 固定为 747,660 条训练和 186,915 条验证样本。
+> `run_base_train.sh` 与 family fine-tuning 脚本默认使用该数据集和其 checkpoint。
+> 以下 `USPTO-50K` 内容仅保留为上游 EditRetro 的历史备选方案，不是当前报告结果的
+> 初始化步骤。
+
 ### 4.1 目标
 
 Stage 1 不建议从零开始重训一个超大路线模型。
 
-当前更合理的做法是准备两层基线：
+历史上可以准备两层基线：
 
 1. `USPTO-50K base`
 2. `USPTO-full-safe base`
@@ -233,15 +241,14 @@ Stage 1 不建议从零开始重训一个超大路线模型。
 
 ### 4.3 基模型 2：USPTO-full-safe base
 
-这是当前更推荐的共享基模。
+这是当前维护的共享基模。
 
 构造逻辑是：
 
 1. 从 USPTO-full 路线数据出发
 2. 先过滤掉与当前 benchmark test products 重叠的样本
 3. 得到 benchmark-safe 的大规模路线数据
-4. 以 `USPTO-50K base` 为初始化
-5. 在这个更大、更安全的数据集上继续训练，得到中间基模
+4. 用 EditRetro 训练配置在该 benchmark-safe 数据集上训练共享基模
 
 这个中间基模的作用是：
 
@@ -253,11 +260,10 @@ Stage 1 不建议从零开始重训一个超大路线模型。
 当前 Stage 1 更推荐的共享起点是：
 
 ```text
-USPTO-50K base
--> USPTO-full-safe base
+USPTO_STAGE2_FILTERED benchmark-safe base
 -> family-specific finetune
 ```
-目前已经有了一个训练好的基模叫checkpoint_UPSTO_full_best.pt
+当前训练好的共享基模通过 `checkpoint_USPTO_STAGE2_FILTERED_best.pt` 引用；旧的 `checkpoint_UPSTO_full_best.pt` 仅保留为兼容别名。
 
 也就是说，最终汇报时更建议把：
 
@@ -272,9 +278,8 @@ USPTO-50K base
 - binarized route dataset
 - 可选 restore checkpoint
 
-对于 `USPTO-full-safe base`，restore source 一般就是：
-
-- `USPTO-50K base`
+对于当前维护的 `USPTO_STAGE2_FILTERED` base，默认训练入口不要求
+`USPTO-50K` restore checkpoint；如显式提供 checkpoint，则其来源必须另行记录。
 
 ### 4.6 基模型训练超参数口径
 

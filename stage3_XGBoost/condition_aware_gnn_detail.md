@@ -1,4 +1,4 @@
-# Candidate-aware Reaction-GNN residual: implementation and status
+# Candidate-aware R-GNN residual: implementation and status
 
 Updated: `2026-08-03`
 
@@ -15,13 +15,13 @@ Stage 2 candidate pool
 
 The candidate-aware residual is evaluated with validation-only fusion selection.
 The available Beckmann interaction-model pilot did not meet the required
-validation System@10 gain, so its selected residual weight was zero. A related
+validation full-system Top-10 accuracy gain, so its selected residual weight was zero. A related
 six-family auxiliary-token residual probe also selected no nonzero residual.
-Neither probe changes the fixed mainline results or any headline System@k value.
+Neither probe changes the fixed mainline results or any headline full-system Top-k value.
 
 ## Purpose
 
-The original Reaction-GNN produces one 64-dimensional structural vector per
+The original R-GNN produces one 64-dimensional structural vector per
 route. Every reagent-solvent candidate attached to the same route consequently
 shares that vector. `condition_aware_gnn.py` tests a more discriminative
 route-context score: it combines the frozen route-GNN vector with learned
@@ -91,19 +91,19 @@ fused_score = xgb_score + alpha * z_gnn
 
 `alpha` is searched only on validation data over
 `0, 0.025, 0.05, 0.10, 0.15, 0.20, 0.30`. The selected nonzero alpha must
-improve validation System@10 by at least `0.01` over the fixed no-graph XGBoost
-baseline. System@1 and MRR break ties. Only after that decision is the selected
+improve validation full-system Top-10 accuracy by at least `0.01` over the fixed no-graph XGB-LTR
+baseline. full-system Top-1 accuracy and MRR break ties. Only after that decision is the selected
 alpha evaluated on the test table. The test labels therefore do not determine
 the residual weight or acceptance decision.
 
 ## Current evidence and interpretation
 
 The completed interaction-model pilot covers Beckmann. Its best validation
-System@10 did not exceed the fixed XGBoost baseline by the pre-specified margin,
-so `alpha = 0` was selected. Its test System@10 consequently remained
+full-system Top-10 accuracy did not exceed the fixed XGB-LTR baseline by the pre-specified margin,
+so `alpha = 0` was selected. Its test full-system Top-10 accuracy consequently remained
 `29.79%`, identical to the no-graph mainline for that family. The separate
 six-family auxiliary-token residual probe also rejected all six nonzero
-residuals under the same 0.01 validation System@10 gain criterion.
+residuals under the same 0.01 validation full-system Top-10 accuracy gain criterion.
 
 The appropriate current conclusion is therefore:
 

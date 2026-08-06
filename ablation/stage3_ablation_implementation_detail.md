@@ -1,8 +1,9 @@
 # Legacy Stage 3 Detail (Superseded)
 
-> This document describes retired RF/SVM/Bayes comparisons. It is not used by the current
-> ReaFNN + Reaction-GNN mainline. See [`ablation_reafnn_gnn_protocol.md`](ablation_reafnn_gnn_protocol.md)
-> and `run_current_mainline_ablation.py` for the maintained Stage 3 study.
+> This document describes retired RF/SVM/Bayes comparisons. It is not used by the
+> maintained tabular XGB-LTR mainline. See [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md)
+> for current results and [`ablation_reafnn_gnn_protocol.md`](ablation_reafnn_gnn_protocol.md)
+> for the separate historical direct-R-GNN-ranking control.
 
 # Stage 3 Ablation: 具体实现说明
 

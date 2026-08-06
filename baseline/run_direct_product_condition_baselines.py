@@ -55,6 +55,7 @@ from prosys_shared.mainline import (  # noqa: E402
     parse_families_arg,
     split_file_for_family,
 )
+from prosys_shared.nomenclature import direct_baseline_display_name  # noqa: E402
 from stage3_XGBoost.reaction_gnn_features import (  # noqa: E402
     GraphEncoder,
     _batch_graphs,
@@ -1434,16 +1435,23 @@ def write_summary(output_root: Path, records: list[dict[str, Any]]) -> None:
 
     lines = ['# Direct Product-to-Condition Baselines', '']
     lines.append('Each condition model sees only the target product; Stage 1 routes are used only to form final system candidates.')
-    lines.append('Canonical direct methods are product_naive_bayes and product_gnn.')
+    reported_methods = [
+        (direct_baseline_display_name(method), method)
+        for method in SUPPORTED_METHODS
+        if any(row['method'] == method for row in rows)
+    ]
+    display_names = ', '.join(name for name, _ in reported_methods) or 'none'
+    stored_keys = ', '.join(method for _, method in reported_methods) or 'none'
+    lines.append(f'Reported direct method(s): {display_names} (stored key(s): {stored_keys}).')
     lines.append('')
-    lines.append('| Method | Family | Cond.@1 | Cond.@10 | Cover | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |')
+    lines.append('| Method | Family | Condition@1 | Condition@10 | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy | MRR | nDCG@10 |')
     lines.append('| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |')
     for method in SUPPORTED_METHODS:
         method_rows = [row for row in rows if row['method'] == method]
         for row in method_rows:
             lines.append(
                 '| {method} | {family} | {condition1:.2f} | {condition10:.2f} | {cover:.2f} | {sys1:.2f} | {sys3:.2f} | {sys5:.2f} | {sys10:.2f} | {mrr:.2f} | {ndcg:.2f} |'.format(
-                    method=row['method'],
+                    method=direct_baseline_display_name(str(row['method'])),
                     family=row['display_family'],
                     condition1=100.0 * float(row.get('condition1') or 0.0),
                     condition10=100.0 * float(row.get('condition10') or 0.0),

@@ -11,8 +11,8 @@ The direct Product-to-Condition implementation is specified in
 
 | ID | Method | Condition-model input | Output |
 | --- | --- | --- | --- |
-| Baseline 1 | Product-Bernoulli Naive Bayes Condition Prediction | target product only | ranked historical reagent-solvent contexts |
-| Baseline 2 | Product-GNN Condition Prediction | target product only | ranked historical reagent-solvent contexts |
+| Baseline 1 | Product-Bernoulli Naive Bayes (product Bernoulli naive Bayes) | target product only | ranked historical reagent-solvent contexts |
+| Baseline 2 | Product-GNN (product graph neural network) | target product only | ranked historical reagent-solvent contexts |
 | Baseline 3 | EditRetro + Sequential FNN | predicted route plus product | reagent set, solvent set, temperature |
 | Baseline 4 | EditRetro + Reaction-GCNN | predicted route plus product | reagent set and solvent set |
 
@@ -20,7 +20,7 @@ The two canonical Product-to-Condition baselines are direct models: they do
 not receive a Stage 1 route while predicting conditions. After condition
 inference, each of their top-20 contexts is paired with frozen family-specific
 Stage 1 route proposals and ranked using a validation-selected route/condition
-score fusion. This makes their final `System@k` directly comparable with the
+score fusion. This makes their final `full-system Top-k accuracy` directly comparable with the
 mainline without leaking reference reactants into the condition model.
 
 For every method, the product is the only molecular condition-model input.
@@ -34,8 +34,8 @@ The current ProSys mainline is:
 target product
   -> family-specific EditRetro route proposals
   -> KNN wide recall + ReaFNN condition-pool selection
-  -> Reaction-GNN features + XGBoost system reranking
-  -> temperature prediction
+  -> tabular XGB-LTR full-system reranking
+  -> validation-gated R-GNN temperature prediction
 ```
 
 ## Shared Protocol
@@ -44,27 +44,27 @@ target product
   manifest are shared across comparisons.
 - The denominator contains `3,860` product identities. The `27` identities
   without a Stage 1 route remain zero-valued end-to-end failures.
-- `System@k` requires one ranked candidate to jointly match the canonical
+- `full-system Top-k accuracy` requires one ranked candidate to jointly match the canonical
   route, complete reagent set, and complete solvent set.
 - All candidate budgets and route/condition fusion choices are selected on
   validation data only; test labels are used only for final evaluation.
-- Product-Naive-Bayes and Product-GNN do not predict temperature, so
+- Product-Bernoulli Naive Bayes and Product-GNN do not predict temperature, so
   temperature is not reported for them.
 
 ## Current Macro Results
 
 All values are equal-family macro averages over the six maintained families.
 
-| ID | Method | Cover | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
+| ID | Method | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy | MRR | nDCG@10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Baseline 1 | Product-Bernoulli Naive Bayes | 31.68 | 9.10 | 14.87 | 17.45 | 21.48 | 13.15 | 14.56 |
 | Baseline 2 | Product-GNN | 38.03 | 6.55 | 12.90 | 16.77 | 23.05 | 11.63 | 13.52 |
 | Baseline 3 | EditRetro + Sequential FNN | 45.99 | 17.06 | 24.64 | 27.98 | 31.67 | 22.27 | 23.84 |
 | Baseline 4 | EditRetro + Reaction-GCNN | 38.01 | 7.93 | 13.16 | 16.36 | 21.03 | 12.18 | 13.50 |
-| Mainline | ProSys current mainline | 49.18 | 27.64 | 35.55 | 38.47 | 42.68 | 32.66 | 34.12 |
+| Mainline | ProSys current mainline | 49.18 | 30.11 | 38.04 | 41.13 | 43.91 | 35.03 | 36.33 |
 
-Baseline 1 is the low-capacity conventional-ML control: it uses no neighbor
-lookup, route input, learned graph encoder, or route-aware feature. Baseline 2
+Product-Bernoulli Naive Bayes is the low-capacity conventional-ML control: it uses no neighbor
+lookup, route input, learned graph encoder, or route-aware feature. Product-GNN
 is the direct product-graph neural comparison. Baselines 3 and 4 are
 route-conditioned downstream controls evaluated on the same frozen Stage 1
 route cache.
@@ -73,7 +73,7 @@ route cache.
 
 - Direct Product-to-Condition results:
   `outputs/baselines/direct_product_condition_nb_20260727/RESULTS.md`
-- Product-Naive-Bayes per-family predictions, selected fusion weights, model
+- Product-Bernoulli Naive Bayes per-family predictions, selected fusion weights, model
   artifacts, and compressed Top-10 audit candidates:
   `outputs/baselines/direct_product_condition_nb_20260727/`
 - Product-GNN artifacts:

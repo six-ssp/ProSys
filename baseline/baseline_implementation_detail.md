@@ -1,14 +1,16 @@
 # ProSys Baseline Implementation Detail
 
-> **Status updated: 2026-07-27.** This document defines the current four
-> citable baselines for the `6-family / strict Non-Oracle /
-> target-product-driven` task. Obsolete direct-retrieval artifacts and
-> diagnostic records have been removed. This does not affect the mainline Stage 2 KNN,
-> which is part of ProSys rather than a baseline.
+> **Current terminology synchronized: 2026-08-04.** This document defines the
+> four citable baselines for the `6-family / strict Non-Oracle /
+> target-product-driven` task. Public method and metric names follow
+> [`NOMENCLATURE.md`](../NOMENCLATURE.md); archived planning notes below retain
+> their original implementation detail only. This does not affect the mainline
+> Stage 2 KNN, which is part of ProSys rather than a baseline.
 >
 > Exact direct-model implementation and results are maintained in
-> [`product_condition_baselines_detail.md`](product_condition_baselines_detail.md)
-> and [`current_baseline_results_20260727.md`](current_baseline_results_20260727.md).
+> [`product_condition_baselines_detail.md`](product_condition_baselines_detail.md),
+> [`current_baseline_results_20260727.md`](current_baseline_results_20260727.md),
+> and [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md).
 
 ---
 
@@ -22,8 +24,7 @@
 Target product
 → Stage 1: family-specific EditRetro
 → Stage 2: widened KNN retrieval + ReaFNN filtering
-→ Stage 3: reaction-GNN features + XGBoost reranking
-→ temperature prediction
+→ Stage 3: tabular XGB-LTR reranking + validation-gated R-GNN temperature regression
 → ranked complete reaction systems
 ```
 
@@ -53,11 +54,11 @@ Target product
 
 | ID | Method | Stage 1 use | Condition-model input | Output | Temperature |
 |---|---|---|---|---|---|
-| Baseline 1 | Product-Bernoulli Naive Bayes | paired after condition prediction | target product Morgan fingerprint | ranked historical reagent-solvent contexts | N/A |
-| Baseline 2 | Product-GNN | paired after condition prediction | target product molecular graph | ranked historical reagent-solvent contexts | N/A |
-| Baseline 3 | EditRetro + Sequential FNN | predicted route supplied to condition model | predicted route plus product | reagent set, solvent set, temperature | FNN regressor |
+| Baseline 1 | Product-Bernoulli Naive Bayes (product Bernoulli naive Bayes) | paired after condition prediction | target product Morgan fingerprint | ranked historical reagent-solvent contexts | N/A |
+| Baseline 2 | Product-GNN (product graph neural network) | paired after condition prediction | target product molecular graph | ranked historical reagent-solvent contexts | N/A |
+| Baseline 3 | EditRetro + Sequential FNN | predicted route supplied to condition model | predicted route plus product | reagent set, solvent set, temperature | MLP regressor |
 | Baseline 4 | EditRetro + Reaction-GCNN | predicted route supplied to condition model | predicted route plus product | reagent and solvent sets | N/A |
-| Mainline | ProSys | family-specific EditRetro | route-local KNN + ReaFNN + Reaction-GNN/XGBoost | ranked complete systems | XGBoost regressor |
+| Mainline | ProSys | family-specific EditRetro | route-local KNN + ReaFNN + tabular XGB-LTR | ranked complete systems | validation-gated R-GNN temperature regressor |
 
 ---
 
@@ -179,8 +180,8 @@ normalized solvent set == normalized gold solvent set
 ## Archived Planning Notes
 
 > Sections 4 onward preserve pre-revision implementation planning for the
-> direct Transformer, Sequential FNN, and Reaction-GCNN. Their historical
-> labels "Baseline 1/2/3" are superseded by the current Baseline 1–4 mapping
+> direct Transformer, Sequential FNN, and Reaction-GCNN. Their historical labels "Baseline
+> 1/2/3" are superseded by the current Baseline 1-4 mapping
 > in Section 2 and must not be used in reporting current results.
 
 # 4. Archived Direct Transformer Design (not a current baseline)
@@ -566,7 +567,7 @@ EditRetro + Reaction-GCNN
 该 baseline 用于验证：
 
 - 使用 GNN 表示是否已经足够
-- ProSys 的提升是否来自 retrieval、filtering 和 reranking，而不只是 Reaction-GNN 特征
+- ProSys 的提升是否来自 retrieval、filtering 和 reranking，而不只是 R-GNN 特征
 
 ## 6.2 输入图构建
 
