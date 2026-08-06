@@ -1,16 +1,18 @@
-# Current Mainline Ablation Protocol
+# Historical Direct-R-GNN Ranking Ablation Protocol
 
 更新日期：`2026-07-27`
 
+> **Historical protocol.** This document defines the controlled direct-R-GNN-ranking ablation, not the maintained tabular XGB-LTR ranker. Use [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md) for current headline metrics and [`NOMENCLATURE.md`](../NOMENCLATURE.md) for public names.
+
 ## Scope
 
-本文件定义当前 ProSys 主线的消融口径。当前系统为：
+本文件定义历史 direct-R-GNN-ranking 配置的消融口径。该配置保留为设计证据，不是当前 ProSys 主线：
 
 ```text
 target product
   -> Stage 1 family-tuned EditRetro routes
   -> Stage 2 widened KNN retrieval + ReaFNN condition-pool selection
-  -> Stage 3 Reaction-GNN features + XGBoost reranking and temperature regression
+  -> Stage 3 R-GNN features + XGB-LTR reranking and temperature regression
 ```
 
 所有结果均为端到端的 Non-Oracle 测试：Stage 2 的测试输入只来自对应家族的 Stage 1 `route_cache.json`，不以真实反应路线替代预测路线。
@@ -22,7 +24,7 @@ target product
 - Stage 1 budget: at most 10 predicted routes per product.
 - Stage 2 budget: at most 20 reagent-solvent contexts per route.
 - Condition evidence, vocabularies, context frequencies, and yield summaries are built from the family training split only.
-- All XGBoost fitting, early stopping, and score-fusion weight selection use train/validation tables only. The test table is scored once after selection.
+- All XGB-LTR fitting, early stopping, and score-fusion weight selection use train/validation tables only. The test table is scored once after selection.
 - Candidate rows are stably sorted before ranking, so score ties have a deterministic resolution.
 
 ### Training-Time KNN Safeguard
@@ -45,7 +47,7 @@ Validation and test queries are already outside the train memory under the react
 
 **Question:** Does route-conditioned retrieval provide more useful feasible-system candidates than a simple frequency prior, and does the ReaFNN expansion add value beyond KNN?
 
-All arms use the same Stage 1 routes, maximum 20 contexts per route, frozen family Reaction-GNN encoder, and a separately retrained XGBoost ranker/temperature regressor.
+All arms use the same Stage 1 routes, maximum 20 contexts per route, frozen family R-GNN encoder, and a separately retrained XGB-LTR ranker/temperature regressor.
 
 | Arm | Candidate-pool construction | Purpose |
 | --- | --- | --- |
@@ -53,9 +55,9 @@ All arms use the same Stage 1 routes, maximum 20 contexts per route, frozen fami
 | KNN only | KNN top-64 retrieval followed by the same 20-context cap, without ReaFNN | Isolate the ReaFNN pool contribution |
 | Top-20 frequency | The 20 most frequent training-split reagent-solvent contexts, independent of the query route | Replace local retrieval with a non-local prior |
 
-For every arm, its own train, validation, and Non-Oracle test tables are built and its own XGBoost models are trained. This is necessary because a changed candidate pool changes both the available positives and the candidate-feature distribution.
+For every arm, its own train, validation, and Non-Oracle test tables are built and its own XGB-LTR models are trained. This is necessary because a changed candidate pool changes both the available positives and the candidate-feature distribution.
 
-**Primary metrics:** pool coverage, Sys@1, Sys@3, Sys@5, Sys@10, MRR, and nDCG@10.
+**Primary metrics:** candidate recall, full-system Top-1 accuracy, full-system Top-3 accuracy, full-system Top-5 accuracy, full-system Top-10 accuracy, MRR, and nDCG@10.
 
 ## A3: Stage 3 Learned Reranking
 
@@ -65,9 +67,9 @@ All A3 rows use the saved full KNN+ReaFNN Stage 2 candidate tables and the same 
 
 | Arm | Stage 3 input / ranking | Purpose |
 | --- | --- | --- |
-| Full | tabular features plus 64 Reaction-GNN route features, XGBRanker | Current Stage 3 design |
-| Without Reaction-GNN | the same table with all `route_gnn_feat_*` features absent, XGBRanker | Isolate graph-derived route representation |
-| Without XGBoost | deterministic Stage 1/Stage 2 prior only | Isolate learned listwise reranking |
+| Full | tabular features plus 64 R-GNN route features, XGBRanker | Historical direct-R-GNN ranking design |
+| Without R-GNN | the same table with all `route_gnn_feat_*` features absent, XGBRanker | Isolate graph-derived route representation |
+| Without XGB-LTR | deterministic Stage 1/Stage 2 prior only | Isolate learned listwise reranking |
 
 The deterministic ranking orders candidates by route rank, route probability, ReaFNN evidence, KNN support, and stable textual tie breakers. It does not fit another model. Because it has no temperature head, temperature metrics are intentionally reported as N/A for this arm.
 
@@ -75,14 +77,14 @@ The deterministic ranking orders candidates by route rank, route probability, Re
 
 The single-factor A2 and A3 comparisons can hide interactions. We therefore also evaluate the fourth factorial corner:
 
-| ReaFNN pooling | Reaction-GNN features | Method |
+| ReaFNN pooling | R-GNN features | Method |
 | --- | --- | --- |
-| yes | yes | Full mainline |
-| no | yes | KNN only + Reaction-GNN + XGBoost |
-| yes | no | KNN + ReaFNN + XGBoost |
-| no | no | KNN only + XGBoost |
+| yes | yes | Historical full configuration |
+| no | yes | KNN only + R-GNN + XGB-LTR |
+| yes | no | KNN + ReaFNN + XGB-LTR |
+| no | no | KNN only + XGB-LTR |
 
-This control uses the same full-manifest denominator, Stage 1 routes, candidate cap, and train/validation-only fitting as the other arms. It is required before assigning an apparent gain or loss to ReaFNN or Reaction-GNN alone.
+This control uses the same full-manifest denominator, Stage 1 routes, candidate cap, and train/validation-only fitting as the other arms. It is required before assigning an apparent gain or loss to ReaFNN or R-GNN alone.
 
 ## Labels and Features
 
@@ -91,10 +93,10 @@ Candidate labels are created only after candidate-pool generation:
 - `route_match`: predicted route equals the gold route.
 - `context_match`: candidate reagent-solvent context equals the gold context.
 - `label`: exact route-and-context match.
-- `rank_relevance`: graded supervision for the listwise XGBoost objective.
+- `rank_relevance`: graded supervision for the listwise XGB-LTR objective.
 - `temperature_gold`: retained only for exact matches with a valid temperature label.
 
-XGBoost always excludes `label`, `route_match`, `context_match`, `rank_relevance`, `sample_weight`, `temperature_gold`, and `yield_gold` from its input matrix. Each saved model metadata file is audited for this contract.
+XGB-LTR always excludes `label`, `route_match`, `context_match`, `rank_relevance`, `sample_weight`, `temperature_gold`, and `yield_gold` from its input matrix. Each saved model metadata file is audited for this contract.
 
 ## Temperature Evaluation
 
@@ -117,7 +119,7 @@ OMP_NUM_THREADS=8 MKL_NUM_THREADS=8 OPENBLAS_NUM_THREADS=8 \
   --force
 ```
 
-The corrected Stage 2/3 mainline must be rebuilt first with `scripts/run_stage23_mainline_non_oracle.py --force_rebuild`; the current run records this prerequisite in the final result audit.
+This runner reproduces the historical direct-R-GNN-ranking snapshot rooted at `outputs/stage23_mainline_reafnn_gnn_fused_20260723/`; it must not overwrite the maintained current mainline result root.
 
 ## Result Files
 
@@ -130,7 +132,7 @@ The final tables are written under `outputs/ablation_reafnn_gnn_20260726/`:
 - `interaction_results.json`
 - `audit.md`
 
-The completed run and its conservative, paper-safe interpretation are recorded in
+The completed historical run and its conservative, paper-safe interpretation are recorded in
 [`current_mainline_ablation_results_20260727.md`](current_mainline_ablation_results_20260727.md).
 
 Interpretation follows the data rather than the intended architecture: a component is described as beneficial only if the controlled family-level and macro-average comparisons support it. A mixed or negative effect is reported as such rather than being used to claim an architectural improvement.

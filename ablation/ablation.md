@@ -1,10 +1,11 @@
 # Legacy Ablation Plan (Superseded)
 
-> This document records the earlier KNN-XGBoost plan and is retained only for history.
-> The maintained ReaFNN + Reaction-GNN ablation protocol and result interpretation are in
-> [`ablation_reafnn_gnn_protocol.md`](ablation_reafnn_gnn_protocol.md), with the completed
-> corrected result tables and paper-safe conclusions in
+> This document records an earlier KNN-XGB-LTR plan and is retained only for history.
+> The direct-R-GNN historical protocol and result interpretation are in
+> [`ablation_reafnn_gnn_protocol.md`](ablation_reafnn_gnn_protocol.md) and
 > [`current_mainline_ablation_results_20260727.md`](current_mainline_ablation_results_20260727.md).
+> For the maintained tabular XGB-LTR mainline, use [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md)
+> and [`NOMENCLATURE.md`](../NOMENCLATURE.md).
 
 # ProSys Ablation 实验规划
 
@@ -16,13 +17,13 @@
 
 - Stage 1：`EditRetro base model -> family-specific finetuned model`
 - Stage 2：`KNN` 可行条件筛选
-- Stage 3：`XGBoost` 重排序
+- Stage 3：`XGB-LTR` 重排序
 
 目标不是再去比较很多“外部方法”，而是把主线拆开，分别回答下面 3 个问题：
 
 1. Stage 1 的家族微调是否真的提升了 route 推荐能力
 2. Stage 2 的 `KNN` 候选池是否真的比简单高频条件池更有效
-3. Stage 3 的 `XGBoost` 重排序是否真的有必要，还是只靠 Stage 1 和 Stage 2 的先验信息就够了
+3. Stage 3 的 `XGB-LTR` 重排序是否真的有必要，还是只靠 Stage 1 和 Stage 2 的先验信息就够了
 
 这样组织后，消融和主线是一一对应的，逻辑最干净。
 
@@ -40,7 +41,7 @@
 
 主线参考组定义为：
 
-- `A0 = Finetuned Stage1 + KNN Stage2 + XGBoost Stage3`
+- `A0 = Finetuned Stage1 + KNN Stage2 + XGB-LTR Stage3`
 
 后面的所有对比，都是相对 `A0` 来解释。
 
@@ -64,10 +65,10 @@
 
 ### 3.3 指标
 
-- `route@1`
-- `route@3`
-- `route@5`
-- `route@10`
+- `Route@1`
+- `Route@3`
+- `Route@5`
+- `Route@10`
 
 ### 3.4 已有数据支撑
 
@@ -97,7 +98,7 @@
 固定：
 
 - Stage 1：使用 `Finetuned` route cache
-- Stage 3：使用 `XGBoost` 排序与温度模型
+- Stage 3：使用 `XGB-LTR` 排序与温度模型
 
 比较两种 Stage 2 候选池：
 
@@ -117,8 +118,8 @@
 为了保证公平，Stage 2 一旦变化，后续 Stage 3 不能直接沿用旧模型，而应该：
 
 - 分别基于各自的候选池重建 `train / val / test table`
-- 在对应 table 上各自训练一套 `XGBoost`
-- 最终都在 Non-Oracle 测试集上评估 `sys@k`
+- 在对应 table 上各自训练一套 `XGB-LTR`
+- 最终都在 Non-Oracle 测试集上评估 `full-system Top-k accuracy`
 
 原因是：
 
@@ -129,28 +130,28 @@
 
 主指标：
 
-- `sys@1`
-- `sys@3`
-- `sys@5`
-- `sys@10`
+- `full-system Top-1 accuracy`
+- `full-system Top-3 accuracy`
+- `full-system Top-5 accuracy`
+- `full-system Top-10 accuracy`
 
 辅助解释指标：
 
-- `pool_coverage`
+- `candidate recall` (internal `pool_coverage`)
 
-`pool_coverage` 不是 headline metric，但它能帮助解释：
+`candidate recall` (internal `pool_coverage`) 不是 headline metric，但它能帮助解释：
 
 - `KNN` 是不是更容易把正确条件放进候选池
 
 ### 4.5 预期结论
 
-如果 `KNN pool + XGBoost` 明显优于 `Top-K frequency pool + XGBoost`，就可以说明：
+如果 `KNN pool + XGB-LTR` 明显优于 `Top-K frequency pool + XGB-LTR`，就可以说明：
 
 - Stage 2 的价值不只是“给一些常见条件”
 - 它确实提供了 route-conditioned、局部化、可行性更高的候选筛选
 
 
-## 5. Ablation A3：Stage 3 的 XGBoost 是否有用
+## 5. Ablation A3：Stage 3 的 XGB-LTR 是否有用
 
 ### 5.1 要回答的问题
 
@@ -166,7 +167,7 @@
 比较两种排序方式：
 
 - `w/ Stage3`
-  - 保留当前主线 `XGBoost` 重排序
+  - 保留当前主线 `XGB-LTR` 重排序
 - `w/o Stage3`
   - 去掉学习式 reranker，只使用 Stage 1 和 Stage 2 已经产生的先验信息做确定性排序
 
@@ -191,17 +192,17 @@
 
 ### 5.4 指标
 
-- `sys@1`
-- `sys@3`
-- `sys@5`
-- `sys@10`
+- `full-system Top-1 accuracy`
+- `full-system Top-3 accuracy`
+- `full-system Top-5 accuracy`
+- `full-system Top-10 accuracy`
 
 这组实验的重点是看：
 
-- `sys@1` 能否明显提升
-- `sys@5 / sys@10` 能否进一步拉开
+- `full-system Top-1 accuracy` 能否明显提升
+- `full-system Top-5 accuracy / full-system Top-10 accuracy` 能否进一步拉开
 
-因为这最能体现 `XGBoost` 在候选重排上的价值。
+因为这最能体现 `XGB-LTR` 在候选重排上的价值。
 
 ### 5.5 预期结论
 
@@ -221,8 +222,8 @@
 列建议：
 
 - `family`
-- `base route@1/3/5/10`
-- `finetuned route@1/3/5/10`
+- `base Route@1/3/5/10`
+- `finetuned Route@1/3/5/10`
 - `delta@1/3/5/10`
 
 这张表回答：
@@ -234,9 +235,9 @@
 列建议：
 
 - `family`
-- `KNN + XGB` 的 `sys@1/3/5/10`
-- `Top-K frequency + XGB` 的 `sys@1/3/5/10`
-- `pool_coverage`
+- `KNN + XGB-LTR` 的 `full-system Top-1 accuracy/3/5/10`
+- `Top-K frequency + XGB` 的 `full-system Top-1 accuracy/3/5/10`
+- `candidate recall` (internal `pool_coverage`)
 
 这张表回答：
 
@@ -247,12 +248,12 @@
 列建议：
 
 - `family`
-- `w/o Stage3` 的 `sys@1/3/5/10`
-- `w/ Stage3` 的 `sys@1/3/5/10`
+- `w/o Stage3` 的 `full-system Top-1 accuracy/3/5/10`
+- `w/ Stage3` 的 `full-system Top-1 accuracy/3/5/10`
 
 这张表回答：
 
-- `XGBoost` 学习式重排序是否真的必要
+- `XGB-LTR` 学习式重排序是否真的必要
 
 
 ## 7. 这版规划的优点

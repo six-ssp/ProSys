@@ -1,8 +1,10 @@
 # Legacy Stage 2 Detail (Superseded)
 
 > This document describes the retired KNN-versus-Cluster setup. It is not used by the
-> current mainline. See [`ablation_reafnn_gnn_protocol.md`](ablation_reafnn_gnn_protocol.md)
-> and `run_current_mainline_ablation.py` for the maintained ReaFNN-aware Stage 2 study.
+> maintained mainline. See [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md) for the
+> current tabular XGB-LTR configuration and
+> [`ablation_reafnn_gnn_protocol.md`](ablation_reafnn_gnn_protocol.md) for the
+> separate historical direct-R-GNN-ranking control.
 
 # Stage 2 Ablation: 具体实现说明
 

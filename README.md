@@ -1,4 +1,8 @@
-# ProSys
+# ProSys: A Product-to-System Framework for Target-Product-Driven Reaction-System Recommendation
+
+> **Current manuscript source:** `ProSys_8_9.docx`. The target product is the
+> only molecular query; a predefined reaction family selects a separately
+> trained expert, retrieval memory, and vocabulary outside all feature vectors.
 
 > **Current verified result source:** [`CURRENT_RESULTS.md`](CURRENT_RESULTS.md)
 > and `outputs/stage23_mainline_gnn_temperature_gated_20260803/`. The retained
@@ -11,7 +15,7 @@
 target product
 -> Stage 1 EditRetro route generation
 -> Stage 2 KNN wide recall + ReaFNN feasible-condition filtering
--> Stage 3 no-GNN XGBoost reranking + validation-gated Reaction-GNN temperature prediction
+-> Stage 3 tabular XGB-LTR reranking + validation-gated R-GNN temperature prediction
 -> Top-k reaction systems
 ```
 
@@ -71,8 +75,8 @@ Stage 1 路线缓存位于：
 ### Stage 3
 
 - 目录：`stage3_XGBoost/`
-- 当前模型：`no-GNN XGBoost ranker + validation-gated Reaction-GNN temperature regressor`
-- 作用：`XGBRanker` 在无 `route_gnn_feat_*` 的表上做分组重排并验证集选择 Stage 2 prior；独立温度回归器使用 64 维 reaction-GNN 特征，只有 validation MAE 至少改善 `0.25 C` 才按 family 启用
+- 当前模型：`tabular XGB-LTR ranker + validation-gated R-GNN temperature regressor`
+- 作用：`XGBRanker` 在无 `route_gnn_feat_*` 的表上做分组重排并验证集选择 Stage 2 prior；独立温度回归器使用 64 维 R-GNN 特征，只有 validation MAE 至少改善 `0.25 C` 才按 family 启用
 - 评估口径：Stage 3 只重排 Stage 2 已有候选，不增加新候选；温度指标只在每个样本最高排名的 full-match 候选上单独统计
 - 细节文档：`stage3_XGBoost/stage3_XGBoost_detail.md`
 
@@ -91,7 +95,7 @@ Stage 1 路线缓存位于：
 
 ### Mainline: Route + System
 
-| Family | rr@10 | cover | sys@1 | sys@3 | sys@5 | sys@10 |
+| Family | Route@10 | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Beckmann | 69.8 | 39.6 | 18.7 | 23.8 | 26.0 | 29.8 |
 | Buchwald-Hartwig | 70.0 | 48.7 | 37.2 | 44.7 | 45.8 | 46.8 |
@@ -103,18 +107,18 @@ Stage 1 路线缓存位于：
 
 当前主线最核心的 headline 是：
 
-- `rr@10 = 63.2`
-- `cover = 49.18`
-- `sys@10 = 43.91`
+- `Route@10 = 63.2`
+- `candidate recall = 49.18`
+- `full-system Top-10 accuracy = 43.91`
 
 ### Mainline: Temperature
 
-温度指标是在“每个样本里最高排名的 full-match 候选”上单独统计的，不和 `sys@k` 混成一个指标。
+温度指标是在“每个样本里最高排名的 full-match 候选”上单独统计的，不和 `full-system Top-k accuracy` 混成一个指标。
 
-- `Temp MAE = 11.11 C`
-- `Temp±5C = 39.2%`
-- `Temp±10C = 62.6%`
-- `Temp±20C = 82.9%`
+- `MAE (deg C) = 11.11`
+- `Within +/-5 deg C = 39.2%`
+- `Within +/-10 deg C = 62.6%`
+- `Within +/-20 deg C = 82.9%`
 
 这说明当前主线除了离散体系推荐外，也已经能给出一个可用的连续温度估计。
 
@@ -123,14 +127,14 @@ Stage 1 路线缓存位于：
 当前主线不是简单的 `KNN+XGB` 旧口径，而是：
 
 - Stage 2：`KNN + ReaFNN`
-- Stage 3：`no-GNN XGBoost ranker + validation-gated Reaction-GNN temperature`
+- Stage 3：`tabular XGB-LTR ranker + validation-gated R-GNN temperature`
 
 选择这一版作为官方主线，主要因为它更符合这个任务的分工：
 
 1. `KNN` 负责把 family 内历史上“像”的反应先找回来。
 2. `ReaFNN` 负责在宽候选池上做 token 级二次筛选，并允许极少量受限的新组合尝试，避免主线退化成封闭答案空间里的检索题。
-3. `Reaction-GNN` 只服务独立温度头，避免在小 family 中把同一路线恒定的 64 维特征直接送入树排序器。
-4. `XGBoost` 负责在可行候选池中把真正的完整反应体系尽量排到前面；groupwise 标准化后的 `xgb_score_raw` 与轻量 Stage 2 heuristic prior 的融合权重在 validation 上选择。
+3. `R-GNN` 只服务独立温度头，避免在小 family 中把同一路线恒定的 64 维特征直接送入树排序器。
+4. `XGB-LTR` 负责在可行候选池中把真正的完整反应体系尽量排到前面；groupwise 标准化后的 `xgb_score_raw` 与轻量 Stage 2 heuristic prior 的融合权重在 validation 上选择。
 5. 对 novel combination 的开放是刻意保守的，因为真实可行的新组合本来就稀少，被最终选中的概率更低，这种低频现象本身就是符合实际场景的。
 
 所以当前主线更准确的理解应该是：
@@ -178,7 +182,7 @@ bash scripts/run_stage23_non_oracle_suite.sh .
 
 1. 读取 Stage 1 的 `route_cache.json`
 2. 构建 `KNN + ReaFNN` candidate pool
-3. 训练无图 `XGBRanker`，并训练 no-GNN/GNN 两个温度模型
+3. 训练 tabular `XGBRanker`，并训练 no-GNN/R-GNN 两个温度模型
 4. 用 validation MAE 门控选择温度头，再输出 markdown / csv / json 汇总
 
 ### 4. Baseline / Ablation
@@ -193,11 +197,12 @@ bash scripts/run_stage23_non_oracle_suite.sh .
 如果只想快速理解当前项目状态，建议按下面顺序阅读：
 
 1. `README.md`
-2. `workflow.md`
-3. `performance.md`
-4. `stage2_ReaFNN/stage2_KNN_detail.md`
-5. `stage3_XGBoost/stage3_XGBoost_detail.md`
-6. `outputs/stage23_mainline_gnn_temperature_gated_20260803/overview.md`
+2. `NOMENCLATURE.md`
+3. `workflow.md`
+4. `performance.md`
+5. `stage2_ReaFNN/stage2_KNN_detail.md`
+6. `stage3_XGBoost/stage3_XGBoost_detail.md`
+7. `outputs/stage23_mainline_gnn_temperature_gated_20260803/overview.md`
 
 ## 目录约定
 
@@ -232,7 +237,7 @@ bash scripts/run_stage23_non_oracle_suite.sh .
 
 - `Stage 1 EditRetro`
 - `Stage 2 KNN + ReaFNN`
-- `Stage 3 no-GNN XGBoost ranker + validation-gated Reaction-GNN temperature regressor`
+- `Stage 3 tabular XGB-LTR ranker + validation-gated R-GNN temperature regressor`
 
 其中 Stage 2 的当前正式口径还包括：
 
@@ -240,7 +245,7 @@ bash scripts/run_stage23_non_oracle_suite.sh .
 
 当前官方 Non-Oracle 6-family 结果是：
 
-- `rr@10 = 63.2`
-- `cover = 49.18`
-- `sys@10 = 43.91`
-- `Temp MAE = 11.11 C`
+- `Route@10 = 63.2`
+- `candidate recall = 49.18`
+- `full-system Top-10 accuracy = 43.91`
+- `MAE (deg C) = 11.11`

@@ -60,7 +60,7 @@ def _select_fusion(
     route_weights: tuple[float, ...],
     temperature_column: str | None,
 ) -> dict[str, Any]:
-    """Choose the route-score ratio using validation System@10, then System@1."""
+    """Choose the route-score ratio using validation full-system Top-10 accuracy, then full-system Top-1 accuracy."""
 
     required = {'route_score_z', 'condition_score_z'}
     missing = sorted(required - set(frame.columns))
@@ -96,7 +96,7 @@ def _select_fusion(
         ),
     )[0]
     return {
-        'selection_rule': 'max validation System@10, then System@1, then smaller route weight',
+        'selection_rule': 'max validation full-system Top-10 accuracy, then full-system Top-1 accuracy, then smaller route weight',
         'condition_weight': CONDITION_WEIGHT,
         'candidates': records,
         'selected': selected,

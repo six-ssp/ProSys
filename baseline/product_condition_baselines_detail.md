@@ -5,8 +5,8 @@
 This document specifies the two canonical direct baselines implemented by
 [`run_direct_product_condition_baselines.py`](run_direct_product_condition_baselines.py):
 
-1. `product_naive_bayes`: Product-Bernoulli Naive Bayes Condition Prediction.
-2. `product_gnn`: Product-GNN Condition Prediction.
+1. `product_naive_bayes`: Product-Bernoulli Naive Bayes (product Bernoulli naive Bayes).
+2. `product_gnn`: Product-GNN (product graph neural network).
 
 The canonical pair answers a deliberately different question from the ProSys Stage 2/3
 pipeline: can a model infer a useful reaction-condition context from the target
@@ -48,7 +48,7 @@ normalized labels. Both canonical direct baselines rank this same library;
 therefore they do not invent a new complete reagent-solvent combination. This
 is an intentional closed-context baseline, not a generative condition model.
 
-## Product-Bernoulli Naive Bayes
+## Product-Bernoulli Naive Bayes: Product Bernoulli Naive Bayes
 
 ### Input and supervision
 
@@ -101,7 +101,7 @@ The top `20` complete contexts are emitted. This mapping makes Naive Bayes and
 Product-GNN comparable: both predict marginal reagent/solvent token evidence,
 then rank the same train-only complete-context library.
 
-## Product-GNN
+## Product-GNN: Product Graph Neural Network
 
 ### Input and network
 
@@ -165,7 +165,7 @@ system_score = w_route * zscore(retro_score) + 1.0 * zscore(condition_score)
 ```
 
 4. Select `w_route` from `{0, 0.25, 0.5, 1.0, 1.5, 2.0}` on the validation
-   set by maximum `Sys@10`, then `Sys@1`, then smaller route weight.
+   set by maximum `full-system Top-10 accuracy`, then `full-system Top-1 accuracy`, then smaller route weight.
 5. Apply the selected weight unchanged to the test set.
 
 The uncompressed candidate tables are materialized only in an automatically
@@ -176,9 +176,9 @@ model metadata, and compressed Top-10 candidates for audit.
 ## Metrics
 
 - `Condition@k`: direct complete-context hit among the model's top-k contexts.
-- `Cover`: a joint route-context candidate exists that exactly matches the
+- `candidate recall`: a joint route-context candidate exists that exactly matches the
   route, reagent set, and solvent set.
-- `Sys@k`: such an exact joint candidate appears within the final top-k ranked
+- `full-system Top-k accuracy`: such an exact joint candidate appears within the final top-k ranked
   systems.
 - `MRR` and `nDCG@10`: computed on the same fixed full test manifest.
 
@@ -188,9 +188,9 @@ temperature metric.
 
 ## Formal Results
 
-| Method | Cond.@1 | Cond.@10 | Cover | Sys@1 | Sys@3 | Sys@5 | Sys@10 |
+| Method | Condition@1 | Condition@10 | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Product-Bernoulli-Naive-Bayes macro average | 19.57 | 42.21 | 31.68 | 9.10 | 14.87 | 17.45 | 21.48 |
+| Product-Bernoulli Naive Bayes macro average | 19.57 | 42.21 | 31.68 | 9.10 | 14.87 | 17.45 | 21.48 |
 | Product-GNN macro average | 15.25 | 48.76 | 38.03 | 6.55 | 12.90 | 16.77 | 23.05 |
 
 Full family-level values are in
@@ -198,13 +198,13 @@ Full family-level values are in
 
 ## Interpretation and Limits
 
-- Product-Bernoulli-Naive-Bayes is the formal conventional-ML control. It is
+- Product-Bernoulli Naive Bayes is the formal conventional-ML control. It is
   intentionally low capacity: aggregate fingerprint-bit likelihoods replace
   both nearest-neighbor precedent retrieval and a learned molecular encoder.
 - Product-GNN is a lightweight, independently trained neural baseline rather
   than a claim of a fully optimized graph model.
-- The formal Naive Bayes and Product-GNN values are `21.48%` and `23.05%` macro
-  Sys@10, compared with `42.68%` for the current staged mainline.
+- The formal Product-Bernoulli Naive Bayes and Product-GNN values are `21.48%` and `23.05%` macro
+  full-system Top-10 accuracy, compared with `43.91%` for the current staged mainline.
 - The official split is grouped by canonical reaction, not made product
   disjoint. Train/test product overlap is therefore possible for distinct
   routes; this is not reaction leakage and must be disclosed.

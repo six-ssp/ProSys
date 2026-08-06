@@ -1,4 +1,4 @@
-# Stage 3 XGBoost 重排 + 验证集门控 Reaction-GNN 温度预测
+# Stage 3 XGB-LTR 重排 + 验证集门控 R-GNN 温度预测
 
 更新日期：`2026-08-03`
 
@@ -8,10 +8,10 @@
 
 当前 Stage 3 的正式角色是：
 
-- 无图特征 `XGBRanker` 使用 Stage 1 / Stage 2 数值特征重排候选；
-- reaction-GNN 的 `route_gnn_feat_*` 只输入独立温度回归器；
+- tabular `XGB-LTR`（`XGBRanker`）使用 Stage 1 / Stage 2 数值特征重排候选；
+- R-GNN 的 `route_gnn_feat_*` 只输入独立温度回归器；
 - 每个 family 仅在 validation MAE 至少改善 `0.25 C` 时启用 GNN 温度头。
-- `condition_aware_gnn.py` 提供 route-context GNN residual 的探索实现；它受独立 validation gate 控制，当前未进入正式主线或 headline 指标。
+- `condition_aware_gnn.py` 提供 route-context R-GNN residual 的探索实现；它受独立 validation gate 控制，当前未进入正式主线或 headline 指标。
 
 历史 `outputs/stage23_mainline_reafnn_gnn_fused_20260723/` 记录了将图特征
 直接送入 ranker 的消融。下面的 encoder、标签和 XGBoost 实现细节仍有效；任何
@@ -67,8 +67,8 @@ Stage 3 的输入不是原始反应，而是 **已经打好标的 candidate tabl
 
 因此：
 
-- `pool_coverage` 主要由 Stage 2 决定
-- `sys@k` 前排质量主要由 Stage 3 决定
+- `candidate recall`（内部字段为 `pool_coverage`）主要由 Stage 2 决定
+- `full-system Top-k accuracy` 前排质量主要由 Stage 3 决定
 
 
 ## 3. 监督标签是怎么来的
@@ -92,7 +92,7 @@ Stage 3 的输入不是原始反应，而是 **已经打好标的 candidate tabl
 严格正例。
 只有 `(route_key, reagent_norm, solvent_norm)` 三者同时命中，`label = 1`。
 
-这也是最后 `sys@k` 用的真正命中定义。
+这也是最后 `full-system Top-k accuracy` 用的真正命中定义。
 
 
 ### 3.4 中间派生标签
@@ -122,7 +122,7 @@ XGBRanker 训练时真正回归/排序的目标就是 `rank_relevance`。
 当前 Stage 3 同时维护两套特征视图：
 
 1. 无图 candidate-table 特征，仅供 `XGBRanker` 重排；
-2. 上述特征加 reaction-GNN embedding，仅供温度回归候选头。
+2. 上述特征加 R-GNN embedding，仅供温度回归候选头。
 
 因此，`route_gnn_feat_*` 存在于表中不代表它会被排序器读取。
 
@@ -143,9 +143,9 @@ XGBRanker 训练时真正回归/排序的目标就是 `rank_relevance`。
 - 产品记忆/支持度特征
 
 
-### 4.2 reaction-GNN 特征
+### 4.2 R-GNN 特征
 
-为温度回归提供反应结构信息，Stage 3 会额外训练一个轻量 reaction-GNN，用它为每条 `(reactants, product)` 路线抽取固定维度 embedding。
+为温度回归提供反应结构信息，Stage 3 会额外训练一个轻量 R-GNN，用它为每条 `(reactants, product)` 路线抽取固定维度 embedding。
 
 实现思路：
 
@@ -221,11 +221,11 @@ XGBRanker 训练时真正回归/排序的目标就是 `rank_relevance`。
 这样可以避免显式标签泄露给 XGBoost。
 
 
-## 5. reaction-GNN 如何训练
+## 5. R-GNN 如何训练
 
-reaction-GNN 本身不是最终排序器，它只负责输出 reaction embedding。
+R-GNN 本身不是最终排序器，它只负责输出 reaction embedding。
 
-### 5.1 reaction-GNN 的输入图
+### 5.1 R-GNN 的输入图
 
 每条路线 `(reactants, product)` 会被拆成两张图：
 
@@ -246,7 +246,7 @@ reaction-GNN 本身不是最终排序器，它只负责输出 reaction embedding
 - mass 归一化值
 
 
-### 5.2 reaction-GNN 的网络结构
+### 5.2 R-GNN 的网络结构
 
 当前实现使用一个共享图编码器分别编码反应物图和产物图。
 
@@ -288,9 +288,9 @@ concat(h_reactant, h_product, h_product - h_reactant)
 - 避免让主线因为 GNN 过重而难复现、难维护
 
 
-### 5.3 reaction-GNN 的训练任务
+### 5.3 R-GNN 的训练任务
 
-reaction-GNN 的训练任务是一个辅助多标签任务：
+R-GNN 的训练任务是一个辅助多标签任务：
 
 - 头 1：预测试剂 token 集合
 - 头 2：预测溶剂 token 集合
@@ -314,7 +314,7 @@ reaction-GNN 的训练任务是一个辅助多标签任务：
 然后把这个结构 embedding 交给候选的 GNN 温度回归器利用，而不交给当前排序器。
 
 
-### 5.4 reaction-GNN 的训练方式
+### 5.4 R-GNN 的训练方式
 
 两个辅助头都使用：
 
@@ -333,7 +333,7 @@ reaction-GNN 的训练任务是一个辅助多标签任务：
 - `max_epochs = 20`
 - `patience = 5`
 
-因此当前 reaction-GNN 的角色可以概括成一句：
+因此当前 R-GNN 的角色可以概括成一句：
 
 - 它不是 Stage 3 的最终决策器，而是一个由验证集门控的温度结构特征抽取器
 
@@ -344,9 +344,9 @@ reaction-GNN 的训练任务是一个辅助多标签任务：
 不同条件候选得到不同 GNN 分数。该分支不向 `XGBRanker` 回灌 in-sample GNN 分数，
 而是仅在 XGBoost 已经固定后，用 validation-only 的 score fusion gate 决定是否启用。
 
-当前已完成的 Beckmann interaction-model pilot 未达到预先规定的 validation Sys@10
+当前已完成的 Beckmann interaction-model pilot 未达到预先规定的 validation full-system Top-10 accuracy
 提升阈值，因此选中 `alpha = 0`；相关 six-family auxiliary residual probe 也没有任何
-family 通过非零 residual gate。故它不改变当前 `Sys@k`、不修改正式输出，不能被写成
+family 通过非零 residual gate。故它不改变当前 `full-system Top-k accuracy`、不修改正式输出，不能被写成
 已验证的主线增益。完整细节见
 `stage3_XGBoost/condition_aware_gnn_detail.md`。
 
@@ -412,7 +412,7 @@ XGBoost 看到的监督目标不是二值 `label`，而是：
 - `objective = rank:ndcg`
 - `eval_metric = ndcg@10`
 
-含义是让模型更关注 top-10 位置的排序质量，这和我们最终看 `sys@1/5/10` 的评估目标是一致的。
+含义是让模型更关注 top-10 位置的排序质量，这和我们最终看 `full-system Top-1 accuracy/5/10` 的评估目标是一致的。
 
 
 ### 6.5 默认超参
@@ -499,7 +499,7 @@ XGBoost 看到的监督目标不是二值 `label`，而是：
 
 - `xgb_score = xgb_score_z + heuristic_weight * stage2_heuristic_prior`
 
-其中 `heuristic_weight` 不是手工固定的，而是在 validation set 上做一个小网格搜索，优先最大化 `system_top10_all`，再用 `system_top1_all` 作为 tie-break。
+其中 `heuristic_weight` 不是手工固定的，而是在 validation set 上做一个小网格搜索，优先最大化 `system_top10_all`（公开指标 `full-system Top-10 accuracy`），再用 `system_top1_all`（`full-system Top-1 accuracy`）作为 tie-break。
 最后按 `xgb_score` 降序排序，最终 top-k 的定义只看这个融合后的排序分数。
 
 
@@ -513,7 +513,7 @@ XGBoost 看到的监督目标不是二值 `label`，而是：
 
 - 温度预测不会参与排序
 - 排序和温度是两个并行头
-- 最终汇报时，`sys@k` 还是只由 `xgb_score` 的 top-k 决定
+- 最终汇报时，`full-system Top-k accuracy` 还是只由 `xgb_score` 的 top-k 决定
 
 这样设计的好处是：
 
@@ -567,7 +567,7 @@ Stage 3 的目标就是学习把第 2 行尽量排到最前，而不是只学一
 
 那么：
 
-- `sys@1` 记一次命中
+- `full-system Top-1 accuracy` 记一次命中
 - 如果第 2 行温度真值是 `80 C`，预测是 `73 C`
 - 则该样本会给温度统计贡献一个 `7 C` 的绝对误差
 
@@ -601,14 +601,14 @@ Stage 3 训练输出目录下会保存：
 1. Stage 1 提供路线候选
 2. Stage 2 `KNN + ReaFNN` 提供可行条件候选池
 3. Stage 3 的无图 `XGBRanker` 对候选池重排
-4. 验证集门控的 Reaction-GNN 温度回归器输出温度预测
+4. 验证集门控的 R-GNN 温度回归器输出温度预测
 
 所以当前主线更准确的真实含义是：
 
 - `KNN` 负责把“像的历史反应”找出来
 - `ReaFNN` 负责把可行条件池再精筛一遍
-- 无图 `XGBoost` 负责在这些候选里“把最像真的排前面”
-- `reaction-GNN` 仅在验证 MAE 改善至少 `0.25 C` 时给温度回归补充结构化反应表示
+- tabular `XGB-LTR` 负责在这些候选里“把最像真的排前面”
+- `R-GNN` 仅在验证 MAE 改善至少 `0.25 C` 时给温度回归补充结构化反应表示
 
 不是简单的两个模型串起来，而是一个典型的：
 
@@ -666,17 +666,17 @@ python -m stage3_XGBoost.xgb_reranker score \
 
 ## 13. 预期效果
 
-Stage 3 XGBoost 的核心收益不是提升 candidate pool 覆盖率，而是：
+Stage 3 XGB-LTR 的核心收益不是提升 candidate pool 覆盖率，而是：
 
 - 在正确候选已入池的前提下，把真正命中的条件排到更靠前的位置
-- 提升 `sys@1`
-- 同时稳定拉升 `sys@5` 和 `sys@10`
+- 提升 `full-system Top-1 accuracy`
+- 同时稳定拉升 `full-system Top-5 accuracy` 和 `full-system Top-10 accuracy`
 - 输出一个可用的温度预测头
 
 所以如果观察实验现象，一般应该这样理解：
 
-- `pool_coverage` 主要由 Stage 2 决定
-- `sys@k` 的前端排序质量主要由 Stage 3 决定
+- `candidate recall`（内部字段为 `pool_coverage`）主要由 Stage 2 决定
+- `full-system Top-k accuracy` 的前端排序质量主要由 Stage 3 决定
 - 温度误差只在命中条件的样本上单独分析
 
 也就是说，Stage 3 是“把 Stage 2 已经找出来的对答案，尽量往前推”的模块。
@@ -686,21 +686,21 @@ Stage 3 XGBoost 的核心收益不是提升 candidate pool 覆盖率，而是：
 
 在 `outputs/stage23_mainline_reafnn_gnn_fused_20260723/` 的历史 direct-GNN-ranking 快照里，Stage 3 的宏平均表现是：
 
-- `sys@1 = 27.64%`
-- `sys@3 = 35.55%`
-- `sys@5 = 38.47%`
-- `sys@10 = 42.68%`
+- `full-system Top-1 accuracy = 27.64%`
+- `full-system Top-3 accuracy = 35.55%`
+- `full-system Top-5 accuracy = 38.47%`
+- `full-system Top-10 accuracy = 42.68%`
 - `nDCG@10 = 0.341`
 - `MRR = 0.327`
 
 该历史快照的温度头在“最高排名 full-match 候选”上的宏平均表现是：
 
-- `Temp MAE = 11.28 C`
-- `Temp±5C = 37.96%`
-- `Temp±10C = 61.60%`
-- `Temp±20C = 82.98%`
+- `MAE (deg C) = 11.28`
+- `Within +/-5 deg C = 37.96%`
+- `Within +/-10 deg C = 61.60%`
+- `Within +/-20 deg C = 82.98%`
 
-该历史快照说明，图特征直接进入排序器没有带来稳定的 Sys@k 增益。当前主线
+该历史快照说明，图特征直接进入排序器没有带来稳定的 full-system Top-k accuracy 增益。当前主线
 保留这一 encoder，但将其限制到验证集门控的温度分支；当前固定策略的结果和
 启用家族见下一节。
 
@@ -714,18 +714,18 @@ Stage 3 XGBoost 的核心收益不是提升 candidate pool 覆盖率，而是：
    `route_gnn_feat_*`。在固定验证 manifest 上，只有 MAE 至少降低 `0.25 C`
    才保留 GNN 温度模型。
 
-因此温度 gate 绝不会改变 `xgb_score`、候选顺序或 `Sys@k`。它在 Chan-Lam、
+因此温度 gate 绝不会改变 `xgb_score`、候选顺序或 `full-system Top-k accuracy`。它在 Chan-Lam、
 Diels-Alder、Friedel-Crafts acylation 和 Friedel-Crafts alkylation 四个家族
 被启用；Beckmann 与 Buchwald-Hartwig 回退 no-GNN temperature model。
 
 固定策略的 six-family test result 为：
 
-- `sys@1 / sys@3 / sys@5 / sys@10 = 30.11% / 38.04% / 41.13% / 43.91%`
+- `full-system Top-1 accuracy / full-system Top-3 accuracy / full-system Top-5 accuracy / full-system Top-10 accuracy = 30.11% / 38.04% / 41.13% / 43.91%`
 - `MRR / nDCG@10 = 35.03% / 36.33%`
-- `Temp MAE = 11.11 C`
-- `Temp±5C / Temp±10C / Temp±20C = 39.22% / 62.62% / 82.93%`
+- `MAE (deg C) = 11.11`
+- `Within +/-5 / +/-10 / +/-20 deg C = 39.22% / 62.62% / 82.93%`
 
 在相同固定 ranker 下，no-GNN temperature baseline 的 macro MAE 为 `12.85 C`
-且 `Temp±10C = 56.77%`；验证集选择后的 GNN 温度分支分别改善到 `11.11 C`
+且 `Within +/-10 deg C = 56.77%`；验证集选择后的 GNN 温度分支分别改善到 `11.11 C`
 和 `62.62%`。完整逐家族审计见
 `outputs/stage23_mainline_gnn_temperature_gated_20260803/gnn_temperature_gate_audit.tsv`。

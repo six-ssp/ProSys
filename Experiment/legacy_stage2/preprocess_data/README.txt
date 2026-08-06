@@ -1,6 +1,12 @@
 Simple Usage Examples
 "Convert a chemical name to SMILES"
 
+Archived note:
+the active project no longer depends on the deleted top-level `preprocess_data/`
+directory. The current maintained pipeline uses `data_preprocess/preprocess.py`
+plus `data_preprocess/name_to_smiles.tsv` instead. The instructions below are
+kept only as legacy background for the old Stage-2 workflow.
+
 
 (1) preprocess raw Reaxys .xlsx to .txt files:
 
@@ -9,8 +15,9 @@ python preprocess_reaxys.py
 (2) convert chemical label names to smiles:
 
 cd ../All_LCC_Data/processed_data_temp/unprocessed_class
-java -jar ../../../preprocess_data/opsin-2.5.0-jar-with-dependencies.jar -osmi class_names_reagent.txt class_names_reagent_smiles.txt
-java -jar ../../../preprocess_data/opsin-2.5.0-jar-with-dependencies.jar -osmi class_names_solvent.txt class_names_solvent_smiles.txt
+[archived] OPSIN jar path from the deleted top-level `preprocess_data/` is omitted in
+the maintained repo. If this legacy flow is ever revived, provide an OPSIN jar locally
+and update the command path here.
 
 (source: https://github.com/dan2097/opsin)
 
