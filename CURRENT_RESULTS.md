@@ -31,6 +31,7 @@ Canonical result artifacts:
 
 - `outputs/stage23_mainline_gnn_temperature_gated_20260803/`
 - `outputs/stage23_mainline_gnn_temperature_gated_20260803/gnn_temperature_gate_audit.tsv`
+- `outputs/current_mainline_multiseed_20260807/` (fixed-Stage-1 three-seed robustness)
 - `outputs/ablation_reafnn_gnn_20260726/`
 - `outputs/baselines/non_oracle_external_b23_20260726/`
 
@@ -70,6 +71,49 @@ is no longer the source of current headline metrics.
 | Within +/-5 deg C | 39.22% |
 | Within +/-10 deg C | 62.62% |
 | Within +/-20 deg C | 82.93% |
+
+## Current Fixed-Stage-1 Three-Seed Robustness
+
+The current Stage 2/3 mainline was freshly rebuilt with seeds `0`, `1`, and
+`2` on 2026-08-07. The persisted split, six-family 3,860-product test
+manifest, and Stage 1 route caches were frozen; ReaFNN, the Reaction-GNN
+temperature representation, XGBoost learning-to-rank, and both temperature
+regressors were independently retrained for each seed. This measures Stage
+2/3 stochastic variation only, not variance from retraining the family-tuned
+EditRetro models.
+
+Every run contained `3,833` products with a Stage 1 candidate slate and `27`
+products without one; all `3,860` products remained in the full-system
+denominator. The frozen Stage 1 macro Route@1/3/5/10 values were
+`43.46/56.69/59.97/63.20%` in all rounds. All 18 rankers used the same
+52-column non-graph feature schema; Reaction-GNN features were used only in
+the validation-gated temperature branch.
+
+| Metric | Mean +/- sample SD |
+| --- | ---: |
+| Candidate coverage | 48.52 +/- 0.59% |
+| Full-system Top-1 accuracy | 28.96 +/- 0.91% |
+| Full-system Top-3 accuracy | 36.61 +/- 1.05% |
+| Full-system Top-5 accuracy | 39.53 +/- 1.24% |
+| Full-system Top-10 accuracy | 42.90 +/- 1.00% |
+| MRR | 33.78 +/- 0.96% |
+| nDCG@10 | 35.13 +/- 0.97% |
+| Conditional temperature MAE | 11.20 +/- 0.39 C |
+| Temperature within +/-5 C | 40.70 +/- 2.99% |
+| Temperature within +/-10 C | 62.43 +/- 2.02% |
+| Temperature within +/-20 C | 83.91 +/- 0.85% |
+
+Temperature is calculated only when a valid candidate exactly matches both the
+route and normalized condition context and has a valid temperature label. For
+each such product, the highest-ranked valid full match supplies the absolute
+temperature error; it is therefore a conditional regression statistic rather
+than a full-manifest metric. Temperature supports were 1,603, 1,592, and
+1,576 for seeds 0, 1, and 2, respectively.
+
+The canonical single-run table above remains the archived point snapshot
+(`43.91%` Full-system Top-10). The three-seed estimate should be used when
+reporting current Stage 2/3 robustness; it must not be described as full
+end-to-end retraining variance.
 
 
 ## Evidence Strength From Ablation
