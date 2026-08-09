@@ -4,15 +4,16 @@
 
 当前这份文档对应的官方主线结果快照是：
 
-- `outputs/stage23_mainline_gnn_temperature_gated_20260803/`
+- `outputs/unified_rgnn_multiseed_20260809/`
 
+`outputs/stage23_mainline_gnn_temperature_gated_20260803/`、
 `outputs/stage23_mainline/` 与
 `outputs/stage23_mainline_reafnn_gnn_fused_20260723/` 都是历史快照，只保留用于追溯；当前
-指标和论文只能引用上面的当前结果目录或根目录的 `CURRENT_RESULTS.md`。
+指标和论文只能引用上面的三随机种子结果目录或根目录的 `CURRENT_RESULTS.md`。
 
 需要额外区分的是：
 
-- 上面这个目录是当前已经完整核对过的 `6-family` 官方结果快照
+- 上面这个目录是当前已经完整核对过的 `6-family` 官方结果汇总
 - 当前维护中的 Stage 2 代码，已经在 `Non-Oracle` 推理时显式加入了受限 novel-context 试探
 - 这样做的目的不是刷分，而是避免把主线描述成只会在历史完整组合空间里做选择题
 
@@ -20,7 +21,7 @@
 
 - `KNN` 先做宽召回
 - `ReaFNN` 再做 token 级二次筛选
-- 最终把候选池交给 Stage 3 的 `tabular XGB-LTR`，并由验证集门控的 `R-GNN` 温度分支输出温度
+- 最终把候选池交给 Stage 3 的 `tabular XGB-LTR`，并由固定启用的 `R-GNN` 温度分支输出温度
 
 ## 1. 模块目标
 
@@ -307,6 +308,7 @@ input route feature (8218)
 - 再判断“这条路线可能需要哪些溶剂 token”
 
 然后 Stage 2 再把这些 token 概率映射回具体条件组合。
+
 
 
 #### 5.3.0.1 训练标签如何构造
@@ -663,11 +665,12 @@ Non-Oracle 模式从 Stage 1 的 `route_cache.json` 中读取预测路线：
 
 ## 8.1 当前官方主线下的 Stage 2 效果
 
-在 `outputs/stage23_mainline_gnn_temperature_gated_20260803/` 当前主线结果里，Stage 2 的宏平均表现是：
+在 `outputs/unified_rgnn_multiseed_20260809/` 当前主线的固定 Stage 1、三随机种子复现中，Stage 2 的宏平均表现是：
 
-- `Route recall = 63.20%`
-- `Condition recall = 81.58%`
-- `candidate recall = 49.18%`
+- `Route recall@10 = 63.20%`（冻结 Stage 1 路线缓存）
+- `candidate coverage = 48.52 +/- 0.59%`
+
+旧的 `Condition recall = 81.58%` 与 `candidate recall = 49.18%` 来自 2026-08-03 门控温度点估计快照，仅保留为历史记录，不能与当前三种子结果混用。
 
 这说明当前 `KNN + ReaFNN` 的主要价值是：
 

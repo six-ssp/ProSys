@@ -1,8 +1,8 @@
 #!/bin/bash
 #
 # Current ProSys Stage-2/Stage-3 Non-Oracle mainline suite.
-# Mainline: Stage 1 route cache -> Stage 2 KNN candidate pool -> Stage 3 no-GNN
-# XGBoost reranking + validation-gated reaction-GNN temperature regression.
+# Mainline: Stage 1 route cache -> Stage 2 KNN candidate pool -> Stage 3 XGBoost
+# tabular reranking + fixed R-GNN temperature regression.
 #
 # Usage:
 #   conda activate ProSys
@@ -21,14 +21,12 @@
 #   MAX_VAL_ROUTES      default 0 (= full val split)
 #   TRAIN_TABLE_MODE    default oracle; one of oracle / mixed_hard_negative / non_oracle
 #   TRAIN_ROUTE_ROOT    optional route-cache root for train hard negatives / non-oracle train
-#   VAL_ROUTE_ROOT      default outputs/stage1_routes_validation; also gates the GNN temperature branch
+#   VAL_ROUTE_ROOT      default outputs/stage1_routes_validation; used when non-oracle validation tables are requested
 #   HARD_NEGATIVE_PER_SAMPLE default 8
 #   FORCE_REBUILD       set to 1 to rebuild candidate tables and model artifacts
 #   REAFNN_DEVICE       default cpu
 #   GNN_DEVICE          default cpu
-
-#   GNN_TEMPERATURE_MIN_VAL_MAE_IMPROVEMENT default 0.25 C
-#   REUSE_CANDIDATE_TABLES_ROOT optional existing Stage 2/3 table root, avoiding candidate regeneration
+#   REUSE_CANDIDATE_TABLES_ROOT optional matching Stage 2 table root; R-GNN features are always regenerated
 set -euo pipefail
 
 REPO_ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
@@ -58,7 +56,6 @@ REAFNN_DEVICE="${REAFNN_DEVICE:-cpu}"
 GNN_DEVICE="${GNN_DEVICE:-cpu}"
 
 echo "[stage23-suite] repo_root=$REPO_ROOT"
-GNN_TEMPERATURE_MIN_VAL_MAE_IMPROVEMENT="${GNN_TEMPERATURE_MIN_VAL_MAE_IMPROVEMENT:-0.25}"
 REUSE_CANDIDATE_TABLES_ROOT="${REUSE_CANDIDATE_TABLES_ROOT:-}"
 echo "[stage23-suite] output_root=$OUTPUT_ROOT families=$FAMILIES"
 export OMP_NUM_THREADS
@@ -79,8 +76,7 @@ cmd=(
   --train_table_mode "$TRAIN_TABLE_MODE" \
   --hard_negative_per_sample "$HARD_NEGATIVE_PER_SAMPLE" \
   --reafnn_device "$REAFNN_DEVICE" \
-  --gnn_device "$GNN_DEVICE" \
-  --gnn_temperature_min_val_mae_improvement "$GNN_TEMPERATURE_MIN_VAL_MAE_IMPROVEMENT"
+  --gnn_device "$GNN_DEVICE"
 )
 
 if [[ -n "$TRAIN_ROUTE_ROOT" ]]; then

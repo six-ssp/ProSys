@@ -786,7 +786,7 @@ def _write_reports(
     overview = [
         '# Historical Stage 1--3 Ablation Snapshot',
         '',
-        'This result root is retained as controlled historical design evidence. It is not the maintained headline mainline; use CURRENT_RESULTS.md for the current tabular XGB-LTR ranking and validation-gated R-GNN temperature configuration. Every Stage 2/3 metric uses all reaction identities in the Stage 1 test cache as the denominator; samples without a Stage 1 route are retained as zero-hit slates.',
+        'This result root is retained as controlled historical design evidence. It is not the maintained headline mainline; use CURRENT_RESULTS.md for the current tabular XGB-LTR ranking and fixed R-GNN temperature configuration. Every Stage 2/3 metric uses all reaction identities in the Stage 1 test cache as the denominator; samples without a Stage 1 route are retained as zero-hit slates.',
         '',
         'Generated tables:',
         '',

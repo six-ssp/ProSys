@@ -80,13 +80,22 @@ HEURISTIC_STAGE3_SORT_SPECS = [
 ]
 
 
-def infer_xgb_feature_columns(frame: pd.DataFrame) -> list[str]:
-    columns = [column for column in STANDARD_FEATURE_COLUMNS if column in frame.columns]
+def infer_xgb_feature_columns(
+    frame: pd.DataFrame,
+    *,
+    include_route_gnn: bool,
+) -> list[str]:
+    """Infer numeric XGBoost features with an explicit graph-feature policy."""
+    columns = [
+        column
+        for column in STANDARD_FEATURE_COLUMNS
+        if column in frame.columns and (include_route_gnn or not column.startswith('route_gnn_feat_'))
+    ]
     used = set(columns)
     for column in frame.columns:
         if column in used or column in TEXT_COLUMNS or column in TARGET_COLUMNS:
             continue
-        if column.startswith('legacy_'):
+        if column.startswith('legacy_') or (not include_route_gnn and column.startswith('route_gnn_feat_')):
             continue
         if pd.api.types.is_numeric_dtype(frame[column]):
             columns.append(column)
@@ -353,13 +362,15 @@ def train_xgb_ranker_and_temperature(
     temperature_n_estimators: int | None = None,
     temperature_learning_rate: float | None = None,
     temperature_max_depth: int | None = None,
+    train_temperature: bool = True,
     n_jobs: int = 1,
 ) -> dict:
     train_frame = _prepare_rank_frame(train_table_file)
     val_frame = _prepare_rank_frame(val_table_file)
-    feature_columns = infer_xgb_feature_columns(train_frame)
+    # Route-GNN vectors are reserved for the independent temperature branch.
+    feature_columns = infer_xgb_feature_columns(train_frame, include_route_gnn=False)
     if not feature_columns:
-        raise ValueError(f'No feature columns inferred from {train_table_file}')
+        raise ValueError(f'No ranker feature columns inferred from {train_table_file}')
 
     x_train = _feature_matrix(train_frame, feature_columns)
     y_train = train_frame['rank_relevance'].to_numpy(dtype=np.float32)
@@ -406,6 +417,7 @@ def train_xgb_ranker_and_temperature(
 
     metadata = {
         'feature_columns': feature_columns,
+        'ranker_feature_space': 'tabular_non_graph',
         'best_iteration': int(model.best_iteration) if model.best_iteration is not None else None,
         'score_fusion': score_fusion,
         'params': {
@@ -423,20 +435,26 @@ def train_xgb_ranker_and_temperature(
     }
     metadata_file.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
 
-    temperature_model_file, temperature_metadata_file, temperature_num_train = _train_temperature_regressor(
-        train_frame=train_frame,
-        val_frame=val_frame,
-        feature_columns=feature_columns,
-        output_dir=output_path,
-        random_state=random_state,
-        n_estimators=temperature_n_estimators or n_estimators,
-        learning_rate=temperature_learning_rate or learning_rate,
-        max_depth=temperature_max_depth or max_depth,
-        subsample=subsample,
-        colsample_bytree=colsample_bytree,
-        reg_lambda=reg_lambda,
-        n_jobs=n_jobs,
-    )
+    if train_temperature:
+        temperature_feature_columns = infer_xgb_feature_columns(train_frame, include_route_gnn=True)
+        temperature_model_file, temperature_metadata_file, temperature_num_train = _train_temperature_regressor(
+            train_frame=train_frame,
+            val_frame=val_frame,
+            feature_columns=temperature_feature_columns,
+            output_dir=output_path,
+            random_state=random_state,
+            n_estimators=temperature_n_estimators or n_estimators,
+            learning_rate=temperature_learning_rate or learning_rate,
+            max_depth=temperature_max_depth or max_depth,
+            subsample=subsample,
+            colsample_bytree=colsample_bytree,
+            reg_lambda=reg_lambda,
+            n_jobs=n_jobs,
+        )
+    else:
+        temperature_model_file = None
+        temperature_metadata_file = None
+        temperature_num_train = 0
 
     return {
         'output_dir': str(output_path),
@@ -552,7 +570,6 @@ def main() -> None:
     train_parser.add_argument('--subsample', type=float, default=0.8)
     train_parser.add_argument('--colsample_bytree', type=float, default=0.8)
     train_parser.add_argument('--reg_lambda', type=float, default=1.0)
-
     score_parser = subparsers.add_parser('score', help='Score a candidate table with trained models')
     score_parser.add_argument('--table_file', type=str, required=True)
     score_parser.add_argument('--model_file', type=str, required=True)

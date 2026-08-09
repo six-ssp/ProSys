@@ -123,17 +123,29 @@ def _compact_prosys_metadata(
 ) -> None:
     target = output_root / 'compact' / 'prosys' / f'seed_{seed}' / family
     _write_json(result, target / 'result.json')
+
+    family_root = source_root / family
+    gnn_metadata = family_root / '_shared_reaction_gnn' / 'model' / 'reaction_gnn_meta.json'
+    if not gnn_metadata.exists():
+        configured = sorted(family_root.glob('_shared_reaction_gnn_*/model/reaction_gnn_meta.json'))
+        if configured:
+            gnn_metadata = configured[-1]
+
+    temperature_metadata = family_root / 'knn_xgb' / 'non_oracle' / 'gnn_temperature_model' / 'xgb_temperature_meta.json'
+    if not temperature_metadata.exists():
+        temperature_metadata = family_root / 'knn_xgb' / 'non_oracle' / 'model' / 'xgb_temperature_meta.json'
+
+    reafnn_metadata = family_root / '_shared_knn' / 'reafnn' / 'reafnn_meta.json'
+    if not reafnn_metadata.exists():
+        configured = sorted(family_root.glob('_shared_knn_*/reafnn/reafnn_meta.json'))
+        if configured:
+            reafnn_metadata = configured[-1]
+
     metadata_paths = [
-        (source_root / family / '_shared_knn' / 'reafnn' / 'reafnn_meta.json', 'reafnn_meta.json'),
-        (source_root / family / '_shared_reaction_gnn' / 'model' / 'reaction_gnn_meta.json', 'reaction_gnn_meta.json'),
-        (
-            source_root / family / 'knn_xgb' / 'non_oracle' / 'model' / 'xgb_ranker_meta.json',
-            'xgb_ranker_meta.json',
-        ),
-        (
-            source_root / family / 'knn_xgb' / 'non_oracle' / 'model' / 'xgb_temperature_meta.json',
-            'xgb_temperature_meta.json',
-        ),
+        (reafnn_metadata, 'reafnn_meta.json'),
+        (gnn_metadata, 'reaction_gnn_meta.json'),
+        (family_root / 'knn_xgb' / 'non_oracle' / 'model' / 'xgb_ranker_meta.json', 'xgb_ranker_meta.json'),
+        (temperature_metadata, 'xgb_temperature_meta.json'),
     ]
     for source, name in metadata_paths:
         _copy_if_present(source, target / name)
@@ -386,10 +398,10 @@ def _write_report(output_root: Path, macro: pd.DataFrame, summary: pd.DataFrame)
         'the six test manifests, and the Stage-1 route caches are held fixed across seeds. '
         'It does not claim variability from retraining EditRetro Stage 1.',
         '',
-        'Randomized learned components are ReaFNN, Reaction-GNN, XGBoost (subsample and '
-        'column-subsample), and B3 Sequential FNN. KNN retrieval, route caches, data split, '
-        'vocabularies derived from the fixed training split, candidate evaluation, and '
-        'validation-only score-fusion selection are fixed by protocol.',
+        'Randomized learned components are ReaFNN, Reaction-GNN, and XGBoost (subsample and '
+        'column-subsample). KNN retrieval, route caches, data split, vocabularies derived from '
+        'the fixed training split, candidate evaluation, and validation-only score-fusion '
+        'selection are fixed by protocol.',
         '',
         'Values below are unweighted macro averages over the six families. Rates are percentages; '
         'standard deviations use the sample definition (`ddof=1`). Temperature MAE is the '
@@ -538,7 +550,7 @@ def main() -> None:
         processed_roots=processed_roots,
     )
     provenance = {
-        'protocol': 'fixed_stage1_route_cache_multiseed_stage23_and_b3',
+        'protocol': 'fixed_stage1_route_cache_multiseed_stage23',
         'family_order': FAMILY_ORDER,
         'prosys_runs_updated': {str(seed): str(path) for seed, path in sorted(prosys_runs.items())},
         'b3_runs_updated': {str(seed): str(path) for seed, path in sorted(b3_runs.items())},

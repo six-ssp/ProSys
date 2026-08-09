@@ -24,7 +24,7 @@
 Target product
 → Stage 1: family-specific EditRetro
 → Stage 2: widened KNN retrieval + ReaFNN filtering
-→ Stage 3: tabular XGB-LTR reranking + validation-gated R-GNN temperature regression
+→ Stage 3: tabular XGB-LTR reranking + fixed R-GNN temperature regression
 → ranked complete reaction systems
 ```
 
@@ -58,7 +58,7 @@ Target product
 | Baseline 2 | Product-GNN (product graph neural network) | paired after condition prediction | target product molecular graph | ranked historical reagent-solvent contexts | N/A |
 | Baseline 3 | EditRetro + Sequential FNN | predicted route supplied to condition model | predicted route plus product | reagent set, solvent set, temperature | MLP regressor |
 | Baseline 4 | EditRetro + Reaction-GCNN | predicted route supplied to condition model | predicted route plus product | reagent and solvent sets | N/A |
-| Mainline | ProSys | family-specific EditRetro | route-local KNN + ReaFNN + tabular XGB-LTR | ranked complete systems | validation-gated R-GNN temperature regressor |
+| Mainline | ProSys | family-specific EditRetro | route-local KNN + ReaFNN + tabular XGB-LTR | ranked complete systems | fixed R-GNN temperature regressor |
 
 ---
 
