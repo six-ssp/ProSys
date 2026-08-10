@@ -138,25 +138,29 @@ but it is not part of the official model or of the result tables above.
 Four reproducible baselines are complete on the same fixed manifest. Two are
 direct Product-to-Condition models, which predict contexts from the target
 product before pairing them with frozen Stage 1 routes; two are downstream
-route-conditioned baselines:
+route-conditioned baselines.
 
-- `Product-Bernoulli Naive Bayes` (product Bernoulli naive Bayes): macro full-system Top-10 accuracy `21.48%`.
-- `Product-GNN` (product graph neural network): macro full-system Top-10 accuracy `23.05%`.
-- `EditRetro + Sequential FNN`: macro full-system Top-10 accuracy `31.67%`.
-- `EditRetro + Reaction-GCNN`: macro full-system Top-10 accuracy `21.03%`.
+`Product-Bernoulli Naive Bayes` (B1) is deterministic under fixed data and
+hyperparameters. B2 Product-GNN, B3 EditRetro + Sequential FNN, and B4
+EditRetro + Reaction-GCNN were independently retrained at seeds `0`, `1`, and
+`2` with fixed Stage 1 caches and validation-only fusion selection.
 
-| Method | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy | MRR | nDCG@10 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Product-Bernoulli Naive Bayes | 31.68 | 9.10 | 14.87 | 17.45 | 21.48 | 13.15 | 14.56 |
-| Product-GNN | 38.03 | 6.55 | 12.90 | 16.77 | 23.05 | 11.63 | 13.52 |
-| EditRetro + Sequential FNN | 45.99 | 17.06 | 24.64 | 27.98 | 31.67 | 22.27 | 23.84 |
-| EditRetro + Reaction-GCNN | 38.01 | 7.93 | 13.16 | 16.36 | 21.03 | 12.18 | 13.50 |
-| ProSys current mainline (three-seed mean) | 48.52 | 28.96 | 36.61 | 39.53 | 42.90 | 33.78 | 35.13 |
+| Method | Replication | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy | MRR | nDCG@10 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Product-Bernoulli Naive Bayes | deterministic | 31.68 | 9.10 | 14.87 | 17.45 | 21.48 | 13.15 | 14.56 |
+| Product-GNN | 3 seeds | 38.33 +/- 0.28 | 6.11 +/- 0.49 | 12.84 +/- 0.56 | 16.75 +/- 0.43 | 23.03 +/- 0.73 | 11.40 +/- 0.54 | 13.32 +/- 0.58 |
+| EditRetro + Sequential FNN | 3 seeds | 45.85 +/- 0.26 | 16.75 +/- 0.27 | 24.32 +/- 0.28 | 27.68 +/- 0.40 | 31.71 +/- 0.10 | 22.01 +/- 0.22 | 23.64 +/- 0.18 |
+| EditRetro + Reaction-GCNN | 3 seeds | 38.15 +/- 0.24 | 7.43 +/- 0.21 | 13.16 +/- 0.10 | 16.39 +/- 0.34 | 21.10 +/- 0.28 | 11.88 +/- 0.11 | 13.27 +/- 0.10 |
+| ProSys current mainline | 3 seeds | 48.52 +/- 0.59 | 28.96 +/- 0.91 | 36.61 +/- 1.05 | 39.53 +/- 1.24 | 42.90 +/- 1.00 | 33.78 +/- 0.96 | 35.13 +/- 0.97 |
 
-The current three-seed mainline estimate exceeds the formal low-capacity Product-Bernoulli Naive Bayes and Product-GNN direct controls at all reported macro cutoffs. Baselines are retained as fixed-run references, so the difference in replication depth should be disclosed. The reaction-level split is not product-disjoint, which remains a required disclosure for every product-only model.
+B2-B4 are now matched to the mainline in replication depth and use the same
+fixed full test manifest. B1 remains a deterministic reference, not a
+pseudo-replicated stochastic model. The reaction-level split is not
+product-disjoint, which remains a required disclosure for every product-only
+model.
 
 The detailed comparison is documented in
-[`baseline/current_baseline_results_20260727.md`](baseline/current_baseline_results_20260727.md).
+[`baseline/multiseed_baseline_results_20260810.md`](baseline/multiseed_baseline_results_20260810.md).
 The direct Product-to-System Transformer remains unreported because no
 verified compatible checkpoint was available. It is not a zero-valued baseline.
 
@@ -170,8 +174,9 @@ verified compatible checkpoint was available. It is not a zero-valued baseline.
   controls; no nonzero residual was accepted, so headline rankings are unchanged.
 - Mainline ablation audit: PASS; fixed manifest, candidate cap, target-feature
   exclusion, and full-reference equality all pass.
-- Canonical direct-baseline artifact and validation-only fusion audit: PASS for
-  all twelve Product-Bernoulli Naive Bayes/Product-GNN family-model runs.
+- Multi-seed baseline audit: PASS; `54` family-level records cover B2-B4 across
+  three seeds and six families, with the same `3,860`-product manifest,
+  `3,833` candidate slates, and `27` retained no-route failures in every run.
 - Fixed R-GNN temperature branch audit: PASS; all 18 ranker feature lists
   exclude route_gnn_feat_*, all 18 temperature models contain the 128 graph
   features, and metadata records always_enabled = true with selection = none.

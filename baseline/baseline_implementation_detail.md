@@ -7,10 +7,11 @@
 > their original implementation detail only. This does not affect the mainline
 > Stage 2 KNN, which is part of ProSys rather than a baseline.
 >
-> Exact direct-model implementation and results are maintained in
-> [`product_condition_baselines_detail.md`](product_condition_baselines_detail.md),
-> [`current_baseline_results_20260727.md`](current_baseline_results_20260727.md),
-> and [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md).
+> Exact direct-model implementation is maintained in
+> [`product_condition_baselines_detail.md`](product_condition_baselines_detail.md).
+> The current formal three-seed results are in
+> [`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md)
+> and [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md); the `20260727` report is historical.
 
 ---
 

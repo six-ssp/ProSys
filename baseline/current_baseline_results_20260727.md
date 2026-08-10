@@ -1,11 +1,15 @@
-# ProSys Baseline Comparison
+# ProSys Baseline Comparison (Historical Single-Seed Snapshot)
 
-Baseline snapshot: `2026-07-27`; current mainline reference synchronized: `2026-08-03`
+> **Archived numerical snapshot.** The current formal comparison is
+> [`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md).
+> Do not combine the point estimates below with current three-seed ProSys results.
+
+Baseline snapshot: `2026-07-27`; historical mainline reference: `2026-08-03`
 
 ## Scope
 
 This report retains the completed baseline runs for the six-family
-target-product-to-reaction-system task. Its ProSys comparator row is synchronized to the current verified `2026-08-03` mainline run on the same fixed manifest. It contains four completed baselines:
+target-product-to-reaction-system task. Its ProSys comparator row is synchronized to the historical `2026-08-03` mainline run on the same fixed manifest. It contains four completed baselines:
 
 1. `Product-Bernoulli Naive Bayes` (product Bernoulli naive Bayes)
 2. `Product-GNN` (product graph neural network)
@@ -73,9 +77,9 @@ All ranking percentages are equal-family macro averages.
 | Product-GNN | 38.03 | 6.55 | 12.90 | 16.77 | 23.05 | 11.63 | 13.52 |
 | EditRetro + Sequential FNN | 45.99 | 17.06 | 24.64 | 27.98 | 31.67 | 22.27 | 23.84 |
 | EditRetro + Reaction-GCNN | 38.01 | 7.93 | 13.16 | 16.36 | 21.03 | 12.18 | 13.50 |
-| ProSys current mainline | 49.18 | 30.11 | 38.04 | 41.13 | 43.91 | 35.03 | 36.33 |
+| ProSys archived point snapshot | 49.18 | 30.11 | 38.04 | 41.13 | 43.91 | 35.03 | 36.33 |
 
-The current mainline is higher than Product-Bernoulli Naive Bayes by `+21.01 pp` at
+The archived mainline point is higher than Product-Bernoulli Naive Bayes by `+21.01 pp` at
 full-system Top-1 accuracy and `+22.43 pp` at full-system Top-10 accuracy. It is also higher than Product-GNN by `+20.86
 pp` at full-system Top-10 accuracy. The strongest completed baseline, EditRetro + Sequential FNN, remains
 `+12.24 pp` below the mainline at full-system Top-10 accuracy. These direct baselines deliberately receive neither a predicted
@@ -116,7 +120,7 @@ ML control in the main table.
 | Method | N_temp | MAE (deg C) | Within +/-5 deg C | Within +/-10 deg C | Within +/-20 deg C |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | EditRetro + Sequential FNN | 1,464 | 11.87 | 49.52 | 67.25 | 81.58 |
-| ProSys current mainline | 1,603 | 11.11 | 39.22 | 62.62 | 82.93 |
+| ProSys archived point snapshot | 1,603 | 11.11 | 39.22 | 62.62 | 82.93 |
 | EditRetro + Reaction-GCNN | N/A | N/A | N/A | N/A | N/A |
 
 The supports are model-dependent because temperature is assessed only after an
@@ -130,5 +134,6 @@ The staged mainline substantially exceeds the two canonical direct
 product-to-condition baselines and both route-conditioned external baselines.
 The result supports the benefit of route-aware candidate construction and
 system-level reranking over a product-only, low-capacity conventional ML
-control. All comparisons remain single-run results; repeated seeds and a
-product-disjoint stress test remain appropriate follow-up analyses.
+control. Its numerical values have been superseded by the completed three-seed
+report. A product-disjoint stress test remains an appropriate follow-up
+analysis.
