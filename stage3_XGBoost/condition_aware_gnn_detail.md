@@ -10,7 +10,7 @@ maintained headline pipeline. The official pipeline remains:
 ```text
 Stage 2 candidate pool
   -> no-graph XGBRanker for system ranking
-  -> validation-gated graph-enhanced XGBRegressor for temperature only
+  -> fixed graph-enhanced XGBRegressor for temperature only
 ```
 
 The candidate-aware residual is evaluated with validation-only fusion selection.

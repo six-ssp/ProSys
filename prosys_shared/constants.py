@@ -63,7 +63,9 @@ CONTEXT_DENSE_COLUMNS_V2 = [
 
 PRODUCT_DESCRIPTOR_COLUMNS_V2 = [f'product_feat_{idx}' for idx in range(8)]
 ROUTE_GRAPH_FEATURE_COLUMNS_V2 = [f'route_graph_feat_{idx}' for idx in range(24)]
-ROUTE_GNN_FEATURE_COLUMNS_V2 = [f'route_gnn_feat_{idx}' for idx in range(64)]
+# The maintained temperature branch uses a 128-dimensional reaction-GNN
+# embedding for every reaction family.
+ROUTE_GNN_FEATURE_COLUMNS_V2 = [f'route_gnn_feat_{idx}' for idx in range(128)]
 
 LABEL_COLUMNS_V2 = [
     'label',

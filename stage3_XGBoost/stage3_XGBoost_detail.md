@@ -1,17 +1,20 @@
-# Stage 3 XGB-LTR 重排 + 验证集门控 R-GNN 温度预测
+# Stage 3 XGB-LTR 重排 + 统一 R-GNN 温度预测
 
-更新日期：`2026-08-03`
+更新日期：`2026-08-09`
 
-当前这份文档对应的官方主线结果快照是：
+当前正式代码路径使用一套跨家族固定的温度架构：
 
-- `outputs/stage23_mainline_gnn_temperature_gated_20260803/`
+- tabular `XGB-LTR`（`XGBRanker`）仅使用 Stage 1 / Stage 2 的 52 个非图数值特征重排候选；
+- 每个 family 都训练同一规格的 R-GNN，并将其 `route_gnn_feat_*` 输入独立的温度 `XGBRegressor`；
+- 不再训练 no-GNN 温度备用模型，也没有按 family 的验证集门控或 `if` 分支；
+- `condition_aware_gnn.py` 是未纳入主线的历史探索实现，不能作为正式结果或论文主张。
 
-当前 Stage 3 的正式角色是：
-
-- tabular `XGB-LTR`（`XGBRanker`）使用 Stage 1 / Stage 2 数值特征重排候选；
-- R-GNN 的 `route_gnn_feat_*` 只输入独立温度回归器；
-- 每个 family 仅在 validation MAE 至少改善 `0.25 C` 时启用 GNN 温度头。
-- `condition_aware_gnn.py` 提供 route-context R-GNN residual 的探索实现；它受独立 validation gate 控制，当前未进入正式主线或 headline 指标。
+已完成的正式复现位于 `outputs/unified_rgnn_multiseed_20260809/`：固定
+Stage 1 路由缓存和测试清单后，六个 family 分别在随机种子 `0/1/2` 下重建
+Stage 2/3。大型中间 candidate table 和 checkpoint 已在审计通过后压缩清理，
+但汇总指标、每家族指标和模型元数据保存在该目录的 `README.md`、CSV 与
+`compact/` 中。当前论文应引用 `CURRENT_RESULTS.md` 的三种子统计，而不是旧的
+发烟试验或门控版本数值。
 
 历史 `outputs/stage23_mainline_reafnn_gnn_fused_20260723/` 记录了将图特征
 直接送入 ranker 的消融。下面的 encoder、标签和 XGBoost 实现细节仍有效；任何
@@ -159,7 +162,7 @@ XGBRanker 训练时真正回归/排序的目标就是 `rank_relevance`。
 
 然后再经过一个小投影层，得到固定长度的：
 
-- `route_gnn_feat_0 ... route_gnn_feat_63`
+- `route_gnn_feat_0 ... route_gnn_feat_127`
 
 这批列会写回 `train / val / test table`，但当前 `XGBRanker` 显式排除它们；只有候选的 GNN 温度回归器读取这些列。
 
@@ -252,9 +255,9 @@ R-GNN 本身不是最终排序器，它只负责输出 reaction embedding。
 
 默认超参：
 
-- `hidden_dim = 64`
-- `embedding_dim = 64`
-- `message_passing_steps = 3`
+- `hidden_dim = 128`
+- `embedding_dim = 128`
+- `message_passing_steps = 4`
 - `dropout = 0.10`
 
 可以把当前结构近似写成：
@@ -270,7 +273,7 @@ product graph
 
 concat(h_reactant, h_product, h_product - h_reactant)
  -> Linear + ReLU + Dropout
- -> reaction embedding (64-d)
+ -> reaction embedding (128-d)
  -> reagent_head
  -> solvent_head
 ```
@@ -335,12 +338,12 @@ R-GNN 的训练任务是一个辅助多标签任务：
 
 因此当前 R-GNN 的角色可以概括成一句：
 
-- 它不是 Stage 3 的最终决策器，而是一个由验证集门控的温度结构特征抽取器
+- 它不是 Stage 3 的最终排序器，而是所有家族固定使用的温度结构特征抽取器
 
 ### 5.5 candidate-aware GNN residual（已实现，未纳入正式主线）
 
-当前代码还实现了一个 candidate-specific 的 GNN residual：它把冻结的 64 维
-`route_gnn_feat_*` 与 reagent/solvent token embedding 做交互，从而让同一路线下
+当前代码还实现了一个历史 candidate-specific GNN residual：它把冻结的图表征
+与 reagent/solvent token embedding 做交互，从而让同一路线下
 不同条件候选得到不同 GNN 分数。该分支不向 `XGBRanker` 回灌 in-sample GNN 分数，
 而是仅在 XGBoost 已经固定后，用 validation-only 的 score fusion gate 决定是否启用。
 
@@ -601,14 +604,14 @@ Stage 3 训练输出目录下会保存：
 1. Stage 1 提供路线候选
 2. Stage 2 `KNN + ReaFNN` 提供可行条件候选池
 3. Stage 3 的无图 `XGBRanker` 对候选池重排
-4. 验证集门控的 R-GNN 温度回归器输出温度预测
+4. 同规格的 R-GNN 表征和温度 `XGBRegressor` 为每个 family 输出温度预测
 
 所以当前主线更准确的真实含义是：
 
 - `KNN` 负责把“像的历史反应”找出来
 - `ReaFNN` 负责把可行条件池再精筛一遍
 - tabular `XGB-LTR` 负责在这些候选里“把最像真的排前面”
-- `R-GNN` 仅在验证 MAE 改善至少 `0.25 C` 时给温度回归补充结构化反应表示
+- `R-GNN` 固定提供反应结构表示，温度 `XGBRegressor` 将其与路线和候选条件特征联合建模
 
 不是简单的两个模型串起来，而是一个典型的：
 
@@ -701,31 +704,38 @@ Stage 3 XGB-LTR 的核心收益不是提升 candidate pool 覆盖率，而是：
 - `Within +/-20 deg C = 82.98%`
 
 该历史快照说明，图特征直接进入排序器没有带来稳定的 full-system Top-k accuracy 增益。当前主线
-保留这一 encoder，但将其限制到验证集门控的温度分支；当前固定策略的结果和
-启用家族见下一节。
+保留结构 encoder，但只把它输入所有家族固定使用的温度分支；新的统一实现见下一节。
 
-## 15. 当前门控实现与结果
 
-当前主线在 `scripts/run_stage23_mainline_non_oracle.py` 中执行两个独立头：
+## 15. 当前统一温度实现与验证状态
 
-1. 排序头：从无 `route_gnn_feat_*` 的 candidate table 训练 `XGBRanker`，并在
+当前主线在 `scripts/run_stage23_mainline_non_oracle.py` 中执行两个固定头：
+
+1. 排序头：从显式排除全部 `route_gnn_feat_*` 的 candidate table 训练 `XGBRanker`，并在
    validation 上选择 Stage 2 heuristic 融合权重。
-2. 温度头：分别训练 no-GNN 和 GNN-enhanced `XGBRegressor`；后者读取 64 个
-   `route_gnn_feat_*`。在固定验证 manifest 上，只有 MAE 至少降低 `0.25 C`
-   才保留 GNN 温度模型。
+2. 温度头：每个 family 固定训练一个读取 128 个 `route_gnn_feat_*` 的
+   `XGBRegressor`。没有 no-GNN 温度备用头、没有基于温度 MAE 的模型选择，也不按
+   family 分支。
 
-因此温度 gate 绝不会改变 `xgb_score`、候选顺序或 `full-system Top-k accuracy`。它在 Chan-Lam、
-Diels-Alder、Friedel-Crafts acylation 和 Friedel-Crafts alkylation 四个家族
-被启用；Beckmann 与 Buchwald-Hartwig 回退 no-GNN temperature model。
+该设计的边界是清楚的：R-GNN 不改写 `xgb_score`、候选顺序或 `full-system Top-k accuracy`；
+它只给温度回归器补充从 `(reactants, product)` 提取的结构表征。温度指标仍只在
+最高排名的完整命中候选且温度标签有效时计算。
 
-固定策略的 six-family test result 为：
+正式六家族、三随机种子复现已经完成。固定 Stage 1 的宏平均结果为：
 
-- `full-system Top-1 accuracy / full-system Top-3 accuracy / full-system Top-5 accuracy / full-system Top-10 accuracy = 30.11% / 38.04% / 41.13% / 43.91%`
-- `MRR / nDCG@10 = 35.03% / 36.33%`
-- `MAE (deg C) = 11.11`
-- `Within +/-5 / +/-10 / +/-20 deg C = 39.22% / 62.62% / 82.93%`
+- `full-system Top-1 accuracy = 28.96 +/- 0.91%`
+- `full-system Top-3 accuracy = 36.61 +/- 1.05%`
+- `full-system Top-5 accuracy = 39.53 +/- 1.24%`
+- `full-system Top-10 accuracy = 42.90 +/- 1.00%`
+- `MRR = 33.78 +/- 0.96%`，`nDCG@10 = 35.13 +/- 0.97%`
+- 条件温度 `MAE = 10.75 +/- 0.14 C`，`+/-5/+/-10/+/-20 C` 命中率分别为
+  `41.66 +/- 1.39% / 64.14 +/- 1.65% / 84.74 +/- 0.38%`
 
-在相同固定 ranker 下，no-GNN temperature baseline 的 macro MAE 为 `12.85 C`
-且 `Within +/-10 deg C = 56.77%`；验证集选择后的 GNN 温度分支分别改善到 `11.11 C`
-和 `62.62%`。完整逐家族审计见
-`outputs/stage23_mainline_gnn_temperature_gated_20260803/gnn_temperature_gate_audit.tsv`。
+每轮均有 `3,833/3,860` 个测试产物获得 Stage 1 candidate slate；其余 27 个仍
+保留在全系统分母中并记为失败。所有 18 个 family-seed 温度元数据均记录
+`always_enabled = true` 和 `selection = none`；18 个排序器均为 52 个非图特征，
+18 个温度回归器均为 180 个特征（52 个表格特征加 128 个 R-GNN 特征）。
+
+此结果证明无门控方案可稳定运行且不依赖测试集选择模型。它不是“仅移除 gate”的
+严格因果消融，因为 R-GNN 容量同时从旧快照升级为 128 维、四层 message passing；
+若要单独量化 gate 的影响，仍需在完全相同结构下做有/无 gate 的受控实验。

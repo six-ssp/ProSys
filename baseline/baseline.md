@@ -35,7 +35,7 @@ target product
   -> family-specific EditRetro route proposals
   -> KNN wide recall + ReaFNN condition-pool selection
   -> tabular XGB-LTR full-system reranking
-  -> validation-gated R-GNN temperature prediction
+  -> fixed R-GNN temperature prediction
 ```
 
 ## Shared Protocol
@@ -51,9 +51,9 @@ target product
 - Product-Bernoulli Naive Bayes and Product-GNN do not predict temperature, so
   temperature is not reported for them.
 
-## Current Macro Results
+## Archived Point Comparison
 
-All values are equal-family macro averages over the six maintained families.
+The baseline table below is a fixed historical point comparison. Its ProSys row is retained only because all rows share that archived evaluation run; current three-seed mainline results are defined by [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md) and must not be numerically mixed with this table.
 
 | ID | Method | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy | MRR | nDCG@10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -61,7 +61,7 @@ All values are equal-family macro averages over the six maintained families.
 | Baseline 2 | Product-GNN | 38.03 | 6.55 | 12.90 | 16.77 | 23.05 | 11.63 | 13.52 |
 | Baseline 3 | EditRetro + Sequential FNN | 45.99 | 17.06 | 24.64 | 27.98 | 31.67 | 22.27 | 23.84 |
 | Baseline 4 | EditRetro + Reaction-GCNN | 38.01 | 7.93 | 13.16 | 16.36 | 21.03 | 12.18 | 13.50 |
-| Mainline | ProSys current mainline | 49.18 | 30.11 | 38.04 | 41.13 | 43.91 | 35.03 | 36.33 |
+| Mainline | Archived ProSys point snapshot | 49.18 | 30.11 | 38.04 | 41.13 | 43.91 | 35.03 | 36.33 |
 
 Product-Bernoulli Naive Bayes is the low-capacity conventional-ML control: it uses no neighbor
 lookup, route input, learned graph encoder, or route-aware feature. Product-GNN

@@ -80,6 +80,24 @@ def _shared_augmented_table_paths(shared_root: Path) -> dict[str, Path]:
     }
 
 
+def _reaction_gnn_cache_name(config: ReactionGNNConfig) -> str:
+    """Keep graph tables from incompatible R-GNN capacities separate."""
+    dropout = f'{config.dropout:.3f}'.rstrip('0').rstrip('.').replace('.', 'p')
+    return (
+        f'_shared_reaction_gnn_h{config.hidden_dim}_e{config.embedding_dim}'
+        f'_mp{config.message_passing_steps}_d{dropout}_s{config.random_state}'
+    )
+
+
+def _reafnn_cache_name(config: ReaFNNConfig) -> str:
+    """Keep candidate pools tied to the exact ReaFNN capacity and seed."""
+    dropout = f'{config.dropout:.3f}'.rstrip('0').rstrip('.').replace('.', 'p')
+    return (
+        f'_shared_knn_fp{config.fpsize}_r{config.radius}_reafnn_h{config.hidden_dim}'
+        f'_l{config.hidden_layers}_d{dropout}_s{config.random_state}'
+    )
+
+
 def _maybe_unlink(paths: dict[str, Path]) -> None:
     for path in paths.values():
         if path.exists():
@@ -202,9 +220,8 @@ def _ensure_knn_tables(
     val_route_root: Path | None,
     hard_negative_per_sample: int,
     force_rebuild: bool,
-    reaffn_device: str,
+    reafnn_config: ReaFNNConfig,
     reaffn_force_retrain: bool,
-    reafnn_seed: int,
 ) -> dict[str, Path]:
     paths = _shared_paths(shared_root)
     aux_paths = _aux_training_paths(shared_root)
@@ -223,14 +240,9 @@ def _ensure_knn_tables(
         radius=radius,
         prefilter_contexts=prefilter_contexts,
         reaffn_artifact_dir=shared_root / 'reafnn',
-        reaffn_device=reaffn_device,
+        reaffn_device=reafnn_config.device,
         reaffn_force_retrain=reaffn_force_retrain,
-        reaffn_config=ReaFNNConfig(
-            fpsize=fpsize,
-            radius=radius,
-            device=reaffn_device,
-            random_state=reafnn_seed,
-        ),
+        reaffn_config=reafnn_config,
     )
     builder.build_non_oracle_table(route_cache, paths['candidate_test'])
     label_candidate_table(paths['candidate_test'], split_file_for_family(repo_root, family, 'test'), paths['table_test'])
@@ -321,11 +333,11 @@ def _ensure_gnn_augmented_tables(
     table_paths: dict[str, Path],
     *,
     force_rebuild: bool,
-    gnn_device: str,
+    gnn_config: ReactionGNNConfig,
     gnn_force_retrain: bool,
-    gnn_seed: int,
 ) -> dict[str, Path]:
-    paths = _shared_augmented_table_paths(family_root / '_shared_reaction_gnn')
+    gnn_root = family_root / _reaction_gnn_cache_name(gnn_config)
+    paths = _shared_augmented_table_paths(gnn_root)
     if force_rebuild:
         _maybe_unlink(paths)
     if all(path.exists() for path in paths.values()):
@@ -333,31 +345,31 @@ def _ensure_gnn_augmented_tables(
 
     split_train = split_file_for_family(repo_root, family, 'train')
     split_val = split_file_for_family(repo_root, family, 'val')
-    model_dir = family_root / '_shared_reaction_gnn' / 'model'
+    model_dir = gnn_root / 'model'
     train_reaction_gnn_feature_model(
         train_split_file=split_train,
         val_split_file=split_val,
         output_dir=model_dir,
-        config=ReactionGNNConfig(device=gnn_device, random_state=gnn_seed),
+        config=gnn_config,
         force_retrain=gnn_force_retrain,
     )
     augment_table_with_reaction_gnn_features(
         table_file=table_paths['table_train'],
         artifact_dir=model_dir,
         output_file=paths['table_train'],
-        device=gnn_device,
+        device=gnn_config.device,
     )
     augment_table_with_reaction_gnn_features(
         table_file=table_paths['table_val'],
         artifact_dir=model_dir,
         output_file=paths['table_val'],
-        device=gnn_device,
+        device=gnn_config.device,
     )
     augment_table_with_reaction_gnn_features(
         table_file=table_paths['table_test'],
         artifact_dir=model_dir,
         output_file=paths['table_test'],
-        device=gnn_device,
+        device=gnn_config.device,
     )
     return paths
 
@@ -380,26 +392,49 @@ def _run_family(
     val_route_root: Path | None,
     hard_negative_per_sample: int,
     force_rebuild: bool,
-    reaffn_device: str,
+    reafnn_config: ReaFNNConfig,
     reaffn_force_retrain: bool,
-    gnn_device: str,
+    gnn_config: ReactionGNNConfig,
     reuse_candidate_tables_root: Path | None,
-    gnn_temperature_min_val_mae_improvement: float,
     gnn_force_retrain: bool,
     seed: int,
 ) -> dict:
     family_root = output_root / family
-    shared_root = family_root / '_shared_knn'
+    shared_root = family_root / _reafnn_cache_name(reafnn_config)
     result_dir = family_root / 'knn_xgb' / 'non_oracle'
     result_file = result_dir / 'result.json'
     if result_file.exists() and not force_rebuild:
-        return json.loads(result_file.read_text(encoding='utf-8'))
+        existing = json.loads(result_file.read_text(encoding='utf-8'))
+        existing_model = existing.get('model') or {}
+        existing_temperature_protocol = existing_model.get('temperature_protocol') or {}
+        existing_ranker_features = existing_model.get('feature_columns') or []
+        existing_stage2_protocol = existing_model.get('stage2_protocol') or {}
+        existing_ranker_is_non_graph = bool(existing_ranker_features) and all(
+            not str(column).startswith('route_gnn_feat_') for column in existing_ranker_features
+        )
+        if (
+            existing.get('baseline') == 'knn_xgb_reaction_gnn_temperature'
+            and existing_temperature_protocol.get('always_enabled') is True
+            and existing_temperature_protocol.get('selection') == 'none'
+            and existing_temperature_protocol.get('reaction_gnn_config') == gnn_config.to_dict()
+            and existing_ranker_is_non_graph
+            and existing_stage2_protocol.get('reafnn_config') == reafnn_config.to_dict()
+        ):
+            return existing
 
     if reuse_candidate_tables_root is not None:
         source_family_root = reuse_candidate_tables_root / family
-        table_paths = _shared_paths(source_family_root / '_shared_knn')
-        gnn_table_paths = _shared_augmented_table_paths(source_family_root / '_shared_reaction_gnn')
-        missing_tables = [str(path) for path in (*table_paths.values(), *gnn_table_paths.values()) if not path.exists()]
+        source_shared_root = source_family_root / _reafnn_cache_name(reafnn_config)
+        source_reafnn_meta = source_shared_root / 'reafnn' / 'reafnn_meta.json'
+        if not source_reafnn_meta.exists():
+            raise FileNotFoundError(
+                f'{family} is missing a ReaFNN cache matching the requested configuration: {source_reafnn_meta}'
+            )
+        source_reafnn_config = json.loads(source_reafnn_meta.read_text(encoding='utf-8')).get('config')
+        if source_reafnn_config != reafnn_config.to_dict():
+            raise ValueError(f'{family} has an incompatible reusable ReaFNN configuration.')
+        table_paths = _shared_paths(source_shared_root)
+        missing_tables = [str(path) for path in table_paths.values() if not path.exists()]
         if missing_tables:
             raise FileNotFoundError(f'{family} is missing reusable candidate tables: {missing_tables[:3]}')
     else:
@@ -420,20 +455,21 @@ def _run_family(
             val_route_root=val_route_root,
             hard_negative_per_sample=hard_negative_per_sample,
             force_rebuild=force_rebuild,
-            reaffn_device=reaffn_device,
+            reafnn_config=reafnn_config,
             reaffn_force_retrain=reaffn_force_retrain,
-            reafnn_seed=seed,
         )
-        gnn_table_paths = _ensure_gnn_augmented_tables(
-            repo_root=repo_root,
-            family=family,
-            family_root=family_root,
-            table_paths=table_paths,
-            force_rebuild=force_rebuild,
-            gnn_device=gnn_device,
-            gnn_force_retrain=gnn_force_retrain,
-            gnn_seed=seed,
-        )
+
+    # Reusing the frozen Stage 2 tables intentionally does not reuse a prior
+    # graph representation: it is regenerated under this run's R-GNN config.
+    gnn_table_paths = _ensure_gnn_augmented_tables(
+        repo_root=repo_root,
+        family=family,
+        family_root=family_root,
+        table_paths=table_paths,
+        force_rebuild=force_rebuild,
+        gnn_config=gnn_config,
+        gnn_force_retrain=gnn_force_retrain,
+    )
 
     model_dir = result_dir / 'model'
     gnn_temperature_model_dir = result_dir / 'gnn_temperature_model'
@@ -444,13 +480,13 @@ def _run_family(
                     if path.is_file():
                         path.unlink()
 
-    # Ranking deliberately excludes route-GNN columns. The structural GNN is
-    # retained in a separately validated temperature branch below.
+    # System ranking stays on tabular features; R-GNN vectors are temperature-only.
     rank_artifacts = train_xgb_ranker_and_temperature(
         train_table_file=table_paths['table_train'],
         val_table_file=table_paths['table_val'],
         output_dir=model_dir,
         random_state=seed,
+        train_temperature=False,
     )
     gnn_temperature_artifacts = train_xgb_temperature_regressor(
         train_table_file=gnn_table_paths['table_train'],
@@ -459,63 +495,10 @@ def _run_family(
         random_state=seed,
     )
 
-    val_route_cache = (
-        val_route_root / family / 'route_cache.json'
-        if val_route_root is not None and (val_route_root / family / 'route_cache.json').exists()
-        else None
-    )
-    temperature_selection: dict[str, object] = {
-        'enabled': False,
-        'selection_split': 'validation',
-        'selection_metric': 'temperature.mae',
-        'minimum_mae_improvement_c': float(gnn_temperature_min_val_mae_improvement),
-        'reason': 'missing_validation_route_cache' if val_route_cache is None else None,
-    }
-    selected_temperature_model_file = rank_artifacts.get('temperature_model_file')
-    selected_temperature_metadata_file = rank_artifacts.get('temperature_metadata_file')
-    if val_route_cache is not None and gnn_temperature_artifacts.get('model_file') is not None:
-        val_base_scored = score_table_with_xgb(
-            table_file=gnn_table_paths['table_val'],
-            model_file=rank_artifacts['model_file'],
-            metadata_file=rank_artifacts['metadata_file'],
-            temperature_model_file=rank_artifacts.get('temperature_model_file'),
-            temperature_metadata_file=rank_artifacts.get('temperature_metadata_file'),
-        )
-        val_gnn_scored = score_table_with_xgb(
-            table_file=gnn_table_paths['table_val'],
-            model_file=rank_artifacts['model_file'],
-            metadata_file=rank_artifacts['metadata_file'],
-            temperature_model_file=gnn_temperature_artifacts.get('model_file'),
-            temperature_metadata_file=gnn_temperature_artifacts.get('metadata_file'),
-        )
-        val_expected = load_route_cache_sample_indices(val_route_cache)
-        val_base_metrics = evaluate_scored_frame_with_manifest(
-            val_base_scored,
-            expected_sample_indices=val_expected,
-            score_column='xgb_score',
-            temperature_column='xgb_temperature_pred',
-        )
-        val_gnn_metrics = evaluate_scored_frame_with_manifest(
-            val_gnn_scored,
-            expected_sample_indices=val_expected,
-            score_column='xgb_score',
-            temperature_column='xgb_temperature_pred',
-        )
-        base_mae = (val_base_metrics.get('temperature') or {}).get('mae')
-        gnn_mae = (val_gnn_metrics.get('temperature') or {}).get('mae')
-        use_gnn_temperature = bool(
-            base_mae is not None
-            and gnn_mae is not None
-            and float(gnn_mae) <= float(base_mae) - float(gnn_temperature_min_val_mae_improvement)
-        )
-        temperature_selection.update({
-            'enabled': use_gnn_temperature,
-            'base_validation_mae': base_mae,
-            'gnn_validation_mae': gnn_mae,
-        })
-        if use_gnn_temperature:
-            selected_temperature_model_file = gnn_temperature_artifacts.get('model_file')
-            selected_temperature_metadata_file = gnn_temperature_artifacts.get('metadata_file')
+    selected_temperature_model_file = gnn_temperature_artifacts.get('model_file')
+    selected_temperature_metadata_file = gnn_temperature_artifacts.get('metadata_file')
+    if selected_temperature_model_file is None or selected_temperature_metadata_file is None:
+        raise RuntimeError(f'{family}: the mandatory R-GNN temperature model could not be trained.')
 
     scored = score_table_with_xgb(
         table_file=gnn_table_paths['table_test'],
@@ -530,14 +513,27 @@ def _run_family(
 
     result = {
         'family': family,
-        'baseline': 'knn_xgb_gnn_temperature_gated',
+        'baseline': 'knn_xgb_reaction_gnn_temperature',
         'seed': seed,
         'candidate_table': str(gnn_table_paths['table_test']),
         'scored_test_file': str(scored_file),
         'model': {
-            'ranker_no_gnn': rank_artifacts,
-            # Preserve the established flat artifact keys for downstream audit
-            # scripts while retaining explicit ranker/temperature sub-artifacts.
+            'stage2_protocol': {
+                'architecture': 'knn_reafnn',
+                'reafnn_config': reafnn_config.to_dict(),
+            },
+            'ranker': {
+                'architecture': 'xgb_ranker',
+                'feature_space': 'tabular_non_graph',
+                **rank_artifacts,
+            },
+            'temperature': {
+                'architecture': 'reaction_gnn_augmented_xgboost_regressor',
+                'always_enabled': True,
+                'reaction_gnn_config': gnn_config.to_dict(),
+                **gnn_temperature_artifacts,
+            },
+            # Preserve flat artifact keys for downstream audit scripts.
             'output_dir': rank_artifacts.get('output_dir'),
             'model_file': rank_artifacts.get('model_file'),
             'metadata_file': rank_artifacts.get('metadata_file'),
@@ -545,12 +541,19 @@ def _run_family(
             'best_iteration': rank_artifacts.get('best_iteration'),
             'temperature_model_file': selected_temperature_model_file,
             'temperature_metadata_file': selected_temperature_metadata_file,
-            'temperature_num_train': (
-                gnn_temperature_artifacts.get('temperature_num_train')
-                if temperature_selection.get('enabled') else rank_artifacts.get('temperature_num_train')
-            ),
+            'temperature_num_train': gnn_temperature_artifacts.get('temperature_num_train'),
             'temperature_gnn': gnn_temperature_artifacts,
-            'temperature_selection': temperature_selection,
+            'ranking_protocol': {
+                'architecture': 'xgb_ranker',
+                'feature_space': 'tabular_non_graph',
+                'feature_count': len(rank_artifacts.get('feature_columns') or []),
+            },
+            'temperature_protocol': {
+                'architecture': 'reaction_gnn_augmented_xgboost_regressor',
+                'always_enabled': True,
+                'reaction_gnn_config': gnn_config.to_dict(),
+                'selection': 'none',
+            },
         },
         'metrics': evaluate_scored_frame_with_manifest(
             scored,
@@ -737,7 +740,6 @@ def main() -> None:
     parser.add_argument('--gnn_device', type=str, default='cpu')
     parser.add_argument('--gnn_force_retrain', action='store_true')
     parser.add_argument('--reuse_candidate_tables_root', type=str, default=None)
-    parser.add_argument('--gnn_temperature_min_val_mae_improvement', type=float, default=0.25)
     parser.add_argument('--seed', type=int, default=0, help='Shared random seed for ReaFNN, R-GNN, and XGB-LTR.')
     args = parser.parse_args()
 
@@ -751,6 +753,16 @@ def main() -> None:
     train_route_root = (repo_root / args.train_route_root).resolve() if args.train_route_root else None
     val_route_root = (repo_root / args.val_route_root).resolve() if args.val_route_root else None
     reuse_candidate_tables_root = (repo_root / args.reuse_candidate_tables_root).resolve() if args.reuse_candidate_tables_root else None
+    reafnn_config = ReaFNNConfig(
+        fpsize=args.fpsize,
+        radius=args.radius,
+        device=args.reafnn_device,
+        random_state=args.seed,
+    )
+    gnn_config = ReactionGNNConfig(
+        device=args.gnn_device,
+        random_state=args.seed,
+    )
 
     summary_rows: list[dict] = []
     for family in families:
@@ -777,12 +789,11 @@ def main() -> None:
                 val_route_root=val_route_root,
                 hard_negative_per_sample=args.hard_negative_per_sample,
                 force_rebuild=args.force_rebuild,
-                reaffn_device=args.reafnn_device,
+                reafnn_config=reafnn_config,
                 reaffn_force_retrain=args.reafnn_force_retrain,
-                gnn_device=args.gnn_device,
+                gnn_config=gnn_config,
                 gnn_force_retrain=args.gnn_force_retrain,
                 reuse_candidate_tables_root=reuse_candidate_tables_root,
-                gnn_temperature_min_val_mae_improvement=args.gnn_temperature_min_val_mae_improvement,
                 seed=args.seed,
             )
         )

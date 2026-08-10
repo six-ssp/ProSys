@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -28,9 +29,9 @@ METADATA_FILE_NAME = 'reaction_gnn_meta.json'
 
 @dataclass(frozen=True)
 class ReactionGNNConfig:
-    hidden_dim: int = 64
-    embedding_dim: int = 64
-    message_passing_steps: int = 3
+    hidden_dim: int = 128
+    embedding_dim: int = 128
+    message_passing_steps: int = 4
     dropout: float = 0.10
     learning_rate: float = 1e-3
     weight_decay: float = 1e-5
@@ -93,7 +94,9 @@ def _mol_from_smiles(smiles: str, *, reaction_side: bool) -> Chem.Mol | None:
     return Chem.MolFromSmiles(normalized)
 
 
+@lru_cache(maxsize=50_000)
 def _graph_from_smiles(smiles: str, *, reaction_side: bool) -> tuple[np.ndarray, np.ndarray]:
+    """Parse each unique reaction side once per process during GNN training."""
     mol = _mol_from_smiles(smiles, reaction_side=reaction_side)
     if mol is None or mol.GetNumAtoms() == 0:
         return (
@@ -504,12 +507,11 @@ def add_reaction_gnn_features_to_frame(
     unique_routes = work[['reactants', 'product']].drop_duplicates().reset_index(drop=True)
     route_pairs = [(str(row.reactants), str(row.product)) for row in unique_routes.itertuples(index=False)]
     embeddings = encoder.encode_routes(route_pairs)
-    for idx, column in enumerate(feature_columns):
-        unique_routes[column] = embeddings[:, idx]
+    embedding_frame = pd.DataFrame(embeddings, columns=feature_columns, dtype=np.float32)
+    unique_routes = pd.concat((unique_routes, embedding_frame), axis=1)
 
     work = work.merge(unique_routes, on=['reactants', 'product'], how='left', sort=False)
-    for column in feature_columns:
-        work[column] = pd.to_numeric(work[column], errors='coerce').fillna(0.0).astype(np.float32)
+    work.loc[:, feature_columns] = work.loc[:, feature_columns].fillna(0.0).astype(np.float32)
     return work
 
 

@@ -1,120 +1,110 @@
-# ProSys: A Product-to-System Framework for Target-Product-Driven Reaction-System Recommendation
+# ProSys: A Product-to-System Framework for Target Product-Driven Reaction-System Recommendation
 
-## Current Verified Results
+## Current Verified Results (2026-08-09)
 
-Date: `2026-08-03`
+**Current maintained mainline.** Every family uses a fixed R-GNN
+(128-dimensional, four-layer) plus XGBoostRegressor temperature branch. There
+is no family-level no-GNN fallback and no temperature-model selection gate. The
+current official figures below are from a completed six-family, three-seed
+reproduction; the older gated point snapshot is historical only.
 
-## Canonical Scope
+## Current Scope
 
-This is the only current result summary to cite for the maintained ProSys
-pipeline. It covers six Reaxys reaction families in a family-stratified,
-end-to-end specialist evaluation setting. The target product is the only
-molecular query and no model feature encodes a reaction-family or
-reaction-type label:
+This is a family-stratified, target-product-driven, end-to-end specialist
+evaluation. The molecular query is the target product only. A family identifier
+selects separately trained specialist artifacts, condition memory, and label
+vocabularies outside feature encoders; it is not concatenated to a product
+fingerprint, route representation, ReaFNN input, or XGB feature row.
 
-```text
-target product
-  -> family-specific specialist artifacts selected by the evaluation partition
-  -> family-tuned EditRetro route proposals
-  -> KNN wide recall + ReaFNN condition-pool selection
-  -> tabular XGB-LTR full-system reranking + validation-gated R-GNN temperature prediction
-  -> ranked reaction systems
-```
-
-The family identifier selects the separately trained expert, condition memory,
-and label vocabulary outside the feature encoder. It is not concatenated to a
-product fingerprint, route representation, ReaFNN input, or XGB-LTR feature
-row. Thus these results are not product-plus-reaction-type feature fusion;
-they are reported for family-specific specialists.
-
-Canonical result artifacts:
-
-- `outputs/stage23_mainline_gnn_temperature_gated_20260803/`
-- `outputs/stage23_mainline_gnn_temperature_gated_20260803/gnn_temperature_gate_audit.tsv`
-- `outputs/current_mainline_multiseed_20260807/` (fixed-Stage-1 three-seed robustness)
-- `outputs/ablation_reafnn_gnn_20260726/`
-- `outputs/baselines/non_oracle_external_b23_20260726/`
-
-The earlier `outputs/stage23_mainline_reafnn_gnn_fused_20260723/` snapshot is
-retained for ablation traceability. It exposed a mixed GNN ranking effect and
-is no longer the source of current headline metrics.
+    target product
+      -> family-specific specialist artifacts selected by the evaluation partition
+      -> family-tuned EditRetro route proposals
+      -> KNN wide recall plus ReaFNN condition-pool selection
+      -> tabular XGB-LTR full-system reranking
+      -> fixed R-GNN structural representation plus XGBoost temperature prediction
+      -> ranked reaction systems
 
 ## Evaluation Protocol
 
-- Fixed end-to-end test manifest: `3,860` product identities across six
-  families.
-- `27` identities without a Stage 1 route candidate remain in the denominator
-  and receive zero for end-to-end system metrics.
-- A complete system is an exact joint match of canonical route, normalized
+- Fixed end-to-end test manifest: 3,860 product identities across six families.
+- Fixed Stage 1 route caches: 3,833 products have a candidate slate in every
+  seed; the remaining 27 products remain in the denominator and receive zero
+  for full-system metrics.
+- The fixed Stage 1 macro Route@1/3/5/10 is
+  43.46/56.69/59.97/63.20%; this robustness experiment measures Stage 2/3
+  stochastic variation, not Stage 1 retraining variation.
+- A full-system match is an exact joint match of canonical route, normalized
   reagent set, and normalized solvent set.
-- Stage 2 emits at most `20` reagent-solvent contexts per proposed route.
-- Temperature is evaluated only for a valid-temperature sample whose
-  highest-ranked exact system match is available. It is a conditional
-  regression statistic, not a score over all test products.
+- Stage 2 emits at most 20 reagent-solvent contexts per proposed route.
+- ReaFNN, the R-GNN, and XGBoost are retrained independently at seeds 0, 1,
+  and 2. KNN retrieval, split, route caches, vocabulary construction, and
+  evaluation are held fixed.
+- Temperature is a conditional statistic. For a product with an available
+  valid-temperature exact system match, the highest-ranked such match supplies
+  one absolute error. It is not an all-candidate regression average and it is
+  not included in the full-system ranking score.
 
-## Mainline Performance
+## Current Mainline Performance
 
-| Family | Route@10 | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy | MRR | nDCG@10 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Beckmann | 69.79 | 39.57 | 18.72 | 23.83 | 25.96 | 29.79 | 22.64 | 23.13 |
-| Buchwald-Hartwig | 69.97 | 48.68 | 37.22 | 44.68 | 45.77 | 46.77 | 41.03 | 42.17 |
-| Chan-Lam | 77.44 | 66.67 | 45.90 | 55.38 | 59.23 | 60.77 | 51.45 | 52.68 |
-| Diels-Alder | 37.27 | 29.79 | 17.32 | 23.62 | 26.25 | 27.56 | 20.94 | 22.27 |
-| Friedel-Crafts Acyl. | 70.32 | 60.63 | 32.00 | 41.68 | 46.95 | 53.05 | 38.89 | 40.94 |
-| Friedel-Crafts Alkyl. | 54.39 | 49.72 | 29.48 | 39.04 | 42.60 | 45.49 | 35.21 | 36.78 |
-| Macro average | 63.20 | 49.18 | 30.11 | 38.04 | 41.13 | 43.91 | 35.03 | 36.33 |
+All values are unweighted six-family macro averages over three seeds. Rates are
+percentages and +/- denotes sample standard deviation (ddof=1).
 
-| Temperature statistic | Value |
-| --- | ---: |
-| N_temp | 1,603 |
-| MAE (deg C) | 11.11 |
-| Within +/-5 deg C | 39.22% |
-| Within +/-10 deg C | 62.62% |
-| Within +/-20 deg C | 82.93% |
+| Candidate coverage | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 48.52 +/- 0.59 | 28.96 +/- 0.91 | 36.61 +/- 1.05 | 39.53 +/- 1.24 | 42.90 +/- 1.00 | 33.78 +/- 0.96 | 35.13 +/- 0.97 |
 
-## Current Fixed-Stage-1 Three-Seed Robustness
+| Family | Candidate coverage | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Beckmann | 35.89 +/- 3.19 | 18.30 +/- 0.74 | 22.27 +/- 1.72 | 23.83 +/- 1.95 | 27.94 +/- 1.72 | 21.41 +/- 1.07 | 22.03 +/- 0.98 |
+| Buchwald-Hartwig | 48.35 +/- 0.37 | 36.12 +/- 0.98 | 42.77 +/- 1.03 | 44.59 +/- 0.66 | 46.07 +/- 0.56 | 39.77 +/- 0.79 | 40.90 +/- 0.68 |
+| Chan-Lam | 68.12 +/- 1.41 | 46.92 +/- 1.36 | 56.50 +/- 1.04 | 59.66 +/- 1.21 | 62.39 +/- 1.55 | 52.52 +/- 1.23 | 53.94 +/- 1.37 |
+| Diels-Alder | 28.70 +/- 1.00 | 18.02 +/- 0.89 | 23.71 +/- 0.08 | 25.55 +/- 0.89 | 26.99 +/- 0.87 | 21.34 +/- 0.46 | 22.40 +/- 0.12 |
+| Friedel-Crafts Acyl. | 60.63 +/- 0.42 | 25.89 +/- 5.37 | 34.88 +/- 6.23 | 40.42 +/- 5.73 | 47.86 +/- 5.16 | 32.89 +/- 5.36 | 34.71 +/- 5.68 |
+| Friedel-Crafts Alkyl. | 49.46 +/- 0.23 | 28.51 +/- 1.38 | 39.53 +/- 0.84 | 43.16 +/- 0.95 | 46.16 +/- 0.22 | 34.78 +/- 0.87 | 36.78 +/- 0.79 |
 
-The current Stage 2/3 mainline was freshly rebuilt with seeds `0`, `1`, and
-`2` on 2026-08-07. The persisted split, six-family 3,860-product test
-manifest, and Stage 1 route caches were frozen; ReaFNN, the Reaction-GNN
-temperature representation, XGBoost learning-to-rank, and both temperature
-regressors were independently retrained for each seed. This measures Stage
-2/3 stochastic variation only, not variance from retraining the family-tuned
-EditRetro models.
+## Current Temperature Performance
 
-Every run contained `3,833` products with a Stage 1 candidate slate and `27`
-products without one; all `3,860` products remained in the full-system
-denominator. The frozen Stage 1 macro Route@1/3/5/10 values were
-`43.46/56.69/59.97/63.20%` in all rounds. All 18 rankers used the same
-52-column non-graph feature schema; Reaction-GNN features were used only in
-the validation-gated temperature branch.
+The temperature support is 1,603, 1,592, and 1,576 matched products at seeds
+0, 1, and 2, respectively. The support changes with the learned ranking, so
+temperature results should be reported together with system accuracy rather
+than as a manifest-wide score.
 
-| Metric | Mean +/- sample SD |
-| --- | ---: |
-| Candidate coverage | 48.52 +/- 0.59% |
-| Full-system Top-1 accuracy | 28.96 +/- 0.91% |
-| Full-system Top-3 accuracy | 36.61 +/- 1.05% |
-| Full-system Top-5 accuracy | 39.53 +/- 1.24% |
-| Full-system Top-10 accuracy | 42.90 +/- 1.00% |
-| MRR | 33.78 +/- 0.96% |
-| nDCG@10 | 35.13 +/- 0.97% |
-| Conditional temperature MAE | 11.20 +/- 0.39 C |
-| Temperature within +/-5 C | 40.70 +/- 2.99% |
-| Temperature within +/-10 C | 62.43 +/- 2.02% |
-| Temperature within +/-20 C | 83.91 +/- 0.85% |
+| Family | Conditional MAE (C) | Within +/-5 C | Within +/-10 C | Within +/-20 C |
+| --- | ---: | ---: | ---: | ---: |
+| Beckmann | 10.52 +/- 1.73 | 38.27 +/- 6.57 | 62.93 +/- 10.86 | 86.13 +/- 4.14 |
+| Buchwald-Hartwig | 10.72 +/- 0.24 | 36.09 +/- 1.58 | 61.13 +/- 1.62 | 84.59 +/- 1.53 |
+| Chan-Lam | 5.85 +/- 0.53 | 66.05 +/- 2.37 | 83.42 +/- 2.86 | 94.73 +/- 1.52 |
+| Diels-Alder | 17.44 +/- 1.31 | 26.19 +/- 2.68 | 48.13 +/- 2.61 | 69.62 +/- 3.74 |
+| Friedel-Crafts Acyl. | 9.94 +/- 0.33 | 42.82 +/- 4.18 | 65.75 +/- 2.44 | 86.43 +/- 0.94 |
+| Friedel-Crafts Alkyl. | 10.01 +/- 0.12 | 40.57 +/- 2.49 | 63.47 +/- 0.38 | 86.93 +/- 1.62 |
+| Macro average | 10.75 +/- 0.14 | 41.66 +/- 1.39 | 64.14 +/- 1.65 | 84.74 +/- 0.38 |
 
-Temperature is calculated only when a valid candidate exactly matches both the
-route and normalized condition context and has a valid temperature label. For
-each such product, the highest-ranked valid full match supplies the absolute
-temperature error; it is therefore a conditional regression statistic rather
-than a full-manifest metric. Temperature supports were 1,603, 1,592, and
-1,576 for seeds 0, 1, and 2, respectively.
+## Reproducibility Record
 
-The canonical single-run table above remains the archived point snapshot
-(`43.91%` Full-system Top-10). The three-seed estimate should be used when
-reporting current Stage 2/3 robustness; it must not be described as full
-end-to-end retraining variance.
+The compact formal artifacts are retained at
+outputs/unified_rgnn_multiseed_20260809/:
 
+- README.md: macro and per-seed summary.
+- macro_mean_std.csv, macro_by_seed.csv, and per_family_mean_std.csv:
+  reportable aggregates.
+- per_family_seed_metrics.csv: family-level seed records.
+- compact/: audited per-family metrics and model metadata.
+
+The raw candidate tables and checkpoints were intentionally pruned only after
+the collector retained these compact records, to respect the storage budget.
+All 18 family-seed temperature metadata records state always_enabled = true
+and selection = none; every ranker has 52 non-graph features and every
+temperature regressor has 180 features, including 128 R-GNN columns.
+
+## Historical Context
+
+The prior 2026-08-03 gated point snapshot used a different temperature
+selection policy and an earlier R-GNN configuration. It remains useful for
+traceability in its archived output directory, but is not the current
+headline result and must not be compared as a gate-only ablation: the current
+implementation simultaneously changed R-GNN capacity to 128 dimensions and
+four message-passing layers. A matched architecture with and without a gate
+would be required for a causal gate ablation.
 
 ## Evidence Strength From Ablation
 
@@ -122,14 +112,16 @@ end-to-end retraining variance.
 | --- | --- | --- |
 | Base Stage 1 vs family-tuned Stage 1 | Route@10: `14.97% -> 63.20%` | Fine-tuning improves every family; the macro gain is `+48.22 pp`. |
 | Global top-20 frequency pool vs full Stage 2 | candidate recall: `25.63% -> 49.18%`; historical full-system Top-10 accuracy: `17.72% -> 42.68%` | Route-conditioned local retrieval is essential. |
-| R-GNN rank features | Historical ablation: `42.68%` with graph rank features vs `43.76%` without | Graph features have a mixed ranking effect and are not used by the current ranker. |
-| Validation-gated R-GNN temperature branch | Fixed-ranking MAE (deg C): `12.85 -> 11.11`; Within +/-10 deg C: `56.77% -> 62.62%` | R-GNN is retained only where validation MAE improves by at least `0.25 C`; ranking metrics cannot decrease by design. |
+
+| Fixed R-GNN temperature branch | Current three-seed conditional MAE: 10.75 +/- 0.14 C; Within +/-10 C: 64.14 +/- 1.65% | Every family uses the same R-GNN plus XGBoost temperature architecture with no fallback or model-selection gate; it does not affect ranking metrics. |
+
 | Full Stage 2 vs KNN-only Stage 2 | Historical full-system Top-10 accuracy: `42.68%` vs `43.33%` | ReaFNN changes candidate composition but is not a universal macro full-system Top-k accuracy gain in that control. |
 | Candidate-aware route-context GNN residual | Beckmann interaction pilot: selected alpha `0`; related six-family residual probe: `0/6` accepted | The branch is validation-gated and remains exploratory; it does not alter headline `full-system Top-k accuracy`. |
 
-The new temperature gate is selected per family on validation MAE only. It
-enabled the GNN regressor for four of six families; the test set is used only
-for the final, fixed-policy report.
+The current temperature head is fixed before test evaluation: every family uses
+the same R-GNN plus XGBoost architecture. The unrelated candidate-aware residual
+remains a historical validation-only exploratory branch and is not part of the
+headline ranking or temperature results.
 
 ## Candidate-aware GNN Update
 
@@ -159,12 +151,9 @@ route-conditioned baselines:
 | Product-GNN | 38.03 | 6.55 | 12.90 | 16.77 | 23.05 | 11.63 | 13.52 |
 | EditRetro + Sequential FNN | 45.99 | 17.06 | 24.64 | 27.98 | 31.67 | 22.27 | 23.84 |
 | EditRetro + Reaction-GCNN | 38.01 | 7.93 | 13.16 | 16.36 | 21.03 | 12.18 | 13.50 |
-| ProSys current mainline | 49.18 | 30.11 | 38.04 | 41.13 | 43.91 | 35.03 | 36.33 |
+| ProSys current mainline (three-seed mean) | 48.52 | 28.96 | 36.61 | 39.53 | 42.90 | 33.78 | 35.13 |
 
-The mainline exceeds the formal low-capacity Product-Bernoulli Naive Bayes and Product-GNN direct
-controls at all reported macro cutoffs. The reaction-level
-split is not product-disjoint, which remains a required disclosure for every
-product-only model.
+The current three-seed mainline estimate exceeds the formal low-capacity Product-Bernoulli Naive Bayes and Product-GNN direct controls at all reported macro cutoffs. Baselines are retained as fixed-run references, so the difference in replication depth should be disclosed. The reaction-level split is not product-disjoint, which remains a required disclosure for every product-only model.
 
 The detailed comparison is documented in
 [`baseline/current_baseline_results_20260727.md`](baseline/current_baseline_results_20260727.md).
@@ -183,8 +172,9 @@ verified compatible checkpoint was available. It is not a zero-valued baseline.
   exclusion, and full-reference equality all pass.
 - Canonical direct-baseline artifact and validation-only fusion audit: PASS for
   all twelve Product-Bernoulli Naive Bayes/Product-GNN family-model runs.
-- Validation-gated GNN temperature branch audit: PASS; all ranker feature lists
-  exclude `route_gnn_feat_*`, and the four selected temperature branches were chosen without test labels.
+- Fixed R-GNN temperature branch audit: PASS; all 18 ranker feature lists
+  exclude route_gnn_feat_*, all 18 temperature models contain the 128 graph
+  features, and metadata records always_enabled = true with selection = none.
 
 See [`project_audit_20260727.md`](project_audit_20260727.md) for scope,
 remaining limitations, and links to the raw audit artifacts.
