@@ -5,7 +5,7 @@
 Current maintained mainline:
 
 ```text
-stage1_retrosynthesis/ -> stage2_KNN/ -> stage3_XGBoost/
+stage1_retrosynthesis/ -> stage2_ReaFNN/ -> stage3_XGBoost/
 ```
 
 Supporting experiment code:
@@ -28,10 +28,12 @@ These paths are still kept because the historical baseline depends on them:
 
 They are compatibility layers now, not the preferred path for new development.
 
-## Active outputs
+## Active Result Records
 
-- `outputs/stage1_routes/`
-- `outputs/stage23_non_oracle_all10/`
+- `outputs/stage1_routes/`: persisted family-tuned Stage 1 test route caches.
+- `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`: promoted
+  compact three-seed Stage 2/3 mainline record.
+- `CURRENT_RESULTS.md`: reportable result tables and method scope.
 
 ## Archive policy
 
@@ -54,15 +56,15 @@ Safe to delete when regenerated:
 ## Before changing the mainline
 
 1. Confirm whether the change touches `stage2_KNN/` or `stage3_XGBoost/`.
-2. If it changes evaluation, also refresh:
-   - `baseline/render_stage23_nonoracle_reports.py`
-   - `outputs/stage23_non_oracle_all10/*.md`
+2. If it changes evaluation, refresh `CURRENT_RESULTS.md`, the compact result
+   record under `Experiment/`, and the matching baseline/ablation comparison
+   tables.
 3. Keep `Temp@10C` / `Temp@20C` aligned with the current rule:
    - within top-10 there exists a full system hit with valid temperature
    - and the temperature error is within `+/-10C` or `+/-20C`
 4. Update:
    - `README.md`
-   - `ProSys_goal.md`
+   - `CURRENT_RESULTS.md`
    - `todo.md`
    - `log.md`
 

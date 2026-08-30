@@ -1,5 +1,18 @@
 # ProSys Development Log
 
+## 2026-08-30 - post-hardening three-seed mainline promotion
+
+- Promoted `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/` as
+  the current compact result source.
+- The mainline fixes the six-family, 3,860-product Stage 1 route cache and
+  independently rebuilds ReaFNN, R-GNN, and XGBoost at seeds 0/1/2.
+- Current macro result: coverage `54.44 +/- 0.14%`, Sys@1/3/5/10
+  `27.12 +/- 0.37% / 36.84 +/- 0.80% / 40.47 +/- 0.77% /
+  44.62 +/- 0.42%`, MRR `33.28 +/- 0.48%`, nDCG@10 `34.70 +/- 0.53%`.
+- Conditional temperature: MAE `11.73 +/- 0.54 C`; within +/-5 / +/-10 /
+  +/-20 C is `40.59 +/- 0.56% / 61.80 +/- 2.36% / 83.04 +/- 1.10%`.
+- The pre-hardening 2026-08-09 result remains a historical reference only.
+
 ## 2026-07-12 — six-family mainline consolidation
 
 - The maintained project scope is now fixed to 6 reaction families:

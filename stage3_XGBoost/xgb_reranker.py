@@ -42,13 +42,60 @@ TARGET_COLUMNS = {
     'yield_gold',
 }
 
-STANDARD_FEATURE_COLUMNS = (
+# These fields describe the bounded Stage 2 KNN/ReaFNN correction. They are
+# intentionally kept out of the learned ranker: their only ranking role is the
+# validation-gated Stage 2 prior below, whose fusion weight can fall back to 0.
+STAGE2_CORRECTION_COLUMNS = {
+    'stage2_knn_rank',
+    'stage2_knn_prior',
+    'stage2_reafnn_check_score',
+    'stage2_reafnn_residual',
+    'stage2_reafnn_correction',
+    'stage2_reafnn_correction_clip',
+    'stage2_initial_score',
+}
+
+STAGE2_CORRECTION_WEIGHT_GRID = np.asarray(
+    (0.0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40), dtype=np.float32
+)
+STAGE2_DEFAULT_CORRECTION_CLIP = 0.10
+
+STAGE2_CONTEXT_FEATURE_COLUMNS = [
+    'from_baseline_knn',
+    'knn_similarity_sum',
+    'knn_similarity_max',
+    'knn_neighbor_count',
+    'knn_weighted_mean_yield',
+    'reafnn_reagent_score',
+    'reafnn_solvent_score',
+    'reafnn_token_score',
+    'reafnn_prior_score',
+    'reafnn_historical_bonus',
+    'reafnn_novelty_penalty',
+    'reafnn_context_score',
+    'reafnn_context_count',
+    'reafnn_context_support',
+    'reafnn_mean_yield',
+    'from_reafnn_generated',
+    'from_reafnn_novel',
+    'reafnn_is_historical',
+    'cluster_id',
+    'cluster_context_count',
+    'cluster_context_support',
+    'cluster_context_mean_yield',
+]
+
+# The ranker is deliberately kept in this fixed 52-column non-graph space.
+# A strict allowlist prevents bookkeeping fields from silently becoming learned
+# features and keeps all Stage 2 ablation arms directly comparable.
+TABULAR_FEATURE_COLUMNS = (
     ROUTE_DENSE_COLUMNS_V2
     + CONTEXT_DENSE_COLUMNS_V2
     + PRODUCT_DESCRIPTOR_COLUMNS_V2
-    + ROUTE_GNN_FEATURE_COLUMNS_V2
     + SUPPORT_FEATURE_COLUMNS_V2
+    + STAGE2_CONTEXT_FEATURE_COLUMNS
 )
+TEMPERATURE_FEATURE_COLUMNS = TABULAR_FEATURE_COLUMNS + ROUTE_GNN_FEATURE_COLUMNS_V2
 
 RANKER_MODEL_FILE_NAME = 'xgb_ranker.json'
 RANKER_METADATA_FILE_NAME = 'xgb_ranker_meta.json'
@@ -71,6 +118,8 @@ HEURISTIC_STAGE3_SORT_SPECS = [
     ('sample_index', True),
     ('retro_rank', True),
     ('retro_probability', False),
+    ('stage2_initial_score', False),
+    ('stage2_knn_rank', True),
     ('knn_similarity_sum', False),
     ('knn_similarity_max', False),
     ('knn_neighbor_count', False),
@@ -83,24 +132,15 @@ HEURISTIC_STAGE3_SORT_SPECS = [
 def infer_xgb_feature_columns(
     frame: pd.DataFrame,
     *,
-    include_route_gnn: bool,
+    include_route_gnn: bool = False,
+    include_stage2_correction: bool = False,
 ) -> list[str]:
-    """Infer numeric XGBoost features with an explicit graph-feature policy."""
-    columns = [
-        column
-        for column in STANDARD_FEATURE_COLUMNS
-        if column in frame.columns and (include_route_gnn or not column.startswith('route_gnn_feat_'))
-    ]
-    used = set(columns)
-    for column in frame.columns:
-        if column in used or column in TEXT_COLUMNS or column in TARGET_COLUMNS:
-            continue
-        if column.startswith('legacy_') or (not include_route_gnn and column.startswith('route_gnn_feat_')):
-            continue
-        if pd.api.types.is_numeric_dtype(frame[column]):
-            columns.append(column)
-            used.add(column)
-    return columns
+    """Return a fixed, audited feature allowlist for each XGBoost branch."""
+
+    allowed = list(TEMPERATURE_FEATURE_COLUMNS if include_route_gnn else TABULAR_FEATURE_COLUMNS)
+    if include_stage2_correction:
+        allowed.extend(sorted(STAGE2_CORRECTION_COLUMNS))
+    return [column for column in allowed if column in frame.columns]
 
 
 def _group_sizes(frame: pd.DataFrame) -> list[int]:
@@ -170,6 +210,92 @@ def _attach_groupwise_score_columns(frame: pd.DataFrame, raw_score_column: str) 
 
 def _score_fusion_grid() -> np.ndarray:
     return np.linspace(0.0, 2.0, 41, dtype=np.float32)
+
+
+def _has_stage2_correction_fields(frame: pd.DataFrame) -> bool:
+    return {
+        'stage2_knn_prior',
+        'stage2_reafnn_residual',
+    }.issubset(frame.columns)
+
+
+def _apply_stage2_correction_weight(
+    frame: pd.DataFrame,
+    correction_weight: float | None,
+) -> pd.DataFrame:
+    """Recompute the bounded KNN/ReaFNN initial score without changing rows."""
+
+    work = frame.copy()
+    if correction_weight is None or not _has_stage2_correction_fields(work):
+        return work
+
+    knn_prior = pd.to_numeric(work['stage2_knn_prior'], errors='coerce').fillna(0.0).to_numpy(dtype=np.float32)
+    residual = pd.to_numeric(work['stage2_reafnn_residual'], errors='coerce').fillna(0.0).to_numpy(dtype=np.float32)
+    if 'stage2_reafnn_correction_clip' in work.columns:
+        clip = pd.to_numeric(work['stage2_reafnn_correction_clip'], errors='coerce').to_numpy(dtype=np.float32)
+        clip = np.where(np.isfinite(clip) & (clip > 0.0), clip, STAGE2_DEFAULT_CORRECTION_CLIP)
+    else:
+        clip = np.full(residual.shape, STAGE2_DEFAULT_CORRECTION_CLIP, dtype=np.float32)
+    correction = np.clip(float(correction_weight) * residual, -clip, clip).astype(np.float32)
+    work['stage2_reafnn_correction'] = correction
+    work['stage2_initial_score'] = (knn_prior + correction).astype(np.float32)
+    return work
+
+
+def _select_stage2_correction_calibration(val_frame: pd.DataFrame) -> dict:
+    """Select a conservative correction strength using validation Sys@10 only."""
+
+    if val_frame.empty or 'label' not in val_frame.columns or 'xgb_score_raw' not in val_frame.columns:
+        return {
+            'enabled': False,
+            'selected_weight': None,
+            'selection_metric': 'system_top10_all',
+            'tie_break_metric': 'system_top1_all',
+            'reason': 'missing_validation_scores',
+        }
+    if not _has_stage2_correction_fields(val_frame):
+        return {
+            'enabled': False,
+            'selected_weight': None,
+            'selection_metric': 'system_top10_all',
+            'tie_break_metric': 'system_top1_all',
+            'reason': 'missing_stage2_correction_fields',
+        }
+
+    best_weight = 0.0
+    best_sys10 = float('-inf')
+    best_sys1 = float('-inf')
+    best_fusion: dict | None = None
+    candidates: list[dict] = []
+    for weight in STAGE2_CORRECTION_WEIGHT_GRID:
+        work = _apply_stage2_correction_weight(val_frame, float(weight))
+        work = _attach_stage2_heuristic_prior(work)
+        work = _attach_groupwise_score_columns(work, 'xgb_score_raw')
+        fusion = _select_stage3_fusion_weight(work)
+        sys10 = float(fusion.get('val_system_top10_all', 0.0))
+        sys1 = float(fusion.get('val_system_top1_all', 0.0))
+        candidates.append({
+            'weight': float(weight),
+            'val_system_top10_all': sys10,
+            'val_system_top1_all': sys1,
+            'fusion_weight': float(fusion.get('heuristic_weight', 0.0)),
+        })
+        if sys10 > best_sys10 + 1e-12 or (abs(sys10 - best_sys10) <= 1e-12 and sys1 > best_sys1):
+            best_weight = float(weight)
+            best_sys10 = sys10
+            best_sys1 = sys1
+            best_fusion = fusion
+
+    return {
+        'enabled': True,
+        'selected_weight': best_weight,
+        'selection_metric': 'system_top10_all',
+        'tie_break_metric': 'system_top1_all',
+        'val_system_top10_all': best_sys10,
+        'val_system_top1_all': best_sys1,
+        'candidate_weights': candidates,
+        'score_fusion': best_fusion,
+    }
 
 
 def _select_stage3_fusion_weight(val_frame: pd.DataFrame) -> dict:
@@ -318,7 +444,11 @@ def train_xgb_temperature_regressor(
     """
     train_frame = _prepare_rank_frame(train_table_file)
     val_frame = _prepare_rank_frame(val_table_file)
-    feature_columns = infer_xgb_feature_columns(train_frame)
+    feature_columns = infer_xgb_feature_columns(
+        train_frame,
+        include_route_gnn=True,
+        include_stage2_correction=False,
+    )
     if not feature_columns:
         raise ValueError(f'No feature columns inferred from {train_table_file}')
 
@@ -367,8 +497,14 @@ def train_xgb_ranker_and_temperature(
 ) -> dict:
     train_frame = _prepare_rank_frame(train_table_file)
     val_frame = _prepare_rank_frame(val_table_file)
-    # Route-GNN vectors are reserved for the independent temperature branch.
-    feature_columns = infer_xgb_feature_columns(train_frame, include_route_gnn=False)
+    # Route-GNN vectors are temperature-only. The ReaFNN correction is instead
+    # used through a validation-gated initial-score prior, preserving a stable
+    # learned ranking feature space.
+    feature_columns = infer_xgb_feature_columns(
+        train_frame,
+        include_route_gnn=False,
+        include_stage2_correction=False,
+    )
     if not feature_columns:
         raise ValueError(f'No ranker feature columns inferred from {train_table_file}')
 
@@ -411,13 +547,20 @@ def train_xgb_ranker_and_temperature(
 
     val_scored = val_frame.copy()
     val_scored['xgb_score_raw'] = model.predict(x_val).astype(np.float32)
+    stage2_correction_calibration = _select_stage2_correction_calibration(val_scored)
+    selected_correction_weight = stage2_correction_calibration.get('selected_weight')
+    val_scored = _apply_stage2_correction_weight(val_scored, selected_correction_weight)
     val_scored = _attach_stage2_heuristic_prior(val_scored)
     val_scored = _attach_groupwise_score_columns(val_scored, 'xgb_score_raw')
-    score_fusion = _select_stage3_fusion_weight(val_scored)
+    score_fusion = stage2_correction_calibration.get('score_fusion')
+    if not isinstance(score_fusion, dict):
+        score_fusion = _select_stage3_fusion_weight(val_scored)
 
     metadata = {
         'feature_columns': feature_columns,
         'ranker_feature_space': 'tabular_non_graph',
+        'stage2_correction_policy': 'validation_gated_heuristic_prior_only',
+        'stage2_correction_calibration': stage2_correction_calibration,
         'best_iteration': int(model.best_iteration) if model.best_iteration is not None else None,
         'score_fusion': score_fusion,
         'params': {
@@ -436,7 +579,11 @@ def train_xgb_ranker_and_temperature(
     metadata_file.write_text(json.dumps(metadata, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
 
     if train_temperature:
-        temperature_feature_columns = infer_xgb_feature_columns(train_frame, include_route_gnn=True)
+        temperature_feature_columns = infer_xgb_feature_columns(
+            train_frame,
+            include_route_gnn=True,
+            include_stage2_correction=False,
+        )
         temperature_model_file, temperature_metadata_file, temperature_num_train = _train_temperature_regressor(
             train_frame=train_frame,
             val_frame=val_frame,
@@ -524,6 +671,12 @@ def score_table_with_xgb(
     work = _feature_frame(frame, feature_columns)
     ranker = load_xgb_ranker(model_file)
     work['xgb_score_raw'] = ranker.predict(work.loc[:, feature_columns].to_numpy(dtype=np.float32)).astype(np.float32)
+    correction_calibration = metadata.get('stage2_correction_calibration') or {}
+    if bool(correction_calibration.get('enabled')):
+        work = _apply_stage2_correction_weight(
+            work,
+            correction_calibration.get('selected_weight'),
+        )
     work = _attach_stage2_heuristic_prior(work)
     work = _attach_groupwise_score_columns(work, 'xgb_score_raw')
 

@@ -541,7 +541,21 @@ def evaluate_scored_frame(
             metrics[f'system_top{k}_covered'] = 0.0
         return metrics
 
-    work = frame.sort_values(['sample_index', score_column], ascending=[True, False]).copy()
+    # Use a stable, explicit tie order so repeated evaluation is deterministic
+    # even when a model assigns identical scores to multiple candidates.
+    sort_specs = [
+        ('sample_index', True),
+        (score_column, False),
+        ('retro_rank', True),
+        ('retro_probability', False),
+        ('stage2_initial_score', False),
+        ('knn_similarity_sum', False),
+        ('reagent_norm', True),
+        ('solvent_norm', True),
+    ]
+    sort_columns = [column for column, _ascending in sort_specs if column in frame.columns]
+    ascending = [is_ascending for column, is_ascending in sort_specs if column in frame.columns]
+    work = frame.sort_values(sort_columns, ascending=ascending, kind='mergesort').copy()
     num_slates = 0
     covered_slates = 0
     route_covered_slates = 0

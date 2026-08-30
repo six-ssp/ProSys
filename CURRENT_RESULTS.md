@@ -1,14 +1,78 @@
 # ProSys: A Product-to-System Framework for Target Product-Driven Reaction-System Recommendation
 
-## Current Verified Results (2026-08-09)
+## Current Mainline Results (2026-08-30)
 
-**Current maintained mainline.** Every family uses a fixed R-GNN
+**Authoritative record.** The current mainline is the post-hardening,
+fixed-Stage-1, three-seed Stage 2/3 robustness experiment retained in
+`Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`. It evaluates
+six families and 3,860 test identities. Stage 1 route caches are fixed across
+seeds; ReaFNN, the R-GNN, and XGBoost are independently rebuilt at seeds 0, 1,
+and 2. This measures Stage 2/3 stochastic variation, not Stage 1 retraining
+variation.
+
+The official configuration uses product-Morgan KNN retrieval (radius 2, 4,096
+bits; `K=64`; 64-context wide pool), ReaFNN 512x2 ReLU refinement with 12 KNN
+anchors, and a 20-context cap per proposed route. ReaFNN selects only from the
+retrieved historical wide pool; context augmentation and novel-combination
+generation are disabled. XGB-LTR uses the fixed 52-column non-graph schema.
+The 128-dimensional R-GNN is used only by the temperature XGBoost regressor and
+does not affect system ranking.
+
+Test candidate slates come from persisted Stage 1 predictions. Training and
+validation candidate tables use their reference split routes; the distribution
+shift and canonical leave-one-reaction-out KNN safeguard are recorded in
+`Experiment/stage23_legality_audit_20260830.md`.
+
+All values below are equal-family macro averages. Rates are percentages and
+`+/-` denotes sample standard deviation across seeds (`ddof=1`). A full-system
+hit requires an exact joint match of canonical route, normalized reagent set,
+and normalized solvent set. Temperature is conditional on a valid-temperature
+exact full-system match and never affects system ranking.
+
+| Coverage | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 | Temp. MAE (C) |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 54.44 +/- 0.14 | 27.12 +/- 0.37 | 36.84 +/- 0.80 | 40.47 +/- 0.77 | 44.62 +/- 0.42 | 33.28 +/- 0.48 | 34.70 +/- 0.53 | 11.73 +/- 0.54 |
+
+Temperature within +/-5 / +/-10 / +/-20 C is
+`40.59 +/- 0.56% / 61.80 +/- 2.36% / 83.04 +/- 1.10%`. Each seed has 3,833
+candidate slates and 27 retained no-slate identities in the 3,860-product
+denominator. The three seed-level Sys@10 values are 45.08%, 44.51%, and 44.27%,
+respectively.
+
+| Family | Coverage | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Beckmann | 43.55 +/- 0.65 | 17.45 +/- 1.53 | 22.98 +/- 1.13 | 25.96 +/- 1.95 | 29.36 +/- 1.13 | 21.63 +/- 1.10 | 22.07 +/- 1.18 |
+| Buchwald-Hartwig | 59.51 +/- 0.24 | 32.61 +/- 0.82 | 44.71 +/- 0.21 | 48.41 +/- 0.57 | 52.65 +/- 0.14 | 39.84 +/- 0.57 | 41.80 +/- 0.39 |
+| Chan-Lam | 72.14 +/- 0.15 | 41.62 +/- 2.38 | 54.10 +/- 2.04 | 58.12 +/- 2.72 | 62.14 +/- 2.15 | 48.96 +/- 2.05 | 50.56 +/- 2.05 |
+| Diels-Alder | 34.34 +/- 0.15 | 15.70 +/- 0.59 | 21.35 +/- 0.53 | 23.53 +/- 1.29 | 26.29 +/- 1.18 | 19.51 +/- 0.65 | 20.27 +/- 0.89 |
+| Friedel-Crafts Acyl. | 65.89 +/- 0.00 | 28.00 +/- 3.60 | 39.79 +/- 4.06 | 44.56 +/- 3.38 | 51.79 +/- 1.64 | 35.99 +/- 3.26 | 37.94 +/- 3.11 |
+| Friedel-Crafts Alkyl. | 51.24 +/- 0.17 | 27.33 +/- 1.05 | 38.12 +/- 0.64 | 42.27 +/- 0.68 | 45.49 +/- 0.69 | 33.74 +/- 0.76 | 35.54 +/- 0.75 |
+
+| Family | Conditional MAE (C) | Within +/-5 C | Within +/-10 C | Within +/-20 C |
+| --- | ---: | ---: | ---: | ---: |
+| Beckmann | 11.34 +/- 0.79 | 35.95 +/- 1.49 | 57.20 +/- 8.16 | 85.26 +/- 1.48 |
+| Buchwald-Hartwig | 12.20 +/- 0.24 | 34.11 +/- 0.97 | 56.79 +/- 2.36 | 81.38 +/- 0.70 |
+| Chan-Lam | 5.91 +/- 0.20 | 66.29 +/- 2.73 | 84.22 +/- 1.22 | 94.57 +/- 1.87 |
+| Diels-Alder | 19.48 +/- 1.48 | 24.64 +/- 1.77 | 43.80 +/- 4.75 | 65.87 +/- 3.79 |
+| Friedel-Crafts Acyl. | 11.02 +/- 0.78 | 42.79 +/- 2.00 | 66.06 +/- 3.49 | 84.36 +/- 1.31 |
+| Friedel-Crafts Alkyl. | 10.41 +/- 0.45 | 39.76 +/- 0.94 | 62.76 +/- 2.61 | 86.82 +/- 1.20 |
+
+Detailed per-seed and per-family CSV tables, source records, and compact model
+metadata are retained with the promoted result artifact. The strongest completed
+baseline is B3 at `31.71 +/- 0.10%` Sys@10, so the current mainline has a
+descriptive `+12.91 pp` Sys@10 advantage on the fixed manifest and route cache.
+
+## Historical Pre-Hardening Reference (2026-08-09)
+
+**Pre-hardening reference.** Every family uses a fixed R-GNN
 (128-dimensional, four-layer) plus XGBoostRegressor temperature branch. There
 is no family-level no-GNN fallback and no temperature-model selection gate. The
-current official figures below are from a completed six-family, three-seed
-reproduction; the older gated point snapshot is historical only.
+figures below are from a completed six-family, three-seed reproduction. They
+predate canonical leave-one-reaction-out KNN hardening and must be rerun before
+being used as the final post-audit headline; the older gated point snapshot is
+historical only.
 
-## Current Scope
+## Shared Evaluation Scope
 
 This is a family-stratified, target-product-driven, end-to-end specialist
 evaluation. The molecular query is the target product only. A family identifier
@@ -44,7 +108,7 @@ fingerprint, route representation, ReaFNN input, or XGB feature row.
   one absolute error. It is not an all-candidate regression average and it is
   not included in the full-system ranking score.
 
-## Current Mainline Performance
+## Historical Pre-Hardening Performance
 
 All values are unweighted six-family macro averages over three seeds. Rates are
 percentages and +/- denotes sample standard deviation (ddof=1).
@@ -62,7 +126,7 @@ percentages and +/- denotes sample standard deviation (ddof=1).
 | Friedel-Crafts Acyl. | 60.63 +/- 0.42 | 25.89 +/- 5.37 | 34.88 +/- 6.23 | 40.42 +/- 5.73 | 47.86 +/- 5.16 | 32.89 +/- 5.36 | 34.71 +/- 5.68 |
 | Friedel-Crafts Alkyl. | 49.46 +/- 0.23 | 28.51 +/- 1.38 | 39.53 +/- 0.84 | 43.16 +/- 0.95 | 46.16 +/- 0.22 | 34.78 +/- 0.87 | 36.78 +/- 0.79 |
 
-## Current Temperature Performance
+## Historical Pre-Hardening Temperature Performance
 
 The temperature support is 1,603, 1,592, and 1,576 matched products at seeds
 0, 1, and 2, respectively. The support changes with the learned ranking, so
@@ -79,7 +143,7 @@ than as a manifest-wide score.
 | Friedel-Crafts Alkyl. | 10.01 +/- 0.12 | 40.57 +/- 2.49 | 63.47 +/- 0.38 | 86.93 +/- 1.62 |
 | Macro average | 10.75 +/- 0.14 | 41.66 +/- 1.39 | 64.14 +/- 1.65 | 84.74 +/- 0.38 |
 
-## Reproducibility Record
+## Historical Reproducibility Record
 
 The compact formal artifacts are retained at
 outputs/unified_rgnn_multiseed_20260809/:
@@ -113,7 +177,7 @@ would be required for a causal gate ablation.
 | Base Stage 1 vs family-tuned Stage 1 | Route@10: `14.97% -> 63.20%` | Fine-tuning improves every family; the macro gain is `+48.22 pp`. |
 | Global top-20 frequency pool vs full Stage 2 | candidate recall: `25.63% -> 49.18%`; historical full-system Top-10 accuracy: `17.72% -> 42.68%` | Route-conditioned local retrieval is essential. |
 
-| Fixed R-GNN temperature branch | Current three-seed conditional MAE: 10.75 +/- 0.14 C; Within +/-10 C: 64.14 +/- 1.65% | Every family uses the same R-GNN plus XGBoost temperature architecture with no fallback or model-selection gate; it does not affect ranking metrics. |
+| Fixed R-GNN temperature branch | Historical three-seed conditional MAE: 10.75 +/- 0.14 C; Within +/-10 C: 64.14 +/- 1.65% | Every family uses the same R-GNN plus XGBoost temperature architecture with no fallback or model-selection gate; it does not affect ranking metrics. |
 
 | Full Stage 2 vs KNN-only Stage 2 | Historical full-system Top-10 accuracy: `42.68%` vs `43.33%` | ReaFNN changes candidate composition but is not a universal macro full-system Top-k accuracy gain in that control. |
 | Candidate-aware route-context GNN residual | Beckmann interaction pilot: selected alpha `0`; related six-family residual probe: `0/6` accepted | The branch is validation-gated and remains exploratory; it does not alter headline `full-system Top-k accuracy`. |
@@ -151,7 +215,7 @@ EditRetro + Reaction-GCNN were independently retrained at seeds `0`, `1`, and
 | Product-GNN | 3 seeds | 38.33 +/- 0.28 | 6.11 +/- 0.49 | 12.84 +/- 0.56 | 16.75 +/- 0.43 | 23.03 +/- 0.73 | 11.40 +/- 0.54 | 13.32 +/- 0.58 |
 | EditRetro + Sequential FNN | 3 seeds | 45.85 +/- 0.26 | 16.75 +/- 0.27 | 24.32 +/- 0.28 | 27.68 +/- 0.40 | 31.71 +/- 0.10 | 22.01 +/- 0.22 | 23.64 +/- 0.18 |
 | EditRetro + Reaction-GCNN | 3 seeds | 38.15 +/- 0.24 | 7.43 +/- 0.21 | 13.16 +/- 0.10 | 16.39 +/- 0.34 | 21.10 +/- 0.28 | 11.88 +/- 0.11 | 13.27 +/- 0.10 |
-| ProSys current mainline | 3 seeds | 48.52 +/- 0.59 | 28.96 +/- 0.91 | 36.61 +/- 1.05 | 39.53 +/- 1.24 | 42.90 +/- 1.00 | 33.78 +/- 0.96 | 35.13 +/- 0.97 |
+| ProSys current mainline | 3 seeds | 54.44 +/- 0.14 | 27.12 +/- 0.37 | 36.84 +/- 0.80 | 40.47 +/- 0.77 | 44.62 +/- 0.42 | 33.28 +/- 0.48 | 34.70 +/- 0.53 |
 
 B2-B4 are now matched to the mainline in replication depth and use the same
 fixed full test manifest. B1 remains a deterministic reference, not a

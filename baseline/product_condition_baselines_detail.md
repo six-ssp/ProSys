@@ -212,7 +212,7 @@ Family-level compact artifacts are in `outputs/baselines/multiseed_20260810/`.
 - Product-GNN is a lightweight, independently trained neural baseline rather
   than a claim of a fully optimized graph model.
 - The formal Product-Bernoulli Naive Bayes and Product-GNN Sys@10 values are `21.48%` and
-  `23.03 +/- 0.73%`, compared with `42.90 +/- 1.00%` for the current staged mainline.
+  `23.03 +/- 0.73%`, compared with `44.62 +/- 0.42%` for the current staged mainline.
 - The official split is grouped by canonical reaction, not made product
   disjoint. Train/test product overlap is therefore possible for distinct
   routes; this is not reaction leakage and must be disclosed.

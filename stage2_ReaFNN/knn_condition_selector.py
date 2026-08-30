@@ -15,7 +15,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from prosys_shared.features import normalize_fp, reaction_morgan_fp
+from prosys_shared.features import (
+    canonicalize_reaction_side,
+    canonicalize_smiles,
+    normalize_fp,
+    product_morgan_fp,
+    reaction_morgan_fp,
+)
 from prosys_shared.mainline import (
     base_candidate_row,
     load_route_records,
@@ -33,6 +39,7 @@ from .reafnn_selector import (
 
 
 _PARALLEL_BUILDER = None
+RETRIEVAL_MODES = frozenset({'reaction_morgan', 'product_morgan'})
 
 
 def _parallel_candidate_rows(payload: tuple[RouteRecord, bool, bool]) -> list[dict]:
@@ -66,6 +73,7 @@ class KNNContextPoolBuilder:
         max_contexts: int,
         fpsize: int,
         radius: int,
+        retrieval_mode: str = 'reaction_morgan',
         prefilter_contexts: int | None = None,
         reaffn_artifact_dir: Path | None = None,
         reaffn_device: str = 'cpu',
@@ -81,19 +89,33 @@ class KNNContextPoolBuilder:
         self.prefilter_contexts = int(prefilter_contexts or max_contexts)
         self.fpsize = int(fpsize)
         self.radius = int(radius)
+        self.retrieval_mode = str(retrieval_mode).strip().lower()
+        if self.retrieval_mode not in RETRIEVAL_MODES:
+            raise ValueError(
+                f'Unsupported KNN retrieval mode {retrieval_mode!r}; '
+                f'expected one of {sorted(RETRIEVAL_MODES)}.'
+            )
         self.reaffn_artifact_dir = Path(reaffn_artifact_dir) if reaffn_artifact_dir is not None else None
         self.sparse_similarity = bool(sparse_similarity)
         self._feature_postings: dict[int, tuple[np.ndarray, np.ndarray]] = {}
+        self._product_similarity_cache: dict[str, np.ndarray] = {}
+        self._product_similarity_cache_limit = 2048
         self.parallel_workers = max(1, int(parallel_workers))
 
         train_split = split_file_for_family(self.repo_root, self.family, 'train')
         val_split = split_file_for_family(self.repo_root, self.family, 'val')
         train_rows = load_split_rows(train_split)
         self.route_matrix, self.route_contexts, self.route_keys = self._build_route_memory(train_rows)
-        self.route_index_by_key = {
-            route_key: index
-            for index, route_key in enumerate(self.route_keys)
-        }
+        # A training route must not retrieve another record for the same
+        # canonical reaction. Multiple Reaxys IDs can describe the same route
+        # with different conditions, so raw reaction IDs are too weak here.
+        self.route_canonical_keys = [
+            self._canonical_route_key(reactants, product)
+            for _reaction_id, reactants, product in self.route_keys
+        ]
+        self.route_indices_by_canonical_key: dict[tuple[str, str], list[int]] = defaultdict(list)
+        for index, canonical_key in enumerate(self.route_canonical_keys):
+            self.route_indices_by_canonical_key[canonical_key].append(index)
         self.global_contexts = self._global_contexts(train_rows)
         self.global_context_by_key = {
             (str(row['reagent_norm']), str(row['solvent_norm'])): row
@@ -126,6 +148,29 @@ class KNNContextPoolBuilder:
                 device=reaffn_device,
             )
 
+    @property
+    def _retrieval_feature_dim(self) -> int:
+        if self.retrieval_mode == 'product_morgan':
+            return self.fpsize
+        return self.fpsize * 2
+
+    def _retrieval_fp(self, reactants: str, product: str) -> np.ndarray:
+        """Encode the deliberately limited KNN signal selected for this run."""
+
+        if self.retrieval_mode == 'product_morgan':
+            try:
+                raw = product_morgan_fp(product, n_bits=self.fpsize, radius=self.radius)
+            except ValueError:
+                raw = np.zeros((self.fpsize,), dtype=np.float32)
+        else:
+            raw = reaction_morgan_fp(
+                reactants,
+                product,
+                fpsize=self.fpsize,
+                radius=self.radius,
+            )
+        return normalize_fp(np.asarray(raw, dtype=np.float32))
+
     def _build_route_memory(
         self,
         rows: list[dict],
@@ -139,13 +184,13 @@ class KNNContextPoolBuilder:
         route_keys: list[tuple[str, str, str]] = []
         for route_key, bucket in grouped.items():
             _reaction_id, reactants, product = route_key
-            fp = normalize_fp(reaction_morgan_fp(reactants, product, fpsize=self.fpsize, radius=self.radius))
+            fp = self._retrieval_fp(reactants, product)
             matrix_rows.append(fp)
             route_contexts.append(bucket)
 
             route_keys.append(route_key)
         if not matrix_rows:
-            return np.zeros((0, self.fpsize * 2), dtype=np.float32), [], []
+            return np.zeros((0, self._retrieval_feature_dim), dtype=np.float32), [], []
         return np.stack(matrix_rows).astype(np.float32), route_contexts, route_keys
 
     @staticmethod
@@ -186,6 +231,24 @@ class KNNContextPoolBuilder:
             similarities[route_indices] += values * float(query_fp[feature_index])
         return np.clip(similarities, 0.0, None)
 
+    def _similarities_for_record(self, record: RouteRecord) -> np.ndarray:
+        """Return exact retrieval similarities, caching repeated product queries."""
+
+        if self.retrieval_mode != 'product_morgan':
+            query_fp = self._retrieval_fp(record.reactants, record.product)
+            return self._route_similarities(query_fp)
+
+        cached = self._product_similarity_cache.get(record.product)
+        if cached is not None:
+            return cached
+        query_fp = self._retrieval_fp(record.reactants, record.product)
+        similarities = self._route_similarities(query_fp)
+        # A Stage 1 route slate often contains multiple reactant proposals for
+        # one product. Bound the cache to avoid retaining every train product.
+        if len(self._product_similarity_cache) < self._product_similarity_cache_limit:
+            self._product_similarity_cache[record.product] = similarities
+        return similarities
+
     def _global_contexts(self, rows: list[dict]) -> list[dict]:
         agg: dict[tuple[str, str], dict[str, float]] = {}
         for row in rows:
@@ -218,32 +281,46 @@ class KNNContextPoolBuilder:
     def _record_key(record: RouteRecord) -> tuple[str, str, str]:
         return (str(record.reaction_id), str(record.reactants), str(record.product))
 
+    @staticmethod
+    def _canonical_route_key(reactants: str, product: str) -> tuple[str, str]:
+        """Return a stable route identity, with a raw fallback for bad SMILES."""
+
+        route_key = canonicalize_reaction_side(reactants)
+        product_key = canonicalize_smiles(product)
+        if route_key and product_key:
+            return route_key, product_key
+        return f'raw:{reactants}', f'raw:{product}'
+
     def _excluded_context_stats(
         self,
         record: RouteRecord,
         *,
         leave_one_reaction_out: bool,
     ) -> tuple[dict[tuple[str, str], dict[str, float]], float]:
-        """Remove the query reaction from train-memory summary statistics."""
+        """Remove every record of the query canonical reaction from train memory."""
 
         if not leave_one_reaction_out:
             return {}, self.global_context_total
-        route_index = self.route_index_by_key.get(self._record_key(record))
-        if route_index is None:
+        route_indices = self.route_indices_by_canonical_key.get(
+            self._canonical_route_key(record.reactants, record.product),
+            [],
+        )
+        if not route_indices:
             return {}, self.global_context_total
 
         excluded: dict[tuple[str, str], dict[str, float]] = {}
-        for row in self.route_contexts[route_index]:
-            key = (
-                normalize_condition_labels(row['reagent_norm']),
-                normalize_condition_labels(row['solvent_norm']),
-            )
-            stats = excluded.setdefault(key, {'count': 0.0, 'yield_sum': 0.0, 'yield_n': 0.0})
-            stats['count'] += 1.0
-            yield_value = safe_float(row['yield'])
-            if not np.isnan(yield_value):
-                stats['yield_sum'] += yield_value
-                stats['yield_n'] += 1.0
+        for route_index in route_indices:
+            for row in self.route_contexts[route_index]:
+                key = (
+                    normalize_condition_labels(row['reagent_norm']),
+                    normalize_condition_labels(row['solvent_norm']),
+                )
+                stats = excluded.setdefault(key, {'count': 0.0, 'yield_sum': 0.0, 'yield_n': 0.0})
+                stats['count'] += 1.0
+                yield_value = safe_float(row['yield'])
+                if not np.isnan(yield_value):
+                    stats['yield_sum'] += yield_value
+                    stats['yield_n'] += 1.0
 
         removed_count = sum(float(stats['count']) for stats in excluded.values())
         return excluded, max(self.global_context_total - removed_count, 1.0)
@@ -312,21 +389,18 @@ class KNNContextPoolBuilder:
         if self.route_matrix.shape[0] == 0:
             return fallback_contexts
 
-        query_fp = normalize_fp(
-            reaction_morgan_fp(record.reactants, record.product, fpsize=self.fpsize, radius=self.radius)
-        )
-        similarities = self._route_similarities(query_fp)
+        similarities = self._similarities_for_record(record)
         if similarities.size == 0 or float(np.max(similarities)) <= 0.0:
             return fallback_contexts
 
         agg: dict[tuple[str, str], dict[str, float]] = {}
         selected_neighbors = 0
-        query_key = self._record_key(record)
+        query_canonical_key = self._canonical_route_key(record.reactants, record.product)
         for index in np.argsort(similarities)[::-1]:
             sim = float(similarities[index])
             if sim <= 0.0:
                 break
-            if leave_one_reaction_out and self.route_keys[index] == query_key:
+            if leave_one_reaction_out and self.route_canonical_keys[index] == query_canonical_key:
                 continue
             for row in self.route_contexts[index]:
                 key = (normalize_condition_labels(row['reagent_norm']), normalize_condition_labels(row['solvent_norm']))
@@ -390,6 +464,123 @@ class KNNContextPoolBuilder:
         )
         return candidate_rows[:limit]
 
+    @staticmethod
+    def _annotate_knn_prior(rows: list[dict]) -> list[dict]:
+        """Attach a stable within-route KNN prior without using gold labels."""
+
+        work = [dict(row) for row in rows]
+        denominator = max(len(work) - 1, 1)
+        for index, row in enumerate(work):
+            prior = 1.0 - (float(index) / float(denominator))
+            row['stage2_knn_rank'] = int(index + 1)
+            row['stage2_knn_prior'] = float(prior)
+            row['stage2_reafnn_check_score'] = 0.0
+            row['stage2_reafnn_residual'] = 0.0
+            row['stage2_reafnn_correction'] = 0.0
+            row['stage2_reafnn_correction_clip'] = 0.0
+            row['stage2_initial_score'] = float(prior)
+        return work
+
+    def _attach_reafnn_correction(self, rows: list[dict]) -> list[dict]:
+        """Use ReaFNN as a bounded residual correction to the KNN ordering.
+
+        ReaFNN scores are converted to within-route ranks before fusion so that
+        their absolute scale cannot overwhelm the retrieved-precedent signal.
+        """
+
+        if not rows or self.reaffn_selector is None:
+            return rows
+
+        work = [dict(row) for row in rows]
+        order = sorted(
+            range(len(work)),
+            key=lambda index: (
+                -float(work[index].get('reafnn_context_score', 0.0)),
+                int(work[index].get('stage2_knn_rank', 10 ** 9) or 10 ** 9),
+                str(work[index].get('reagent_norm', '')),
+                str(work[index].get('solvent_norm', '')),
+            ),
+        )
+        denominator = max(len(work) - 1, 1)
+        check_by_index = {
+            index: 1.0 - (float(rank) / float(denominator))
+            for rank, index in enumerate(order)
+        }
+        config = self.reaffn_selector.config
+        for index, row in enumerate(work):
+            knn_prior = float(row.get('stage2_knn_prior', 0.0))
+            check_score = float(check_by_index[index])
+            residual = check_score - knn_prior
+            correction = float(np.clip(
+                float(config.correction_weight) * residual,
+                -float(config.correction_clip),
+                float(config.correction_clip),
+            ))
+            row['stage2_reafnn_check_score'] = check_score
+            row['stage2_reafnn_residual'] = float(residual)
+            row['stage2_reafnn_correction'] = correction
+            row['stage2_reafnn_correction_clip'] = float(config.correction_clip)
+            row['stage2_initial_score'] = float(knn_prior + correction)
+        return work
+
+    @staticmethod
+    def _initial_score_sort_key(row: dict) -> tuple:
+        knn_rank = int(row.get('stage2_knn_rank', 0) or 0)
+        return (
+            -float(row.get('stage2_initial_score', 0.0)),
+            knn_rank if knn_rank > 0 else 10 ** 9,
+            -int(row.get('reafnn_is_historical', 1)),
+            -float(row.get('knn_similarity_sum', 0.0)),
+            str(row.get('reagent_norm', '')),
+            str(row.get('solvent_norm', '')),
+        )
+
+    def _select_refined_wide_contexts(
+        self,
+        corrected_wide_contexts: list[dict],
+        knn_core: list[dict],
+    ) -> list[dict]:
+        """Keep KNN anchors, then refine only contexts already retrieved by KNN."""
+
+        if self.reaffn_selector is None:
+            return knn_core
+
+        anchor_count = int(self.reaffn_selector.config.knn_anchor_contexts)
+        if anchor_count <= 0:
+            # The strict default preserves every final KNN-core member.
+            core_keys = {
+                (str(row['reagent_norm']), str(row['solvent_norm']))
+                for row in knn_core
+            }
+            selected = [
+                row for row in corrected_wide_contexts
+                if (str(row['reagent_norm']), str(row['solvent_norm'])) in core_keys
+            ]
+            selected.sort(key=self._initial_score_sort_key)
+            return selected[:self.max_contexts]
+
+        anchor_count = min(anchor_count, self.max_contexts, len(knn_core))
+        corrected_by_key = {
+            (str(row['reagent_norm']), str(row['solvent_norm'])): row
+            for row in corrected_wide_contexts
+        }
+        anchor_keys = [
+            (str(row['reagent_norm']), str(row['solvent_norm']))
+            for row in knn_core[:anchor_count]
+        ]
+        selected = [corrected_by_key[key] for key in anchor_keys if key in corrected_by_key]
+        selected_keys = set(anchor_keys)
+        for row in sorted(corrected_wide_contexts, key=self._initial_score_sort_key):
+            key = (str(row['reagent_norm']), str(row['solvent_norm']))
+            if key in selected_keys:
+                continue
+            selected.append(row)
+            selected_keys.add(key)
+            if len(selected) >= self.max_contexts:
+                break
+        selected.sort(key=self._initial_score_sort_key)
+        return selected
+
     def candidate_rows(
         self,
         record: RouteRecord,
@@ -399,13 +590,38 @@ class KNNContextPoolBuilder:
     ) -> list[dict]:
         """Return top candidate contexts for one query route."""
 
-        wide_contexts = self._aggregate_knn_contexts(
+        wide_contexts = self._annotate_knn_prior(self._aggregate_knn_contexts(
             record,
             limit=self.prefilter_contexts,
             leave_one_reaction_out=leave_one_reaction_out,
-        )
+        ))
+        knn_core = wide_contexts[: self.max_contexts]
         if self.reaffn_selector is None:
-            return wide_contexts[: self.max_contexts]
+            return knn_core
+
+        config = self.reaffn_selector.config
+        if config.enable_knn_wide_refinement and config.enable_context_augmentation:
+            raise ValueError('KNN wide-pool refinement and context augmentation are mutually exclusive.')
+        if config.enable_knn_wide_refinement:
+            checked_wide = self.reaffn_selector.rescore_contexts(
+                record.reactants,
+                record.product,
+                wide_contexts,
+            )
+            corrected_wide = self._attach_reafnn_correction(checked_wide)
+            return self._select_refined_wide_contexts(corrected_wide, knn_core)
+
+        # The safety policy preserves the retrieved final-pool members. ReaFNN
+        # can only calibrate their ordering unless augmentation is explicit.
+        if not config.enable_context_augmentation:
+            checked = self.reaffn_selector.rescore_contexts(
+                record.reactants,
+                record.product,
+                knn_core,
+            )
+            corrected = self._attach_reafnn_correction(checked)
+            corrected.sort(key=self._initial_score_sort_key)
+            return corrected
 
         existing_keys = {(str(row['reagent_norm']), str(row['solvent_norm'])) for row in wide_contexts}
         merged: dict[tuple[str, str], dict] = {
@@ -436,30 +652,37 @@ class KNNContextPoolBuilder:
             record.product,
             list(merged.values()),
         )
-        rescored.sort(
-            key=lambda row: (
-                -float(row.get('reafnn_context_score', 0.0)),
-                -int(row.get('reafnn_is_historical', 1)),
-                -float(row.get('knn_similarity_sum', 0.0)),
-                -float(row.get('reafnn_context_support', row.get('context_support', 0.0))),
-                -float(row.get('knn_neighbor_count', 0.0)),
-                row['reagent_norm'],
-                row['solvent_norm'],
-            )
-        )
-        if self.reaffn_selector is None:
-            return rescored[: self.max_contexts]
+        rescored = self._attach_reafnn_correction(rescored)
 
         novel_cap = min(
-            int(self.reaffn_selector.config.max_selected_novel_contexts),
+            int(config.max_selected_novel_contexts),
             self.max_contexts,
         )
         if novel_cap < 0:
             novel_cap = 0
 
-        selected: list[dict] = []
+        anchor_count = int(config.knn_anchor_contexts)
+        if anchor_count <= 0:
+            anchor_count = self.max_contexts
+        anchor_count = min(anchor_count, self.max_contexts, len(knn_core))
+        anchor_keys = {
+            (str(row['reagent_norm']), str(row['solvent_norm']))
+            for row in knn_core[:anchor_count]
+        }
+        by_key = {
+            (str(row['reagent_norm']), str(row['solvent_norm'])): row
+            for row in rescored
+        }
+        selected: list[dict] = [
+            by_key[(str(row['reagent_norm']), str(row['solvent_norm']))]
+            for row in knn_core[:anchor_count]
+            if (str(row['reagent_norm']), str(row['solvent_norm'])) in by_key
+        ]
         selected_novel = 0
-        for row in rescored:
+        for row in sorted(rescored, key=self._initial_score_sort_key):
+            key = (str(row['reagent_norm']), str(row['solvent_norm']))
+            if key in anchor_keys:
+                continue
             is_novel = int(row.get('from_reafnn_novel', 0)) == 1
             if is_novel and selected_novel >= novel_cap:
                 continue
@@ -468,6 +691,7 @@ class KNNContextPoolBuilder:
                 selected_novel += 1
             if len(selected) >= self.max_contexts:
                 break
+        selected.sort(key=self._initial_score_sort_key)
         return selected
 
     def _candidate_rows(
@@ -503,6 +727,13 @@ class KNNContextPoolBuilder:
                 'knn_similarity_max': float(candidate.get('knn_similarity_max', 0.0)),
                 'knn_neighbor_count': float(candidate.get('knn_neighbor_count', 0.0)),
                 'knn_weighted_mean_yield': float(candidate.get('knn_weighted_mean_yield', candidate.get('mean_yield', 0.0))),
+                'stage2_knn_rank': int(candidate.get('stage2_knn_rank', 0)),
+                'stage2_knn_prior': float(candidate.get('stage2_knn_prior', 0.0)),
+                'stage2_reafnn_check_score': float(candidate.get('stage2_reafnn_check_score', 0.0)),
+                'stage2_reafnn_residual': float(candidate.get('stage2_reafnn_residual', 0.0)),
+                'stage2_reafnn_correction': float(candidate.get('stage2_reafnn_correction', 0.0)),
+                'stage2_reafnn_correction_clip': float(candidate.get('stage2_reafnn_correction_clip', 0.0)),
+                'stage2_initial_score': float(candidate.get('stage2_initial_score', 0.0)),
                 'reafnn_reagent_score': float(candidate.get('reafnn_reagent_score', 0.0)),
                 'reafnn_solvent_score': float(candidate.get('reafnn_solvent_score', 0.0)),
                 'reafnn_token_score': float(candidate.get('reafnn_token_score', 0.0)),
@@ -539,6 +770,8 @@ class KNNContextPoolBuilder:
         if max_routes is not None:
             records = records[:max_routes]
 
+        if self.retrieval_mode == 'product_morgan':
+            self._product_similarity_cache.clear()
         rows: list[dict] = []
         use_parallel = self.parallel_workers > 1 and self.reaffn_selector is None and len(records) > 1
         if use_parallel and 'fork' in mp.get_all_start_methods():
@@ -619,6 +852,7 @@ def main() -> None:
     parser.add_argument('--route_cache', type=str, default=None, help='Non-Oracle route_cache.json path')
     parser.add_argument('--fpsize', type=int, default=4096)
     parser.add_argument('--radius', type=int, default=2)
+    parser.add_argument('--retrieval_mode', choices=sorted(RETRIEVAL_MODES), default='reaction_morgan')
     parser.add_argument('--top_k', type=int, default=64)
     parser.add_argument('--max_contexts', type=int, default=20)
     parser.add_argument('--prefilter_contexts', type=int, default=64)
@@ -638,6 +872,7 @@ def main() -> None:
         max_contexts=args.max_contexts,
         fpsize=args.fpsize,
         radius=args.radius,
+        retrieval_mode=args.retrieval_mode,
         prefilter_contexts=args.prefilter_contexts,
         reaffn_artifact_dir=Path(args.reafnn_artifact_dir).resolve() if args.reafnn_artifact_dir else None,
         reaffn_device=args.reafnn_device,

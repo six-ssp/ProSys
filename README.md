@@ -7,7 +7,11 @@ ranks complete systems, and estimates temperature.
 
 ## Scope
 
-- Evaluation: six Reaxys reaction families, strict `Non-Oracle`, end-to-end.
+- Evaluation: six Reaxys reaction families, reaction-disjoint and test-time
+  `Non-Oracle` with fixed Stage-1 route caches. The retained training and
+  validation candidate tables use reference routes; see
+  `Experiment/stage23_legality_audit_20260830.md` for the resulting
+  distribution-shift disclosure.
 - Molecular input: target-product structure only.
 - Family handling: the evaluation partition selects a family-specific expert,
   retrieval memory, and vocabulary; the family label is not concatenated to a
@@ -21,28 +25,32 @@ target product
   -> ranked route / reagent-set / solvent-set systems with temperature
 ```
 
-The R-GNN is used only by the temperature regressor. The system ranker always
-uses the 52 non-graph tabular features.
+The R-GNN is used only by the temperature regressor. The system ranker uses a
+fixed 52-slot non-graph schema; 33 fields vary in the current historical-only
+candidate configuration and 19 retained compatibility fields are constant.
 
-## Current Results
+## Current Mainline Result
 
-The maintained result is a fixed-Stage-1, three-seed Stage-2/3 reconstruction
-over six families. Values are equal-family mean +/- sample standard deviation.
+The official record is the post-hardening fixed-Stage-1, three-seed Stage-2/3
+robustness experiment in [`CURRENT_RESULTS.md`](CURRENT_RESULTS.md). It covers
+3,860 test identities from six families, with 3,833 candidate slates and 27
+retained no-slate identities in every seed. It measures Stage-2/3 stochastic
+variation; it does not estimate variability from retraining Stage 1.
 
 | Candidate coverage | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 48.52 +/- 0.59 | 28.96 +/- 0.91 | 36.61 +/- 1.05 | 39.53 +/- 1.24 | 42.90 +/- 1.00 | 33.78 +/- 0.96 | 35.13 +/- 0.97 |
+| 54.44 +/- 0.14 | 27.12 +/- 0.37 | 36.84 +/- 0.80 | 40.47 +/- 0.77 | 44.62 +/- 0.42 | 33.28 +/- 0.48 | 34.70 +/- 0.53 |
 
 - Fixed Stage-1 Route@10: `63.20%`
-- Conditional temperature MAE: `10.75 +/- 0.14 C`
+- Conditional temperature MAE: `11.73 +/- 0.54 C`
 - Temperature within +/-5 / +/-10 / +/-20 C:
-  `41.66 +/- 1.39% / 64.14 +/- 1.65% / 84.74 +/- 0.38%`
+  `40.59 +/- 0.56% / 61.80 +/- 2.36% / 83.04 +/- 1.10%`
 
 Temperature is evaluated only on the highest-ranked exact route-and-condition
 match with a valid temperature label. It does not affect system ranking.
 Detailed per-family and per-seed results are in
 [CURRENT_RESULTS.md](CURRENT_RESULTS.md) and
-`outputs/unified_rgnn_multiseed_20260809/`.
+`Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`.
 
 ## Quick Start
 
@@ -78,7 +86,7 @@ bash scripts/run_stage23_non_oracle_suite.sh .
 | `baseline/` | Reproducible comparison methods |
 | `ablation/` | Controlled component analyses |
 | `data_preprocess/` | Cleaning, normalization, splits, and audits |
-| `Experiment/` | Historical exploratory material, not part of the mainline |
+| `Experiment/` | Compact promoted result records and historical exploratory material |
 
 ## Documentation
 
@@ -89,5 +97,5 @@ bash scripts/run_stage23_non_oracle_suite.sh .
 - [Baseline and ablation study](baseline&ablation.md): comparison scope and safeguards.
 - [Metric nomenclature](NOMENCLATURE.md): public metric names and definitions.
 
-Older Oracle analyses, gated-temperature snapshots, and direct graph-ranking
-trials are historical records only and are not headline results.
+Older analyses, gated-temperature snapshots, direct graph-ranking trials, and
+the pre-hardening 2026-08-09 snapshot are historical records only.
