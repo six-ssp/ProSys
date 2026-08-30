@@ -1,32 +1,77 @@
 # Stage 2 KNN + ReaFNN: 可行条件筛选
 
-更新日期：`2026-07-27`
+更新日期：`2026-08-30`
 
-当前这份文档对应的官方主线结果快照是：
+## Current Mainline: Product-Morgan KNN + ReaFNN Wide-Pool Refinement
 
-- `outputs/unified_rgnn_multiseed_20260809/`
+> **Authoritative scope.** This section documents the promoted six-family,
+> fixed-Stage-1, three-seed result retained in
+> `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`. The
+> lower fixed-core text is a historical B control, not the maintained default.
 
-`outputs/stage23_mainline_gnn_temperature_gated_20260803/`、
-`outputs/stage23_mainline/` 与
-`outputs/stage23_mainline_reafnn_gnn_fused_20260723/` 都是历史快照，只保留用于追溯；当前
-指标和论文只能引用上面的三随机种子结果目录或根目录的 `CURRENT_RESULTS.md`。
+- KNN queries use only a 4,096-bit, radius-2 Morgan fingerprint of the target
+  product; predicted reactants and reaction delta are intentionally omitted
+  from retrieval.
+- The memory contains only the current family's train split. KNN retrieves 64
+  neighbors and aggregates a 64-context historical wide pool.
+- ReaFNN receives the 8,218-dimensional route vector and scores every context
+  in that retrieved historical pool using separate reagent-token and
+  solvent-token heads.
+- The first 12 KNN contexts are retained as anchors. ReaFNN's bounded,
+  within-route rank correction fills the remaining positions from the same
+  retrieved wide pool, with at most 20 contexts per proposed route.
+- The official ReaFNN is a 512x2 ReLU MLP with dropout 0.10, correction weight
+  0.65, correction clip 0.35, and no context augmentation. Therefore no
+  generated or novel reagent-solvent combination enters the official pool.
+- KNN retrieval, route caches, splits, vocabularies, and validation-only score
+  calibration are fixed across seeds 0/1/2. ReaFNN, the R-GNN, and XGBoost are
+  rebuilt independently.
 
-需要额外区分的是：
+The current Stage 2 candidate coverage is `54.44 +/- 0.14%`; the downstream
+end-to-end macro Sys@1/3/5/10 is
+`27.12 +/- 0.37% / 36.84 +/- 0.80% / 40.47 +/- 0.77% / 44.62 +/- 0.42%`.
+The fixed Stage 1 macro Route@10 is `63.20%`. Test candidate slates use
+persisted Stage 1 predictions; train/validation candidate tables use reference
+split routes, as disclosed in `Experiment/stage23_legality_audit_20260830.md`.
 
-- 上面这个目录是当前已经完整核对过的 `6-family` 官方结果汇总
-- 当前维护中的 Stage 2 代码，已经在 `Non-Oracle` 推理时显式加入了受限 novel-context 试探
-- 这样做的目的不是刷分，而是避免把主线描述成只会在历史完整组合空间里做选择题
+The within-route initialization is
+`stage2_initial_score = p_KNN + clip(0.65 * (q_ReaFNN - p_KNN), -0.35, 0.35)`.
+The XGB-LTR schema excludes the bounded correction columns; validation can only
+select the optional heuristic-prior fusion, never use test labels.
 
-当前主线里，Stage 2 的官方角色不是旧版 “纯 KNN 截断”，而是：
+Detailed metrics and metadata are retained in
+`Experiment/stage23_product_morgan_reafnn_multiseed_20260830/` and summarized
+in `CURRENT_RESULTS.md`.
 
-- `KNN` 先做宽召回
-- `ReaFNN` 再做 token 级二次筛选
-- 最终把候选池交给 Stage 3 的 `tabular XGB-LTR`，并由固定启用的 `R-GNN` 温度分支输出温度
+## Historical Core-Only Policy (B Controlled Ablation)
+> **Historical scope.** This section describes the B core-check control. Any later occurrence of "default" or "current" in this historical block refers to the `2026-08-28` configuration, not the Product-Morgan development mainline above.
+
+
+> **范围优先级。** 本节定义当前默认实现，并覆盖后文仍保留的历史扩池描述。
+
+- KNN 从当前 family 的 train memory 宽召回 `top_k = 64` 个相似路线，并聚合最多 `prefilter_contexts = 64` 个历史条件。
+- KNN 的前 `max_contexts = 20` 个条件构成固定的 **KNN core**，即默认主线最终候选成员。
+- ReaFNN 只对这 20 个已有 context 做 token-level compatibility check；默认不生成、补充或删除 `(reagent_norm, solvent_norm)`。
+- 同一路线内的 KNN 次序和 ReaFNN 分数分别归一为 `p_KNN` 与 `q_ReaFNN`，再计算 `s_init = p_KNN + clip(alpha * (q_ReaFNN - p_KNN), -c, c)`。
+- 生成时默认 `alpha = 0.20`、`c = 0.10`；该分数仅重新排列 KNN core 内部的顺序，再交给 Stage 3。
+
+因此，默认路径的候选成员与纯 KNN 的前 20 个成员严格一致。ReaFNN 的职责是检查 KNN 先例是否与当前路线的试剂/溶剂 token 偏好一致，并做小幅、可追溯的次序校正；它不能因绝对分数尺度而重写 KNN 检索结论。
+
+在 Stage 3 训练时，`alpha` 会在 family validation split 上从 `{0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40}` 中选择，优先最大化 Sys@10、再以 Sys@1 tie-break；测试标签不参与选择。校正字段不进入 `XGBRanker` 的学习特征，只通过验证集选择的 Stage 2 prior 与 XGB 原始分数融合，避免把同一条弱信号重复学习两次。
+
+`--reafnn_enable_context_augmentation` 是显式实验开关。只有它被打开时，后文的历史组合补充和受限 novel-combination 逻辑才会执行；该分支不是默认主线，除非完成同协议多随机种子复现，不能用于论文 headline 结果。
+
+### Historical core-check note
+
+The material below documents the older fixed-KNN-core control and its archived
+outputs. It is retained to explain the controlled ablation, not to define the
+current method. The only official Stage 2 result source is the promoted
+2026-08-30 artifact named at the top of this document.
 
 ## 1. 模块目标
 
-`stage2_ReaFNN` 负责承接 Stage 1 给出的反应路线 `(reactants -> product)`，先从家族内训练集历史反应中检索相似路线，得到一个 **更宽的 KNN 候选池**；然后再用一个轻量双头神经网络 `ReaFNN` 对候选条件进行二次筛选。
-这个阶段仍然只做 **筛选**，不做最终排序，目标是把真正命中的 `(reagent, solvent)` 尽量放进候选池里，供 Stage 3 再重排。
+`stage2_ReaFNN` 承接 Stage 1 给出的反应路线 `(reactants -> product)`：先从家族内训练集历史反应中检索相似路线，得到一个宽 KNN 池；再固定其前 20 个 context，并用轻量双头网络 `ReaFNN` 检查这些先例与路线 token 的一致性。
+这个阶段仍然只做 **可行性筛选与初始优先级校正**，不做最终端到端排序；它向 Stage 3 交付固定候选成员及其 KNN/ReaFNN 支持信号。
 
 当前实现文件：
 
@@ -75,6 +120,13 @@
 - `knn_similarity_max`
 - `knn_neighbor_count`
 - `knn_weighted_mean_yield`
+- `stage2_knn_rank`
+- `stage2_knn_prior`
+- `stage2_reafnn_check_score`
+- `stage2_reafnn_residual`
+- `stage2_reafnn_correction`
+- `stage2_reafnn_correction_clip`
+- `stage2_initial_score`
 - `reafnn_reagent_score`
 - `reafnn_solvent_score`
 - `reafnn_context_score`
@@ -161,19 +213,20 @@
 
 ### 3.4 KNN 和 ReaFNN 的关系
 
-当前主线里，这两者是 **串联**，不是两个彼此独立的并行筛选器。
+> **默认实现。** KNN 决定 final-core 成员，ReaFNN 只在其中产生有界初始分数校正；本小节下方关于历史补充和 novel 组合的内容仅适用于显式扩池实验。
+当前默认主线里，这两者是 **串联**，不是两个彼此独立的并行筛选器。
 
 顺序是：
 
 1. `KNN` 先根据路线相似性做宽召回
-2. `ReaFNN` 再对这个宽池子里的条件做 token 级重打分
-3. `ReaFNN` 额外补少量历史组合和极少量 novel 组合
-4. 合并后截断为最终 Stage 2 candidate pool
+2. KNN 的前 `max_contexts` 个 context 固定为 final core
+3. `ReaFNN` 对 final core 内的每个 context 做 token 级一致性检查
+4. 有界 residual 只调整 core 内部的 `stage2_initial_score` 次序
 
 所以 `ReaFNN` 不是脱离 KNN 单独给出最终条件答案，而是：
 
-- 一部分用于重排 KNN 已有候选
-- 一部分用于在 KNN 宽池基础上做受限补充
+- 默认只用于校正 KNN 已有候选的相对优先级
+- 仅在显式扩池实验中才会补充历史或 novel 组合
 
 
 ## 4. 训练记忆库如何构建
@@ -201,6 +254,7 @@ KNN 的 memory **严格只由当前 family 的 train split 构建**，不会把 
 
 ## 5. 候选池如何生成
 
+> **默认成员不变。** 宽 KNN 后先固定前 20 个 context；ReaFNN 只重排该固定集合，不再以 `reafnn_context_score` 截断或替换候选成员。
 当前实现不再是“纯 KNN 直接截断”，而是两级流程：
 
 1. 宽 KNN 召回
@@ -359,6 +413,7 @@ input route feature (8218)
 
 #### 5.3.1 ReaFNN 如何用在候选池上
 
+> **默认检查路径。** `reafnn_context_score` 先转换为同路线内的 rank-normalized check score，再与 KNN prior 做截断残差校正。下方的生成步骤只在 `--reafnn_enable_context_augmentation` 打开时执行。
 对每条 query 路线：
 
 1. 对宽 KNN 池里的已有 context 逐个打 `reafnn_context_score`
@@ -432,7 +487,7 @@ input route feature (8218)
 - 最终 candidate pool 中默认最多保留 `1` 个 novel context
 
 
-#### 5.3.3 Token 概率如何变成完整条件组合
+#### 5.3.3 扩池实验中 Token 概率如何变成完整条件组合
 
 这里最容易误解的一点是：
 
@@ -469,7 +524,7 @@ input route feature (8218)
 - 自由拼接组合导致搜索空间爆炸
 
 
-#### 5.3.4 一个具体例子
+#### 5.3.4 历史扩池分支的示意例子（非默认主线）
 
 下面给一个简化后的示意例子，说明一条路线如何从 Stage 1 传到 Stage 2。
 
@@ -540,49 +595,48 @@ input route feature (8218)
 - `KNN` 决定“候选池的主体来自哪些相似历史反应”
 - `ReaFNN` 决定“这些候选里哪些更像、还要不要补进少量额外组合”
 
-因此当前 Stage 2 的本质不是简单投票，而是：
+因此当前默认 Stage 2 的本质不是简单投票，而是：
 
 - 路线相似性检索
-- token 级可行性判断
-- 受限组合补充
-- 统一截断输出
+- token 级可行性检查
+- 有界残差校正
+- 固定候选成员输出
 
-#### 5.3.5 为什么 novel context 很少反而是合理的
+#### 5.3.5 历史扩池分支：为什么 novel context 很少
 
-当前主线保留 novel context，不是为了让它在候选池里大量出现，而是为了满足两个更重要的目标：
+扩池实验保留 novel context，不是为了让它在候选池里大量出现，而是为了满足两个更重要的目标：
 
 1. 明确说明系统并不被限制在历史完整组合空间里做封闭式选择。
-2. 又不让完全自由组合带来的长尾噪声压垮主线 `full-system Top-k accuracy`。
+2. 又不让完全自由组合带来的长尾噪声压垮扩池实验的 `full-system Top-k accuracy`。
 
-因此当前策略是一个刻意保守的折中：
+因此该实验策略是一个刻意保守的折中：
 
-- novel context 只在 `Non-Oracle` 推理时开放
+- novel context 只在显式启用 `--reafnn_enable_context_augmentation` 的 `Non-Oracle` 推理时开放
 - novel context 有显式 `novelty_penalty`
 - 历史 context 有显式 `historical_bonus`
-- 最终池子里默认最多保留 `1` 个 novel context
+- 最终池子里最多保留 `1` 个 novel context
 
 从 `2026-07-22` 的两家族 sanity check 看，这个现象非常明显：
 
 - `Beckmann`：`44,060` 条 test candidate rows 中只出现 `1` 条 novel context
 - `Buchwald-HartwigCross-Coupling`：`206,249` 条 test candidate rows 中只出现 `37` 条 novel context
 
-这说明当前主线**确实允许**新组合尝试，但在真实数据分布下，这种尝试本来就应该是低频事件。
-这组数字只是实现层面的 sanity check，不应当被误读为新的 `6-family` 官方成绩表。
+这说明历史扩池分支中的新组合尝试本来就是低频事件。
+这组数字仅是该实验分支的 sanity check，不代表当前默认 KNN-core 主线或新的 `6-family` 官方成绩表。
 
 ### 5.4 Stage 2 内部排序规则
 
 Stage 2 内部只做一个轻量排序，不做最终决策。
-候选按以下优先级排序：
+默认候选按以下优先级排序：
 
-1. `reafnn_context_score` 降序
-2. `reafnn_is_historical` 降序
-3. `knn_similarity_sum` 降序
-4. `reafnn_context_support` 降序
-5. `knn_neighbor_count` 降序
-6. `reagent_norm` 字典序
-7. `solvent_norm` 字典序
+1. `stage2_initial_score` 降序
+2. `stage2_knn_rank` 升序，作为稳定 tie-break
+3. `reafnn_is_historical` 降序
+4. `knn_similarity_sum` 降序
+5. `reagent_norm` 字典序
+6. `solvent_norm` 字典序
 
-排序后的前 `max_contexts` 个条件进入 candidate pool。
+默认路径中，排序前后的候选成员完全一致，都是 KNN final core 的前 `max_contexts` 个条件。扩池实验若被显式启用，也采用同一初始分数规则，但仅在保留 KNN anchor slot 后填补额外位置。
 
 
 ### 5.5 回退策略
@@ -626,28 +680,29 @@ Non-Oracle 模式从 Stage 1 的 `route_cache.json` 中读取预测路线：
 
 ## 7. 为什么这样编码
 
+> **当前表述。** 默认逻辑是“局部 KNN 历史先验 + ReaFNN token 一致性检查 + 有界残差校正”，而不是自由组合生成。
 当前 Stage 2 的逻辑可以概括成一句话：
 
-“先按反应相似性做宽召回，再用 ReaFNN 在 token 层面做受限组合和二次筛选。”
+“先按反应相似性做宽召回，再用 ReaFNN 对固定 KNN core 做 token 一致性检查和有界校正。”
 
 这样做有几个优点：
 
-- KNN 负责给出局部历史先验，family 内更稳
-- ReaFNN 负责避免候选池过于保守，补充更泛化的可行组合
-- 最终仍尽量落在历史已见组合上，控制长尾噪声
-- 输出的 `knn_* + reaffn_*` 特征可以直接送给 Stage 3 XGB-LTR 继续学习
+- KNN 提供 family 内稳定的局部历史先验和候选召回
+- ReaFNN 检查某个历史条件是否与当前路线的试剂/溶剂 token 偏好一致
+- 固定成员避免长尾生成造成候选覆盖率和 Sys@k 的不稳定下降
+- 输出的 `knn_* + reafnn_* + stage2_*` 支持信号可供 Stage 3 的先验融合使用
 
 这里尤其要注意：
 
-- “补充更泛化的可行组合” 不等于大量生成 novel combination
-- 当前主线只要求它**能够尝试**
-- 在真实化学场景里，新组合本来就应该比历史组合更少、更难被最终选中
+- 校正强度不是手工固定的最终结论，而是由 validation split 选择
+- validation 可以选择 `alpha = 0`，从而完全退回 KNN prior
+- 可选扩池实验与默认主线必须分开报告
 
-也就是说，Stage 2 不再只是“拿邻居投票”，而是变成了：
+也就是说，Stage 2 不只是“拿邻居投票”，而是：
 
-- `KNN` 做宽候选召回
-- `ReaFNN` 做 token 级结构化筛选
-- 一起为 Stage 3 提供更丰富的支持信号
+- `KNN` 做宽候选召回并确定 final core
+- `ReaFNN` 做 token 级一致性检查和有界残差校正
+- 共同为 Stage 3 提供稳定的初始排序先验
 
 
 ## 8. 与主线的接口关系
@@ -663,24 +718,14 @@ Non-Oracle 模式从 Stage 1 的 `route_cache.json` 中读取预测路线：
 所以它输出的是“候选池 + 支持特征”，不是最终答案。
 
 
-## 8.1 当前官方主线下的 Stage 2 效果
+## 8.1 Historical Core-Check Results
 
-在 `outputs/unified_rgnn_multiseed_20260809/` 当前主线的固定 Stage 1、三随机种子复现中，Stage 2 的宏平均表现是：
-
-- `Route recall@10 = 63.20%`（冻结 Stage 1 路线缓存）
-- `candidate coverage = 48.52 +/- 0.59%`
-
-旧的 `Condition recall = 81.58%` 与 `candidate recall = 49.18%` 来自 2026-08-03 门控温度点估计快照，仅保留为历史记录，不能与当前三种子结果混用。
-
-这说明当前 `KNN + ReaFNN` 的主要价值是：
-
-- 把大多数正确上下文先召回
-- 把接近一半的正确完整体系送进候选池
-- 为 Stage 3 留下真实可学的 reranking 空间
-
-此外，当前维护代码还显式保留了少量 novel-context trial。
-这一步的意义主要是方法论上的，它说明主线不是只在历史完整组合空间里做封闭式选择，而不是单纯追求大幅改写 `candidate recall`。
-
+The fixed-core figures formerly reported in this section belong to the B
+control, which retains the KNN top-20 members and only calibrates their order.
+They are not current headline values. The official wide-pool refinement has 12
+KNN anchors, a 20-context cap, and three-seed candidate coverage
+`54.44 +/- 0.14%`; see `CURRENT_RESULTS.md` and
+`Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`.
 
 ## 9. 无泄露说明
 
@@ -735,6 +780,10 @@ python -m stage2_KNN.knn_condition_selector \
 - `--radius`
 - `--max_routes`
 - `--reafnn_device`
+- `--reafnn_knn_anchor_contexts`（主线 runner 默认 `12`；低层 selector 的 `0` 仅保留全部 core 的历史安全模式）
+- `--reafnn_correction_weight`（生成时的默认残差权重；正式实际值由 validation 校准）
+- `--reafnn_correction_clip`
+- `--reafnn_enable_context_augmentation`（显式实验开关，默认关闭）
 
 
 ## 11. 预期效果

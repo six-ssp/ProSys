@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -89,12 +90,33 @@ def _reaction_gnn_cache_name(config: ReactionGNNConfig) -> str:
     )
 
 
-def _reafnn_cache_name(config: ReaFNNConfig) -> str:
-    """Keep candidate pools tied to the exact ReaFNN capacity and seed."""
-    dropout = f'{config.dropout:.3f}'.rstrip('0').rstrip('.').replace('.', 'p')
+def _reafnn_cache_name(
+    config: ReaFNNConfig,
+    *,
+    knn_retrieval_mode: str,
+    use_reafnn: bool,
+    top_k: int,
+    max_contexts: int,
+    prefilter_contexts: int,
+) -> str:
+    """Keep Stage 2 tables tied to retrieval, selector capacity, and seed."""
+
+    if use_reafnn:
+        anchors = 'all' if config.knn_anchor_contexts <= 0 else str(config.knn_anchor_contexts)
+        if config.enable_context_augmentation:
+            policy = 'augment'
+        elif config.enable_knn_wide_refinement:
+            policy = 'refine'
+        else:
+            policy = 'checked'
+        config_json = json.dumps(config.to_dict(), sort_keys=True, separators=(',', ':'))
+        config_signature = hashlib.sha256(config_json.encode('utf-8')).hexdigest()[:12]
+        selector = f'reafnn_{policy}_a{anchors}_{config_signature}'
+    else:
+        selector = 'knnonly'
     return (
-        f'_shared_knn_fp{config.fpsize}_r{config.radius}_reafnn_h{config.hidden_dim}'
-        f'_l{config.hidden_layers}_d{dropout}_s{config.random_state}'
+        f'_shared_knn_{knn_retrieval_mode}_k{top_k}_p{prefilter_contexts}_m{max_contexts}'
+        f'_fp{config.fpsize}_r{config.radius}_{selector}'
     )
 
 
@@ -213,6 +235,7 @@ def _ensure_knn_tables(
     prefilter_contexts: int,
     fpsize: int,
     radius: int,
+    knn_retrieval_mode: str,
     max_train_routes: int | None,
     max_val_routes: int | None,
     train_table_mode: str,
@@ -221,6 +244,7 @@ def _ensure_knn_tables(
     hard_negative_per_sample: int,
     force_rebuild: bool,
     reafnn_config: ReaFNNConfig,
+    use_reafnn: bool,
     reaffn_force_retrain: bool,
 ) -> dict[str, Path]:
     paths = _shared_paths(shared_root)
@@ -238,11 +262,13 @@ def _ensure_knn_tables(
         max_contexts=max_contexts,
         fpsize=fpsize,
         radius=radius,
+        retrieval_mode=knn_retrieval_mode,
         prefilter_contexts=prefilter_contexts,
-        reaffn_artifact_dir=shared_root / 'reafnn',
+        reaffn_artifact_dir=(shared_root / 'reafnn') if use_reafnn else None,
         reaffn_device=reafnn_config.device,
         reaffn_force_retrain=reaffn_force_retrain,
-        reaffn_config=reafnn_config,
+        reaffn_config=reafnn_config if use_reafnn else None,
+        sparse_similarity=True,
     )
     builder.build_non_oracle_table(route_cache, paths['candidate_test'])
     label_candidate_table(paths['candidate_test'], split_file_for_family(repo_root, family, 'test'), paths['table_test'])
@@ -329,14 +355,17 @@ def _ensure_knn_tables(
 def _ensure_gnn_augmented_tables(
     repo_root: Path,
     family: str,
-    family_root: Path,
+    stage2_root: Path,
     table_paths: dict[str, Path],
     *,
     force_rebuild: bool,
     gnn_config: ReactionGNNConfig,
     gnn_force_retrain: bool,
 ) -> dict[str, Path]:
-    gnn_root = family_root / _reaction_gnn_cache_name(gnn_config)
+    # Bind graph features to the precise Stage 2 candidate-table cache. This
+    # prevents a retrieval-policy change from accidentally reusing graph
+    # tables created from different candidate rows.
+    gnn_root = stage2_root / _reaction_gnn_cache_name(gnn_config)
     paths = _shared_augmented_table_paths(gnn_root)
     if force_rebuild:
         _maybe_unlink(paths)
@@ -385,6 +414,7 @@ def _run_family(
     prefilter_contexts: int,
     fpsize: int,
     radius: int,
+    knn_retrieval_mode: str,
     max_train_routes: int | None,
     max_val_routes: int | None,
     train_table_mode: str,
@@ -393,14 +423,56 @@ def _run_family(
     hard_negative_per_sample: int,
     force_rebuild: bool,
     reafnn_config: ReaFNNConfig,
+    use_reafnn: bool,
     reaffn_force_retrain: bool,
     gnn_config: ReactionGNNConfig,
     reuse_candidate_tables_root: Path | None,
     gnn_force_retrain: bool,
+    enable_temperature: bool,
     seed: int,
 ) -> dict:
     family_root = output_root / family
-    shared_root = family_root / _reafnn_cache_name(reafnn_config)
+    stage2_protocol = {
+        'architecture': 'knn_reafnn' if use_reafnn else 'knn_only',
+        # Test slates always come from persisted Stage-1 predictions. Keep the
+        # train/validation candidate-table source explicit so compact result
+        # records cannot be misread as a fully prediction-aligned training run.
+        'training_candidate_table_mode': train_table_mode,
+        'training_candidate_route_source': (
+            'reference_split_routes' if train_table_mode == 'oracle'
+            else 'reference_routes_plus_predicted_route_hard_negatives'
+            if train_table_mode == 'mixed_hard_negative'
+            else 'predicted_stage1_routes'
+        ),
+        'knn_retrieval_mode': knn_retrieval_mode,
+        'knn_feature_space': (
+            'product_morgan_fingerprint' if knn_retrieval_mode == 'product_morgan'
+            else 'reactant_product_delta_morgan_fingerprint'
+        ),
+        'knn_top_k': int(top_k),
+        'prefilter_contexts': int(prefilter_contexts),
+        'max_contexts': int(max_contexts),
+        'candidate_source': 'historical_contexts_retrieved_from_family_train_split',
+        'reafnn_enabled': bool(use_reafnn),
+        'reafnn_feature_space': (
+            'product_fp_plus_delta_fp_plus_route_descriptors' if use_reafnn else None
+        ),
+        'reafnn_candidate_policy': (
+            'knn_wide_pool_refinement' if use_reafnn and reafnn_config.enable_knn_wide_refinement
+            else 'context_augmentation' if use_reafnn and reafnn_config.enable_context_augmentation
+            else 'knn_core_rank_correction' if use_reafnn
+            else 'not_used'
+        ),
+        'reafnn_config': reafnn_config.to_dict() if use_reafnn else None,
+    }
+    shared_root = family_root / _reafnn_cache_name(
+        reafnn_config,
+        knn_retrieval_mode=knn_retrieval_mode,
+        use_reafnn=use_reafnn,
+        top_k=top_k,
+        max_contexts=max_contexts,
+        prefilter_contexts=prefilter_contexts,
+    )
     result_dir = family_root / 'knn_xgb' / 'non_oracle'
     result_file = result_dir / 'result.json'
     if result_file.exists() and not force_rebuild:
@@ -412,27 +484,45 @@ def _run_family(
         existing_ranker_is_non_graph = bool(existing_ranker_features) and all(
             not str(column).startswith('route_gnn_feat_') for column in existing_ranker_features
         )
-        if (
-            existing.get('baseline') == 'knn_xgb_reaction_gnn_temperature'
-            and existing_temperature_protocol.get('always_enabled') is True
+        expected_baseline = (
+            'knn_xgb_reaction_gnn_temperature' if enable_temperature
+            else 'knn_xgb_stage2_ablation_ranking_only'
+        )
+        temperature_matches = (
+            existing_temperature_protocol.get('always_enabled') is True
             and existing_temperature_protocol.get('selection') == 'none'
             and existing_temperature_protocol.get('reaction_gnn_config') == gnn_config.to_dict()
+        ) if enable_temperature else (
+            existing_temperature_protocol.get('always_enabled') is False
+            and existing_temperature_protocol.get('selection') == 'not_run_for_stage2_ablation'
+        )
+        if (
+            existing.get('baseline') == expected_baseline
+            and temperature_matches
             and existing_ranker_is_non_graph
-            and existing_stage2_protocol.get('reafnn_config') == reafnn_config.to_dict()
+            and existing_stage2_protocol == stage2_protocol
         ):
             return existing
 
     if reuse_candidate_tables_root is not None:
         source_family_root = reuse_candidate_tables_root / family
-        source_shared_root = source_family_root / _reafnn_cache_name(reafnn_config)
-        source_reafnn_meta = source_shared_root / 'reafnn' / 'reafnn_meta.json'
-        if not source_reafnn_meta.exists():
-            raise FileNotFoundError(
-                f'{family} is missing a ReaFNN cache matching the requested configuration: {source_reafnn_meta}'
-            )
-        source_reafnn_config = json.loads(source_reafnn_meta.read_text(encoding='utf-8')).get('config')
-        if source_reafnn_config != reafnn_config.to_dict():
-            raise ValueError(f'{family} has an incompatible reusable ReaFNN configuration.')
+        source_shared_root = source_family_root / _reafnn_cache_name(
+            reafnn_config,
+            knn_retrieval_mode=knn_retrieval_mode,
+            use_reafnn=use_reafnn,
+            top_k=top_k,
+            max_contexts=max_contexts,
+            prefilter_contexts=prefilter_contexts,
+        )
+        if use_reafnn:
+            source_reafnn_meta = source_shared_root / 'reafnn' / 'reafnn_meta.json'
+            if not source_reafnn_meta.exists():
+                raise FileNotFoundError(
+                    f'{family} is missing a ReaFNN cache matching the requested configuration: {source_reafnn_meta}'
+                )
+            source_reafnn_config = json.loads(source_reafnn_meta.read_text(encoding='utf-8')).get('config')
+            if source_reafnn_config != reafnn_config.to_dict():
+                raise ValueError(f'{family} has an incompatible reusable ReaFNN configuration.')
         table_paths = _shared_paths(source_shared_root)
         missing_tables = [str(path) for path in table_paths.values() if not path.exists()]
         if missing_tables:
@@ -448,6 +538,7 @@ def _run_family(
             prefilter_contexts=prefilter_contexts,
             fpsize=fpsize,
             radius=radius,
+            knn_retrieval_mode=knn_retrieval_mode,
             max_train_routes=max_train_routes,
             max_val_routes=max_val_routes,
             train_table_mode=train_table_mode,
@@ -456,20 +547,9 @@ def _run_family(
             hard_negative_per_sample=hard_negative_per_sample,
             force_rebuild=force_rebuild,
             reafnn_config=reafnn_config,
+            use_reafnn=use_reafnn,
             reaffn_force_retrain=reaffn_force_retrain,
         )
-
-    # Reusing the frozen Stage 2 tables intentionally does not reuse a prior
-    # graph representation: it is regenerated under this run's R-GNN config.
-    gnn_table_paths = _ensure_gnn_augmented_tables(
-        repo_root=repo_root,
-        family=family,
-        family_root=family_root,
-        table_paths=table_paths,
-        force_rebuild=force_rebuild,
-        gnn_config=gnn_config,
-        gnn_force_retrain=gnn_force_retrain,
-    )
 
     model_dir = result_dir / 'model'
     gnn_temperature_model_dir = result_dir / 'gnn_temperature_model'
@@ -480,7 +560,6 @@ def _run_family(
                     if path.is_file():
                         path.unlink()
 
-    # System ranking stays on tabular features; R-GNN vectors are temperature-only.
     rank_artifacts = train_xgb_ranker_and_temperature(
         train_table_file=table_paths['table_train'],
         val_table_file=table_paths['table_val'],
@@ -488,24 +567,68 @@ def _run_family(
         random_state=seed,
         train_temperature=False,
     )
-    gnn_temperature_artifacts = train_xgb_temperature_regressor(
-        train_table_file=gnn_table_paths['table_train'],
-        val_table_file=gnn_table_paths['table_val'],
-        output_dir=gnn_temperature_model_dir,
-        random_state=seed,
-    )
 
-    selected_temperature_model_file = gnn_temperature_artifacts.get('model_file')
-    selected_temperature_metadata_file = gnn_temperature_artifacts.get('metadata_file')
-    if selected_temperature_model_file is None or selected_temperature_metadata_file is None:
-        raise RuntimeError(f'{family}: the mandatory R-GNN temperature model could not be trained.')
+    if enable_temperature:
+        # Reusing frozen Stage 2 tables intentionally does not reuse graph
+        # tables: the R-GNN cache remains tied to the current Stage 2 cache.
+        gnn_table_paths = _ensure_gnn_augmented_tables(
+            repo_root=repo_root,
+            family=family,
+            stage2_root=shared_root,
+            table_paths=table_paths,
+            force_rebuild=force_rebuild,
+            gnn_config=gnn_config,
+            gnn_force_retrain=gnn_force_retrain,
+        )
+        gnn_temperature_artifacts = train_xgb_temperature_regressor(
+            train_table_file=gnn_table_paths['table_train'],
+            val_table_file=gnn_table_paths['table_val'],
+            output_dir=gnn_temperature_model_dir,
+            random_state=seed,
+        )
+        selected_temperature_model_file = gnn_temperature_artifacts.get('model_file')
+        selected_temperature_metadata_file = gnn_temperature_artifacts.get('metadata_file')
+        if selected_temperature_model_file is None or selected_temperature_metadata_file is None:
+            raise RuntimeError(f'{family}: the mandatory R-GNN temperature model could not be trained.')
+        scoring_table = gnn_table_paths['table_test']
+        temperature_model = {
+            'architecture': 'reaction_gnn_augmented_xgboost_regressor',
+            'always_enabled': True,
+            'reaction_gnn_config': gnn_config.to_dict(),
+            **gnn_temperature_artifacts,
+        }
+        temperature_protocol = {
+            'architecture': 'reaction_gnn_augmented_xgboost_regressor',
+            'always_enabled': True,
+            'reaction_gnn_config': gnn_config.to_dict(),
+            'selection': 'none',
+        }
+        scoring_kwargs = {
+            'temperature_model_file': selected_temperature_model_file,
+            'temperature_metadata_file': selected_temperature_metadata_file,
+        }
+    else:
+        gnn_temperature_artifacts = {}
+        selected_temperature_model_file = None
+        selected_temperature_metadata_file = None
+        scoring_table = table_paths['table_test']
+        temperature_model = {
+            'architecture': 'not_run_for_stage2_ablation',
+            'always_enabled': False,
+            'reason': 'Sys@k-only controlled Stage 2 ablation',
+        }
+        temperature_protocol = {
+            'architecture': 'not_run_for_stage2_ablation',
+            'always_enabled': False,
+            'selection': 'not_run_for_stage2_ablation',
+        }
+        scoring_kwargs = {}
 
     scored = score_table_with_xgb(
-        table_file=gnn_table_paths['table_test'],
+        table_file=scoring_table,
         model_file=rank_artifacts['model_file'],
         metadata_file=rank_artifacts['metadata_file'],
-        temperature_model_file=selected_temperature_model_file,
-        temperature_metadata_file=selected_temperature_metadata_file,
+        **scoring_kwargs,
     )
     scored_file = result_dir / 'test_scored.csv'
     scored_file.parent.mkdir(parents=True, exist_ok=True)
@@ -513,26 +636,21 @@ def _run_family(
 
     result = {
         'family': family,
-        'baseline': 'knn_xgb_reaction_gnn_temperature',
+        'baseline': (
+            'knn_xgb_reaction_gnn_temperature' if enable_temperature
+            else 'knn_xgb_stage2_ablation_ranking_only'
+        ),
         'seed': seed,
-        'candidate_table': str(gnn_table_paths['table_test']),
+        'candidate_table': str(scoring_table),
         'scored_test_file': str(scored_file),
         'model': {
-            'stage2_protocol': {
-                'architecture': 'knn_reafnn',
-                'reafnn_config': reafnn_config.to_dict(),
-            },
+            'stage2_protocol': stage2_protocol,
             'ranker': {
                 'architecture': 'xgb_ranker',
                 'feature_space': 'tabular_non_graph',
                 **rank_artifacts,
             },
-            'temperature': {
-                'architecture': 'reaction_gnn_augmented_xgboost_regressor',
-                'always_enabled': True,
-                'reaction_gnn_config': gnn_config.to_dict(),
-                **gnn_temperature_artifacts,
-            },
+            'temperature': temperature_model,
             # Preserve flat artifact keys for downstream audit scripts.
             'output_dir': rank_artifacts.get('output_dir'),
             'model_file': rank_artifacts.get('model_file'),
@@ -542,24 +660,19 @@ def _run_family(
             'temperature_model_file': selected_temperature_model_file,
             'temperature_metadata_file': selected_temperature_metadata_file,
             'temperature_num_train': gnn_temperature_artifacts.get('temperature_num_train'),
-            'temperature_gnn': gnn_temperature_artifacts,
+            'temperature_gnn': gnn_temperature_artifacts if enable_temperature else None,
             'ranking_protocol': {
                 'architecture': 'xgb_ranker',
                 'feature_space': 'tabular_non_graph',
                 'feature_count': len(rank_artifacts.get('feature_columns') or []),
             },
-            'temperature_protocol': {
-                'architecture': 'reaction_gnn_augmented_xgboost_regressor',
-                'always_enabled': True,
-                'reaction_gnn_config': gnn_config.to_dict(),
-                'selection': 'none',
-            },
+            'temperature_protocol': temperature_protocol,
         },
         'metrics': evaluate_scored_frame_with_manifest(
             scored,
             expected_sample_indices=load_route_cache_sample_indices(route_cache),
             score_column='xgb_score',
-            temperature_column='xgb_temperature_pred',
+            temperature_column='xgb_temperature_pred' if enable_temperature else None,
         ),
         'stage1_route_recall': stage1_route_recall(route_cache),
     }
@@ -720,6 +833,13 @@ def main() -> None:
     parser.add_argument('--route_root', type=str, default='outputs/stage1_routes')
     parser.add_argument('--fpsize', type=int, default=4096)
     parser.add_argument('--radius', type=int, default=2)
+    parser.add_argument(
+        '--knn_retrieval_mode',
+        type=str,
+        default='product_morgan',
+        choices=['reaction_morgan', 'product_morgan'],
+        help='KNN representation; product_morgan intentionally omits reactants.',
+    )
     parser.add_argument('--knn_top_k', type=int, default=64)
     parser.add_argument('--max_contexts', type=int, default=20)
     parser.add_argument('--prefilter_contexts', type=int, default=64)
@@ -737,8 +857,29 @@ def main() -> None:
     parser.add_argument('--force_rebuild', action='store_true')
     parser.add_argument('--reafnn_device', type=str, default='cpu')
     parser.add_argument('--reafnn_force_retrain', action='store_true')
+    parser.add_argument('--disable_reafnn', action='store_true')
+    parser.add_argument('--reafnn_hidden_dim', type=int, default=512)
+    parser.add_argument('--reafnn_hidden_layers', type=int, default=2)
+    parser.add_argument('--reafnn_dropout', type=float, default=0.10)
+    parser.add_argument('--reafnn_activation', type=str, default='relu', choices=['relu', 'gelu'])
+    parser.add_argument('--reafnn_use_layer_norm', action='store_true')
+    parser.add_argument('--reafnn_learning_rate', type=float, default=1e-3)
+    parser.add_argument('--reafnn_weight_decay', type=float, default=1e-5)
+    parser.add_argument('--reafnn_batch_size', type=int, default=64)
+    parser.add_argument('--reafnn_max_epochs', type=int, default=30)
+    parser.add_argument('--reafnn_patience', type=int, default=8)
+    parser.add_argument('--reafnn_knn_anchor_contexts', type=int, default=12, help='Number of KNN-core anchors retained during wide-pool refinement.')
+    parser.add_argument('--reafnn_correction_weight', type=float, default=0.65)
+    parser.add_argument('--reafnn_correction_clip', type=float, default=0.35)
+    parser.add_argument('--reafnn_enable_context_augmentation', action='store_true')
+    parser.add_argument(
+        '--reafnn_enable_knn_wide_refinement',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
     parser.add_argument('--gnn_device', type=str, default='cpu')
     parser.add_argument('--gnn_force_retrain', action='store_true')
+    parser.add_argument('--skip_temperature', action='store_true', help='For Sys@k-only ablations; leaves the full mainline unchanged.')
     parser.add_argument('--reuse_candidate_tables_root', type=str, default=None)
     parser.add_argument('--seed', type=int, default=0, help='Shared random seed for ReaFNN, R-GNN, and XGB-LTR.')
     args = parser.parse_args()
@@ -753,11 +894,34 @@ def main() -> None:
     train_route_root = (repo_root / args.train_route_root).resolve() if args.train_route_root else None
     val_route_root = (repo_root / args.val_route_root).resolve() if args.val_route_root else None
     reuse_candidate_tables_root = (repo_root / args.reuse_candidate_tables_root).resolve() if args.reuse_candidate_tables_root else None
+    if args.prefilter_contexts < args.max_contexts:
+        parser.error('--prefilter_contexts must be at least --max_contexts.')
+    if args.reafnn_knn_anchor_contexts < 0 or args.reafnn_knn_anchor_contexts > args.max_contexts:
+        parser.error('--reafnn_knn_anchor_contexts must be between 0 and --max_contexts.')
+    if args.reafnn_enable_context_augmentation and args.reafnn_enable_knn_wide_refinement:
+        parser.error('ReaFNN context augmentation and KNN-wide refinement are mutually exclusive.')
+    if args.disable_reafnn and args.reafnn_enable_context_augmentation:
+        parser.error('--disable_reafnn cannot be combined with context augmentation.')
     reafnn_config = ReaFNNConfig(
         fpsize=args.fpsize,
         radius=args.radius,
+        hidden_dim=args.reafnn_hidden_dim,
+        hidden_layers=args.reafnn_hidden_layers,
+        dropout=args.reafnn_dropout,
+        activation=args.reafnn_activation,
+        use_layer_norm=args.reafnn_use_layer_norm,
+        learning_rate=args.reafnn_learning_rate,
+        weight_decay=args.reafnn_weight_decay,
+        batch_size=args.reafnn_batch_size,
+        max_epochs=args.reafnn_max_epochs,
+        patience=args.reafnn_patience,
         device=args.reafnn_device,
         random_state=args.seed,
+        knn_anchor_contexts=args.reafnn_knn_anchor_contexts,
+        correction_weight=args.reafnn_correction_weight,
+        correction_clip=args.reafnn_correction_clip,
+        enable_context_augmentation=args.reafnn_enable_context_augmentation,
+        enable_knn_wide_refinement=args.reafnn_enable_knn_wide_refinement,
     )
     gnn_config = ReactionGNNConfig(
         device=args.gnn_device,
@@ -782,6 +946,7 @@ def main() -> None:
                 prefilter_contexts=args.prefilter_contexts,
                 fpsize=args.fpsize,
                 radius=args.radius,
+                knn_retrieval_mode=args.knn_retrieval_mode,
                 max_train_routes=max_train_routes,
                 max_val_routes=max_val_routes,
                 train_table_mode=args.train_table_mode,
@@ -790,9 +955,11 @@ def main() -> None:
                 hard_negative_per_sample=args.hard_negative_per_sample,
                 force_rebuild=args.force_rebuild,
                 reafnn_config=reafnn_config,
+                use_reafnn=not args.disable_reafnn,
                 reaffn_force_retrain=args.reafnn_force_retrain,
                 gnn_config=gnn_config,
                 gnn_force_retrain=args.gnn_force_retrain,
+                enable_temperature=not args.skip_temperature,
                 reuse_candidate_tables_root=reuse_candidate_tables_root,
                 seed=args.seed,
             )

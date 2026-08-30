@@ -37,6 +37,21 @@ def smi_tokenizer(smi, spe=False, self=False, dropout=0): # dropout:  bpe dropou
     return ' '.join(tokens)
 
 
+def is_parseable_reaction_sides(reaction: str) -> bool:
+    """Require every reactant and product fragment to be RDKit-parseable."""
+
+    parts = str(reaction).split('>')
+    if len(parts) < 3:
+        return False
+    reactants, product = parts[0].strip(), parts[2].split(' ')[0].strip()
+    if not reactants or not product:
+        return False
+    for side in (reactants, product):
+        fragments = [fragment.strip() for fragment in side.split('.') if fragment.strip()]
+        if not fragments or any(Chem.MolFromSmiles(fragment) is None for fragment in fragments):
+            return False
+    return True
+
 def clear_map_canonical_smiles(smi, canonical=True, root=-1):
     mol = Chem.MolFromSmiles(smi)
     if mol is not None:
@@ -507,6 +522,7 @@ if __name__ == '__main__':
         # -> NaN in mapped_reaction_smiles). Without this the '>' splits below raise
         # AttributeError on float NaN. Require the full reactants>reagents>product form.
         cleaned_reaction_list = []
+        dropped_unparseable = 0
         for x in reaction_list:
             if not isinstance(x, str):
                 if pd.isna(x):
@@ -514,10 +530,15 @@ if __name__ == '__main__':
                 x = str(x)
             x = x.strip()
             if x and x.count('>') >= 2:
-                cleaned_reaction_list.append(x)
+                if is_parseable_reaction_sides(x):
+                    cleaned_reaction_list.append(x)
+                else:
+                    dropped_unparseable += 1
         dropped = len(reaction_list) - len(cleaned_reaction_list)
         if dropped:
             print(f'[{data_set}] dropped {dropped} rows with missing/invalid reaction string')
+        if dropped_unparseable:
+            print(f'[{data_set}] dropped {dropped_unparseable} rows with unparseable reactant/product SMILES')
         reaction_list = cleaned_reaction_list
 
         reactant_smarts_list = list(

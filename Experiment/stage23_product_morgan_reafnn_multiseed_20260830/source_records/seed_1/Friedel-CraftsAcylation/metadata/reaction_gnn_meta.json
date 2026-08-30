@@ -1,0 +1,22 @@
+{
+  "model_file": "reaction_gnn.pt",
+  "embedding_dim": 128,
+  "num_train_examples": 3801,
+  "num_val_examples": 476,
+  "num_reagent_tokens": 173,
+  "num_solvent_tokens": 41,
+  "best_val_loss": 0.7208746671676636,
+  "config": {
+    "hidden_dim": 128,
+    "embedding_dim": 128,
+    "message_passing_steps": 4,
+    "dropout": 0.1,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "batch_size": 48,
+    "max_epochs": 20,
+    "patience": 5,
+    "device": "cuda",
+    "random_state": 1
+  }
+}

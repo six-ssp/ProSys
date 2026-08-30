@@ -14,9 +14,14 @@
 #   ROUTE_ROOT          default outputs/stage1_routes
 #   FPSIZE              default 4096
 #   RADIUS              default 2
+#   KNN_RETRIEVAL_MODE default product_morgan
 #   KNN_TOP_K           default 64
 #   PREFILTER_CONTEXTS  default 64
 #   MAX_CONTEXTS        default 20
+#   REAFNN_HIDDEN_DIM / REAFNN_HIDDEN_LAYERS / REAFNN_DROPOUT
+#                       defaults 512 / 2 / 0.10
+#   REAFNN_KNN_ANCHORS / REAFNN_CORRECTION_WEIGHT / REAFNN_CORRECTION_CLIP
+#                       defaults 12 / 0.65 / 0.35
 #   MAX_TRAIN_ROUTES    default 0 (= full train split)
 #   MAX_VAL_ROUTES      default 0 (= full val split)
 #   TRAIN_TABLE_MODE    default oracle; one of oracle / mixed_hard_negative / non_oracle
@@ -42,9 +47,16 @@ OUTPUT_ROOT="${OUTPUT_ROOT:-outputs/stage23_mainline}"
 ROUTE_ROOT="${ROUTE_ROOT:-outputs/stage1_routes}"
 FPSIZE="${FPSIZE:-4096}"
 RADIUS="${RADIUS:-2}"
+KNN_RETRIEVAL_MODE="${KNN_RETRIEVAL_MODE:-product_morgan}"
 KNN_TOP_K="${KNN_TOP_K:-64}"
 PREFILTER_CONTEXTS="${PREFILTER_CONTEXTS:-64}"
 MAX_CONTEXTS="${MAX_CONTEXTS:-20}"
+REAFNN_HIDDEN_DIM="${REAFNN_HIDDEN_DIM:-512}"
+REAFNN_HIDDEN_LAYERS="${REAFNN_HIDDEN_LAYERS:-2}"
+REAFNN_DROPOUT="${REAFNN_DROPOUT:-0.10}"
+REAFNN_KNN_ANCHORS="${REAFNN_KNN_ANCHORS:-12}"
+REAFNN_CORRECTION_WEIGHT="${REAFNN_CORRECTION_WEIGHT:-0.65}"
+REAFNN_CORRECTION_CLIP="${REAFNN_CORRECTION_CLIP:-0.35}"
 MAX_TRAIN_ROUTES="${MAX_TRAIN_ROUTES:-0}"
 MAX_VAL_ROUTES="${MAX_VAL_ROUTES:-0}"
 TRAIN_TABLE_MODE="${TRAIN_TABLE_MODE:-oracle}"
@@ -68,9 +80,17 @@ cmd=(
   --route_root "$ROUTE_ROOT" \
   --fpsize "$FPSIZE" \
   --radius "$RADIUS" \
+  --knn_retrieval_mode "$KNN_RETRIEVAL_MODE" \
   --knn_top_k "$KNN_TOP_K" \
   --prefilter_contexts "$PREFILTER_CONTEXTS" \
   --max_contexts "$MAX_CONTEXTS" \
+  --reafnn_hidden_dim "$REAFNN_HIDDEN_DIM" \
+  --reafnn_hidden_layers "$REAFNN_HIDDEN_LAYERS" \
+  --reafnn_dropout "$REAFNN_DROPOUT" \
+  --reafnn_knn_anchor_contexts "$REAFNN_KNN_ANCHORS" \
+  --reafnn_correction_weight "$REAFNN_CORRECTION_WEIGHT" \
+  --reafnn_correction_clip "$REAFNN_CORRECTION_CLIP" \
+  --reafnn_enable_knn_wide_refinement \
   --max_train_routes "$MAX_TRAIN_ROUTES" \
   --max_val_routes "$MAX_VAL_ROUTES" \
   --train_table_mode "$TRAIN_TABLE_MODE" \

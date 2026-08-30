@@ -41,6 +41,8 @@ class ReaFNNConfig:
     hidden_dim: int = 384
     hidden_layers: int = 2
     dropout: float = 0.10
+    activation: str = 'relu'
+    use_layer_norm: bool = False
     learning_rate: float = 1e-3
     weight_decay: float = 1e-5
     batch_size: int = 64
@@ -62,6 +64,13 @@ class ReaFNNConfig:
     historical_context_bonus: float = 0.40
     historical_support_weight: float = 0.15
     novel_context_penalty: float = 0.60
+    # Keep the production path KNN-anchored: ReaFNN calibrates retrieved
+    # contexts by default and expansion remains an explicit experiment.
+    knn_anchor_contexts: int = 0
+    correction_weight: float = 0.20
+    correction_clip: float = 0.10
+    enable_context_augmentation: bool = False
+    enable_knn_wide_refinement: bool = False
     device: str = 'cpu'
     random_state: int = 0
 
@@ -98,6 +107,15 @@ class FeatureStandardizer:
         )
 
 
+def _activation_layer(name: str) -> nn.Module:
+    normalized = str(name).strip().lower()
+    if normalized == 'relu':
+        return nn.ReLU()
+    if normalized == 'gelu':
+        return nn.GELU()
+    raise ValueError(f'Unsupported ReaFNN activation: {name!r}')
+
+
 class ReaFNN(nn.Module):
     def __init__(
         self,
@@ -108,18 +126,20 @@ class ReaFNN(nn.Module):
         hidden_dim: int,
         hidden_layers: int,
         dropout: float,
+        activation: str,
+        use_layer_norm: bool,
     ):
         super().__init__()
         layers: list[nn.Module] = []
         in_dim = input_dim
         for _ in range(max(1, hidden_layers)):
-            layers.extend(
-                [
-                    nn.Linear(in_dim, hidden_dim),
-                    nn.ReLU(),
-                    nn.Dropout(dropout),
-                ]
-            )
+            layers.append(nn.Linear(in_dim, hidden_dim))
+            if use_layer_norm:
+                layers.append(nn.LayerNorm(hidden_dim))
+            layers.extend([
+                _activation_layer(activation),
+                nn.Dropout(dropout),
+            ])
             in_dim = hidden_dim
         self.trunk = nn.Sequential(*layers)
         self.reagent_head = nn.Linear(hidden_dim, num_reagent_tokens)
@@ -239,6 +259,8 @@ def train_reafnn_selector(
         hidden_dim=config.hidden_dim,
         hidden_layers=config.hidden_layers,
         dropout=config.dropout,
+        activation=config.activation,
+        use_layer_norm=config.use_layer_norm,
     ).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -357,6 +379,8 @@ class ReaFNNSelector:
             hidden_dim=self.config.hidden_dim,
             hidden_layers=self.config.hidden_layers,
             dropout=self.config.dropout,
+            activation=self.config.activation,
+            use_layer_norm=self.config.use_layer_norm,
         ).to(self.device)
         self.model.load_state_dict(payload['model_state'])
         self.model.eval()

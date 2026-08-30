@@ -1,24 +1,62 @@
 # Stage 3 XGB-LTR 重排 + 统一 R-GNN 温度预测
 
-更新日期：`2026-08-09`
+更新日期：`2026-08-30`
 
-当前正式代码路径使用一套跨家族固定的温度架构：
+## Current Mainline Interface: XGB-LTR + Temperature-Only R-GNN
 
-- tabular `XGB-LTR`（`XGBRanker`）仅使用 Stage 1 / Stage 2 的 52 个非图数值特征重排候选；
-- 每个 family 都训练同一规格的 R-GNN，并将其 `route_gnn_feat_*` 输入独立的温度 `XGBRegressor`；
-- 不再训练 no-GNN 温度备用模型，也没有按 family 的验证集门控或 `if` 分支；
-- `condition_aware_gnn.py` 是未纳入主线的历史探索实现，不能作为正式结果或论文主张。
+> **Authoritative scope.** This section describes the promoted six-family,
+> fixed-Stage-1, three-seed Stage 2/3 result in
+> `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`. The
+> fixed-core wording below belongs only to a historical control.
 
-已完成的正式复现位于 `outputs/unified_rgnn_multiseed_20260809/`：固定
-Stage 1 路由缓存和测试清单后，六个 family 分别在随机种子 `0/1/2` 下重建
-Stage 2/3。大型中间 candidate table 和 checkpoint 已在审计通过后压缩清理，
-但汇总指标、每家族指标和模型元数据保存在该目录的 `README.md`、CSV 与
-`compact/` 中。当前论文应引用 `CURRENT_RESULTS.md` 的三种子统计，而不是旧的
-发烟试验或门控版本数值。
+- Stage 2 builds a product-Morgan KNN wide pool of 64 retrieved historical
+  contexts, retains 12 KNN anchors, and uses ReaFNN bounded refinement to fill
+  the remaining positions from that same pool. The final cap is 20 contexts per
+  Stage 1 route; generated and novel contexts are disabled.
+- XGB-LTR ranks each route-context candidate using an explicit 52-column
+  tabular non-graph schema. It excludes `route_gnn_feat_*` and the bounded
+  Stage 2 correction columns. Nineteen legacy compatibility fields are
+  zero-variance in the current historical-pool configuration, so 33 fields vary
+  in the evaluated tables; 52 is the fixed schema count.
+- Temperature uses a separate 180-column XGBoost regressor: the same 52
+  tabular fields plus 128 R-GNN route features from a four-step message-passing
+  encoder. This branch predicts temperature only and never changes candidate
+  membership or a ranking score.
+- ReaFNN, R-GNN, and XGBoost are rebuilt at seeds 0/1/2. KNN retrieval, route
+  caches, splits, vocabularies, and validation-only score fusion are fixed.
 
-历史 `outputs/stage23_mainline_reafnn_gnn_fused_20260723/` 记录了将图特征
-直接送入 ranker 的消融。下面的 encoder、标签和 XGBoost 实现细节仍有效；任何
-“图特征进入 ranker”的历史描述均由本页开头的当前实现定义覆盖。
+The current macro result is candidate coverage `54.44 +/- 0.14%` and
+Sys@1/3/5/10 `27.12 +/- 0.37% / 36.84 +/- 0.80% / 40.47 +/- 0.77% /
+44.62 +/- 0.42%`. MRR and nDCG@10 are `33.28 +/- 0.48%` and
+`34.70 +/- 0.53%`. Conditional temperature MAE is `11.73 +/- 0.54 C`, with
+within +/-5 / +/-10 / +/-20 C rates of
+`40.59 +/- 0.56% / 61.80 +/- 2.36% / 83.04 +/- 1.10%`.
+
+The test pool uses persisted Stage 1 route predictions. Training and validation
+candidate tables use reference split routes; the recorded limitation and
+canonical leave-one-reaction-out safeguard are documented in
+`Experiment/stage23_legality_audit_20260830.md`. The reportable tables and
+compact metadata are in `CURRENT_RESULTS.md` and the promoted result artifact.
+
+## Historical Core-Check Interface (B Controlled Arm)
+
+> **排序边界。** 默认 Stage 2 固定 KNN top-20 候选成员；ReaFNN 只提供有界的初始次序校正，不能增加或删除 Stage 3 的候选行。
+
+- `stage2_knn_prior`、`stage2_reafnn_check_score`、`stage2_reafnn_residual` 和 `stage2_initial_score` 都是训练 memory 与 query 生成的推理特征，不含 gold label。
+> **Historical scope.** The fixed-core interface below applies to the B core-check control. Its references to the default Stage 2 policy do not override the Product-Morgan constrained-refinement mainline above.
+
+- `XGBRanker` 保持 52 维非图特征空间，并显式排除全部上述校正字段；R-GNN 也仍只服务温度回归。
+- 对每个 family，Stage 3 仅在 validation split 上从 `alpha in {0, 0.05, ..., 0.40}` 选择 ReaFNN 校正强度，再选择 XGB 分数与 Stage 2 prior 的融合权重，优化顺序为 Sys@10 后 Sys@1。
+- 如果校正无帮助，验证集可选择 `alpha = 0`；测试标签不参与 alpha 或融合权重选择。
+- The following fixed-core material is retained as a historical B control. It does not override the promoted three-seed wide-pool mainline.
+
+### Historical Core-Check Note
+
+The historical fixed-core configuration and the pre-hardening 2026-08-09 output
+are retained below only for controlled-ablation traceability. The official
+three-seed system and temperature results are the 2026-08-30 compact artifact
+and `CURRENT_RESULTS.md`; do not mix their values with historical point or
+pre-hardening tables.
 
 ## 1. 模块目标
 
@@ -192,6 +230,8 @@ XGBRanker 训练时真正回归/排序的目标就是 `rank_relevance`。
 - `cluster_context_mean_yield`
 
 所以 KNN/Cluster Stage 2 产生的支持特征，会自然被 Stage 3 学进去。
+
+> **校正字段例外。** `stage2_knn_rank`、`stage2_knn_prior`、`stage2_reafnn_check_score`、`stage2_reafnn_residual`、`stage2_reafnn_correction` 和 `stage2_initial_score` 显式排除在 ranker 特征外；它们只用于 validation-gated heuristic prior，不作为可学习的排序输入。
 
 
 ### 4.4 明确排除的列
@@ -486,6 +526,7 @@ XGBoost 看到的监督目标不是二值 `label`，而是：
 
 ### 8.1 先做重排
 
+> **两步 validation-only 校准。** 先在 validation 表上以每个 `alpha` 重算 `stage2_initial_score = p_KNN + clip(alpha * (q_ReaFNN - p_KNN), -c, c)`，再由该 prior 选择 `heuristic_weight`；二者以 Sys@10、再 Sys@1 决定。候选行和测试标签均不参与这两个选择。
 对每个 candidate row，当前主线会先计算：
 
 - `xgb_score_raw`
@@ -609,7 +650,7 @@ Stage 3 训练输出目录下会保存：
 所以当前主线更准确的真实含义是：
 
 - `KNN` 负责把“像的历史反应”找出来
-- `ReaFNN` 负责把可行条件池再精筛一遍
+- `ReaFNN` 保留 12 个 KNN anchors，并在同一历史宽池中校正其余候选的初始优先级
 - tabular `XGB-LTR` 负责在这些候选里“把最像真的排前面”
 - `R-GNN` 固定提供反应结构表示，温度 `XGBRegressor` 将其与路线和候选条件特征联合建模
 
@@ -623,6 +664,7 @@ Stage 3 训练输出目录下会保存：
 
 ## 11. 无泄露说明
 
+- ReaFNN 校正强度和 XGB/Stage 2 prior 融合权重只使用 family validation split 选择；test/non-oracle test 仅在模型与权重冻结后评分一次。
 当前实现里，XGBoost 的训练数据来源是：
 
 - train table 只用于训练
@@ -723,17 +765,17 @@ Stage 3 XGB-LTR 的核心收益不是提升 candidate pool 覆盖率，而是：
 
 正式六家族、三随机种子复现已经完成。固定 Stage 1 的宏平均结果为：
 
-- `full-system Top-1 accuracy = 28.96 +/- 0.91%`
-- `full-system Top-3 accuracy = 36.61 +/- 1.05%`
-- `full-system Top-5 accuracy = 39.53 +/- 1.24%`
-- `full-system Top-10 accuracy = 42.90 +/- 1.00%`
-- `MRR = 33.78 +/- 0.96%`，`nDCG@10 = 35.13 +/- 0.97%`
-- 条件温度 `MAE = 10.75 +/- 0.14 C`，`+/-5/+/-10/+/-20 C` 命中率分别为
-  `41.66 +/- 1.39% / 64.14 +/- 1.65% / 84.74 +/- 0.38%`
+- `full-system Top-1 accuracy = 27.12 +/- 0.37%`
+- `full-system Top-3 accuracy = 36.84 +/- 0.80%`
+- `full-system Top-5 accuracy = 40.47 +/- 0.77%`
+- `full-system Top-10 accuracy = 44.62 +/- 0.42%`
+- `MRR = 33.28 +/- 0.48%`，`nDCG@10 = 34.70 +/- 0.53%`
+- 条件温度 `MAE = 11.73 +/- 0.54 C`，`+/-5/+/-10/+/-20 C` 命中率分别为
+  `40.59 +/- 0.56% / 61.80 +/- 2.36% / 83.04 +/- 1.10%`
 
 每轮均有 `3,833/3,860` 个测试产物获得 Stage 1 candidate slate；其余 27 个仍
 保留在全系统分母中并记为失败。所有 18 个 family-seed 温度元数据均记录
-`always_enabled = true` 和 `selection = none`；18 个排序器均为 52 个非图特征，
+固定启用的 R-GNN + XGBoost 温度分支；18 个排序器均为 52 个非图特征，
 18 个温度回归器均为 180 个特征（52 个表格特征加 128 个 R-GNN 特征）。
 
 此结果证明无门控方案可稳定运行且不依赖测试集选择模型。它不是“仅移除 gate”的

@@ -1,9 +1,11 @@
 # ProSys Baseline Experiments
 
-Updated: `2026-07-27`
+Updated: `2026-08-30`
 
 The current citable comparison is maintained in
-[`current_baseline_results_20260727.md`](current_baseline_results_20260727.md).
+[`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md).
+[`current_baseline_results_20260727.md`](current_baseline_results_20260727.md)
+is retained as an archived single-seed point snapshot only.
 The direct Product-to-Condition implementation is specified in
 [`product_condition_baselines_detail.md`](product_condition_baselines_detail.md).
 
@@ -51,6 +53,27 @@ target product
 - Product-Bernoulli Naive Bayes and Product-GNN do not predict temperature, so
   temperature is not reported for them.
 
+## Current Multi-Seed Comparison
+
+B2 Product-GNN, B3 EditRetro + Sequential FNN, and B4 EditRetro +
+Reaction-GCNN were independently retrained at seeds `0`, `1`, and `2` using
+the current fixed Stage 1 route caches. B1 Product-Bernoulli Naive Bayes is a
+deterministic closed-form model, so it is reported once rather than
+pseudo-replicated. Rates are equal-family macro averages and `+/-` is sample
+standard deviation across the three seeds.
+
+| ID | Method | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy | MRR | nDCG@10 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Baseline 1 | Product-Bernoulli Naive Bayes | 31.68 | 9.10 | 14.87 | 17.45 | 21.48 | 13.15 | 14.56 |
+| Baseline 2 | Product-GNN | 38.33 +/- 0.28 | 6.11 +/- 0.49 | 12.84 +/- 0.56 | 16.75 +/- 0.43 | 23.03 +/- 0.73 | 11.40 +/- 0.54 | 13.32 +/- 0.58 |
+| Baseline 3 | EditRetro + Sequential FNN | 45.85 +/- 0.26 | 16.75 +/- 0.27 | 24.32 +/- 0.28 | 27.68 +/- 0.40 | 31.71 +/- 0.10 | 22.01 +/- 0.22 | 23.64 +/- 0.18 |
+| Baseline 4 | EditRetro + Reaction-GCNN | 38.15 +/- 0.24 | 7.43 +/- 0.21 | 13.16 +/- 0.10 | 16.39 +/- 0.34 | 21.10 +/- 0.28 | 11.88 +/- 0.11 | 13.27 +/- 0.10 |
+| Mainline | ProSys current three-seed result | 54.44 +/- 0.14 | 27.12 +/- 0.37 | 36.84 +/- 0.80 | 40.47 +/- 0.77 | 44.62 +/- 0.42 | 33.28 +/- 0.48 | 34.70 +/- 0.53 |
+
+The full protocol, family-resolved System@10 results, conditional temperature
+metrics, and compact artifact inventory are in
+[`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md).
+
 ## Archived Point Comparison
 
 The baseline table below is a fixed historical point comparison. Its ProSys row is retained only because all rows share that archived evaluation run; current three-seed mainline results are defined by [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md) and must not be numerically mixed with this table.
@@ -71,6 +94,10 @@ route cache.
 
 ## Artifacts
 
+- Current multi-seed baseline result record:
+  [`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md)
+- Current compact multi-seed artifacts:
+  `outputs/baselines/multiseed_20260810/`
 - Direct Product-to-Condition results:
   `outputs/baselines/direct_product_condition_nb_20260727/RESULTS.md`
 - Product-Bernoulli Naive Bayes per-family predictions, selected fusion weights, model

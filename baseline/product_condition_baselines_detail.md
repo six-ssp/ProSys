@@ -135,7 +135,7 @@ all historically observed conditions as simultaneous positives.
 - Class weighting: per-token negative/positive ratio, clipped to `[1, 20]`.
 - Optimizer: AdamW, learning rate `1e-3`, weight decay `1e-5`.
 - Batch size: `64`; maximum epochs: `50`; patience: `7` validation epochs.
-- Seed: `0`; the validation-best state is saved and used for prediction.
+- Formal robustness run: independently retrained at seeds `0`, `1`, and `2`; each seed uses its validation-best state for prediction.
 - Performance implementation: product graphs are parsed once per unique
   train/validation product and cached in memory. This changes no model input
   or numerical objective.
@@ -188,13 +188,21 @@ temperature metric.
 
 ## Formal Results
 
-| Method | Condition@1 | Condition@10 | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Product-Bernoulli Naive Bayes macro average | 19.57 | 42.21 | 31.68 | 9.10 | 14.87 | 17.45 | 21.48 |
-| Product-GNN macro average | 15.25 | 48.76 | 38.03 | 6.55 | 12.90 | 16.77 | 23.05 |
+The table below is the current formal system-level comparison. Percentages are
+equal-family macro averages; `+/-` is sample standard deviation across three
+independent Product-GNN retrainings.
 
-Full family-level values are in
-`outputs/baselines/direct_product_condition_nb_20260727/RESULTS.md`.
+| Method | Replication | Candidate recall | Sys@1 | Sys@3 | Sys@5 | Sys@10 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Product-Bernoulli Naive Bayes | deterministic | 31.68 | 9.10 | 14.87 | 17.45 | 21.48 |
+| Product-GNN | 3 seeds | 38.33 +/- 0.28 | 6.11 +/- 0.49 | 12.84 +/- 0.56 | 16.75 +/- 0.43 | 23.03 +/- 0.73 |
+
+The archived Product-GNN `Condition@1=15.25` and `Condition@10=48.76` values
+are seed-0 auxiliary diagnostics, not a multi-seed aggregate. The formal
+multi-seed comparison is maintained in
+[`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md).
+Family-level compact artifacts are in `outputs/baselines/multiseed_20260810/`.
+
 
 ## Interpretation and Limits
 
@@ -203,12 +211,12 @@ Full family-level values are in
   both nearest-neighbor precedent retrieval and a learned molecular encoder.
 - Product-GNN is a lightweight, independently trained neural baseline rather
   than a claim of a fully optimized graph model.
-- The formal Product-Bernoulli Naive Bayes and Product-GNN values are `21.48%` and `23.05%` macro
-  full-system Top-10 accuracy, compared with `43.91%` for the current staged mainline.
+- The formal Product-Bernoulli Naive Bayes and Product-GNN Sys@10 values are `21.48%` and
+  `23.03 +/- 0.73%`, compared with `44.62 +/- 0.42%` for the current staged mainline.
 - The official split is grouped by canonical reaction, not made product
   disjoint. Train/test product overlap is therefore possible for distinct
   routes; this is not reaction leakage and must be disclosed.
 - All direct condition models are restricted to historical complete contexts and cannot test
   the value of de novo condition combination generation.
-- These are single-seed baseline runs. Repeated-seed uncertainty should be
-  added before making fine-grained statistical claims.
+- Product-GNN is reported over three independent seeds; B1 remains a single
+  deterministic reference because its closed-form fit has no random initialization.
