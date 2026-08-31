@@ -38,6 +38,23 @@ canonical leave-one-reaction-out safeguard are documented in
 `Experiment/stage23_legality_audit_20260830.md`. The reportable tables and
 compact metadata are in `CURRENT_RESULTS.md` and the promoted result artifact.
 
+### Current matched XGB-LTR ablation
+
+The current no-XGB-LTR arm preserves the full ReaFNN Stage 2 generation
+configuration and replaces only learned ranking with a deterministic Stage 1/2 prior. Its
+candidate coverage is therefore exactly the same as the full system,
+54.44 +/- 0.14%, while macro Sys@10 falls from 44.62 +/- 0.42% to
+36.45 +/- 0.08% (-8.17 pp). Sys@1, Sys@3, Sys@5, MRR, and nDCG@10 also
+decrease by 2.25, 4.61, 6.20, 3.71, and 4.34 pp, respectively.
+
+For each family and seed, the runner verifies that the Stage 2 protocol and
+candidate-coverage fields are identical to the official mainline before scoring
+the deterministic order. This makes the difference direct evidence for
+XGB-LTR's ranking value under a matched Stage 2 procedure, not a measured
+Stage 2 availability change. See
+ablation/current_mainline_matched_ablation_results_20260830.md for the sort
+keys, per-family results, and audit contracts.
+
 ## Historical Core-Check Interface (B Controlled Arm)
 
 > **排序边界。** 默认 Stage 2 固定 KNN top-20 候选成员；ReaFNN 只提供有界的初始次序校正，不能增加或删除 Stage 3 的候选行。

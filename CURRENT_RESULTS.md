@@ -170,22 +170,32 @@ implementation simultaneously changed R-GNN capacity to 128 dimensions and
 four message-passing layers. A matched architecture with and without a gate
 would be required for a causal gate ablation.
 
-## Evidence Strength From Ablation
+## Evidence From Matched Current-Mainline Ablations
 
-| Controlled comparison | Main result | Interpretation |
-| --- | --- | --- |
-| Base Stage 1 vs family-tuned Stage 1 | Route@10: `14.97% -> 63.20%` | Fine-tuning improves every family; the macro gain is `+48.22 pp`. |
-| Global top-20 frequency pool vs full Stage 2 | candidate recall: `25.63% -> 49.18%`; historical full-system Top-10 accuracy: `17.72% -> 42.68%` | Route-conditioned local retrieval is essential. |
+The following component controls are aligned to the promoted product-Morgan
+configuration, fixed Stage 1 route caches, six-family 3,860-identity manifest,
+and seeds 0/1/2. Their compact records and audit contracts are retained in
+Experiment/current_mainline_matched_ablation_multiseed_20260830/ and are
+described in ablation/current_mainline_matched_ablation_results_20260830.md.
 
-| Fixed R-GNN temperature branch | Historical three-seed conditional MAE: 10.75 +/- 0.14 C; Within +/-10 C: 64.14 +/- 1.65% | Every family uses the same R-GNN plus XGBoost temperature architecture with no fallback or model-selection gate; it does not affect ranking metrics. |
+| Controlled comparison | Candidate coverage | Sys@10 | Interpretation |
+| --- | ---: | ---: | --- |
+| Base Stage 1 vs family-tuned Stage 1 | n/a | Route@10: 14.97% -> 63.20% | Family fine-tuning improves route availability by +48.22 pp. |
+| KNN-only + XGB-LTR vs full KNN + ReaFNN + XGB-LTR | 53.39 +/- 0.00% -> 54.44 +/- 0.14% | 39.86 +/- 2.08% -> 44.62 +/- 0.42% | With an XGB-LTR retrained on each arm's own candidate table, ReaFNN adds +1.06 pp candidate coverage and +4.76 pp Sys@10. |
+| Full Stage 2 + deterministic no-XGB-LTR vs full current mainline | 54.44 +/- 0.14% -> 54.44 +/- 0.14% | 36.45 +/- 0.08% -> 44.62 +/- 0.42% | The Stage 2 generation protocol and recorded candidate-availability metrics match per family and seed; learned XGB-LTR adds +8.17 pp Sys@10 without a measured availability gain. |
 
-| Full Stage 2 vs KNN-only Stage 2 | Historical full-system Top-10 accuracy: `42.68%` vs `43.33%` | ReaFNN changes candidate composition but is not a universal macro full-system Top-k accuracy gain in that control. |
-| Candidate-aware route-context GNN residual | Beckmann interaction pilot: selected alpha `0`; related six-family residual probe: `0/6` accepted | The branch is validation-gated and remains exploratory; it does not alter headline `full-system Top-k accuracy`. |
+For the ReaFNN control, the downstream ranker is re-trained on the changed
+candidate distribution, so the comparison is not confounded by applying a
+ranker trained on a different pool. For the no-XGB-LTR control, no learned
+ranking parameters are fitted; rows are ordered only by the fixed Stage 1/2
+prior and stable condition ties. Both controls skip temperature because the
+temperature branch neither adds candidates nor affects any Sys@k metric.
 
-The current temperature head is fixed before test evaluation: every family uses
-the same R-GNN plus XGBoost architecture. The unrelated candidate-aware residual
-remains a historical validation-only exploratory branch and is not part of the
-headline ranking or temperature results.
+The maintained R-GNN remains a fixed input to the temperature XGBoost
+regressor only. It is not used by the 52-feature system ranker, and the table
+above makes no causal ranking claim for the R-GNN. Earlier frequency-pool and
+direct-R-GNN experiments remain archived for traceability but are not used to
+attribute effects in the current headline configuration.
 
 ## Candidate-aware GNN Update
 
@@ -230,14 +240,22 @@ verified compatible checkpoint was available. It is not a zero-valued baseline.
 
 ## Audit Status
 
+- Current matched ablation audit: PASS; 36 family-seed records cover two
+  three-seed controls, every arm/seed preserves the 3,860-identity denominator
+  with 3,833 candidate slates and 27 no-slate failures, and all 18 no-XGB-LTR
+  records exactly match the corresponding official Stage 2 candidate-pool
+  protocol and coverage fields.
+
 - Strict canonical-reaction split audit: PASS; every reported train/validation/
   test overlap count is zero.
 - Mainline candidate stability after the leave-one-reaction-out correction:
   PASS; held-out candidate keys are unchanged.
 - Candidate-aware GNN residual probes: PASS as validation-only exploratory
   controls; no nonzero residual was accepted, so headline rankings are unchanged.
-- Mainline ablation audit: PASS; fixed manifest, candidate cap, target-feature
-  exclusion, and full-reference equality all pass.
+- Earlier historical ablation audit: PASS; fixed manifest, candidate cap,
+  target-feature exclusion, and full-reference equality all pass. It is
+  retained as a historical control record and is not the source of the current
+  ReaFNN or XGB-LTR attribution figures.
 - Multi-seed baseline audit: PASS; `54` family-level records cover B2-B4 across
   three seeds and six families, with the same `3,860`-product manifest,
   `3,833` candidate slates, and `27` retained no-route failures in every run.

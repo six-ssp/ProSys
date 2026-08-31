@@ -35,6 +35,11 @@ They are compatibility layers now, not the preferred path for new development.
   compact three-seed Stage 2/3 mainline record.
 - `CURRENT_RESULTS.md`: reportable result tables and method scope.
 
+- Experiment/current_mainline_matched_ablation_multiseed_20260830/:
+  compact three-seed current-mainline ReaFNN and XGB-LTR component controls.
+- ablation/current_mainline_matched_ablation_results_20260830.md:
+  paper-safe interpretation and audit contracts for those controls.
+
 ## Archive policy
 
 Move non-mainline but still useful material into `Experiment/`:
@@ -59,6 +64,8 @@ Safe to delete when regenerated:
 2. If it changes evaluation, refresh `CURRENT_RESULTS.md`, the compact result
    record under `Experiment/`, and the matching baseline/ablation comparison
    tables.
+2a. If a Stage 2 or Stage 3 behavior changes, rerun the matched component
+    controls before making a causal module claim.
 3. Keep `Temp@10C` / `Temp@20C` aligned with the current rule:
    - within top-10 there exists a full system hit with valid temperature
    - and the temperature error is within `+/-10C` or `+/-20C`

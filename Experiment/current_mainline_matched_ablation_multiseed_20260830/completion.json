@@ -1,0 +1,21 @@
+{
+  "status": "complete",
+  "result_count": 36,
+  "families": [
+    "Beckmann",
+    "Buchwald-HartwigCross-Coupling",
+    "Chan_LamCoupling",
+    "DielsAlder",
+    "Friedel-CraftsAcylation",
+    "Friedel-CraftsAlkylation"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": [
+    "knn_only",
+    "no_xgb_ltr"
+  ]
+}

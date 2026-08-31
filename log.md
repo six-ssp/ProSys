@@ -1,5 +1,19 @@
 # ProSys Development Log
 
+## 2026-08-31 - matched current-mainline component ablations
+
+- Completed Experiment/current_mainline_matched_ablation_multiseed_20260830/:
+  six families, fixed Stage 1 route caches, seeds 0/1/2, and 36 compact
+  family-seed records.
+- The KNN-only plus re-trained XGB-LTR control gives coverage
+  53.39 +/- 0.00% and Sys@10 39.86 +/- 2.08%; the promoted full system is
+  higher by 1.06 pp coverage and 4.76 pp Sys@10.
+- The deterministic no-XGB-LTR control has an exact matched Stage 2 pool
+  (54.44 +/- 0.14% coverage) but Sys@10 36.45 +/- 0.08%; learned XGB-LTR
+  supplies +8.17 pp Sys@10 from within-pool ranking.
+- The independent audit passes the family/seed Stage 2-pool match, 3,860-record
+  denominator, 3,833 candidate-slate, and 27 no-slate contracts.
+
 ## 2026-08-30 - post-hardening three-seed mainline promotion
 
 - Promoted `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/` as

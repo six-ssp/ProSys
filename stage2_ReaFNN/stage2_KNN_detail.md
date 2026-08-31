@@ -43,6 +43,20 @@ Detailed metrics and metadata are retained in
 `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/` and summarized
 in `CURRENT_RESULTS.md`.
 
+### Current matched ReaFNN ablation
+
+Under the exact three-seed product-Morgan configuration, disabling ReaFNN while
+retraining the 52-feature XGB-LTR on the resulting KNN-only candidate tables
+reduces candidate coverage from 54.44 +/- 0.14% to 53.39 +/- 0.00% and macro
+Sys@10 from 44.62 +/- 0.42% to 39.86 +/- 2.08%. The corresponding changes are
+-1.06 pp coverage and -4.76 pp Sys@10. The full system has the higher mean
+Sys@10 in all six families. This control isolates ReaFNN from ranker
+distribution shift because each arm trains its own ranker rather than reusing a
+ranker fitted on a different candidate pool.
+
+The exact protocol, all rank cutoffs, per-family values, and audit contracts are
+in ablation/current_mainline_matched_ablation_results_20260830.md.
+
 ## Historical Core-Only Policy (B Controlled Ablation)
 > **Historical scope.** This section describes the B core-check control. Any later occurrence of "default" or "current" in this historical block refers to the `2026-08-28` configuration, not the Product-Morgan development mainline above.
 

@@ -1,0 +1,233 @@
+{
+  "family": "Buchwald-HartwigCross-Coupling",
+  "baseline": "stage2_heuristic_no_xgb_ltr",
+  "seed": 0,
+  "candidate_table": "pruned_after_compaction",
+  "scored_test_file": "pruned_after_compaction",
+  "model": {
+    "stage2_protocol": {
+      "architecture": "knn_reafnn",
+      "training_candidate_table_mode": "oracle",
+      "training_candidate_route_source": "reference_split_routes",
+      "knn_retrieval_mode": "product_morgan",
+      "knn_feature_space": "product_morgan_fingerprint",
+      "knn_top_k": 64,
+      "prefilter_contexts": 64,
+      "max_contexts": 20,
+      "candidate_source": "historical_contexts_retrieved_from_family_train_split",
+      "reafnn_enabled": true,
+      "reafnn_feature_space": "product_fp_plus_delta_fp_plus_route_descriptors",
+      "reafnn_candidate_policy": "knn_wide_pool_refinement",
+      "reafnn_config": {
+        "fpsize": 4096,
+        "radius": 2,
+        "hidden_dim": 512,
+        "hidden_layers": 2,
+        "dropout": 0.1,
+        "activation": "relu",
+        "use_layer_norm": false,
+        "learning_rate": 0.001,
+        "weight_decay": 1e-05,
+        "batch_size": 64,
+        "max_epochs": 30,
+        "patience": 8,
+        "top_reagent_tokens": 12,
+        "top_solvent_tokens": 8,
+        "max_generated_contexts": 48,
+        "max_novel_contexts": 8,
+        "max_selected_novel_contexts": 1,
+        "max_reagent_tokens_per_context": 3,
+        "max_solvent_tokens_per_context": 2,
+        "max_reagent_combinations": 16,
+        "max_solvent_combinations": 8,
+        "generation_min_context_support": 0.0,
+        "min_token_probability": 0.05,
+        "token_prior_weight": 0.05,
+        "combination_size_penalty": 0.02,
+        "historical_context_bonus": 0.4,
+        "historical_support_weight": 0.15,
+        "novel_context_penalty": 0.6,
+        "knn_anchor_contexts": 12,
+        "correction_weight": 0.65,
+        "correction_clip": 0.35,
+        "enable_context_augmentation": false,
+        "enable_knn_wide_refinement": true,
+        "device": "cuda",
+        "random_state": 0
+      }
+    },
+    "ranker": {
+      "architecture": "deterministic_stage1_stage2_prior",
+      "feature_space": "stage1_stage2_prior_only",
+      "feature_columns": [],
+      "sort_specs": [
+        [
+          "sample_index",
+          true
+        ],
+        [
+          "retro_rank",
+          true
+        ],
+        [
+          "retro_probability",
+          false
+        ],
+        [
+          "stage2_initial_score",
+          false
+        ],
+        [
+          "stage2_knn_rank",
+          true
+        ],
+        [
+          "knn_similarity_sum",
+          false
+        ],
+        [
+          "knn_similarity_max",
+          false
+        ],
+        [
+          "knn_neighbor_count",
+          false
+        ],
+        [
+          "knn_weighted_mean_yield",
+          false
+        ],
+        [
+          "reagent_norm",
+          true
+        ],
+        [
+          "solvent_norm",
+          true
+        ]
+      ],
+      "learned_parameters": false
+    },
+    "temperature": {
+      "architecture": "not_run_for_stage2_ablation",
+      "always_enabled": false,
+      "reason": "Sys@k-only controlled Stage 2 ablation"
+    },
+    "output_dir": null,
+    "model_file": null,
+    "metadata_file": null,
+    "feature_columns": null,
+    "best_iteration": null,
+    "temperature_model_file": null,
+    "temperature_metadata_file": null,
+    "temperature_num_train": null,
+    "temperature_gnn": null,
+    "ranking_protocol": {
+      "architecture": "deterministic_stage1_stage2_prior",
+      "feature_space": "stage1_stage2_prior_only",
+      "score_column": "stage2_prior_score",
+      "sort_specs": [
+        [
+          "sample_index",
+          true
+        ],
+        [
+          "retro_rank",
+          true
+        ],
+        [
+          "retro_probability",
+          false
+        ],
+        [
+          "stage2_initial_score",
+          false
+        ],
+        [
+          "stage2_knn_rank",
+          true
+        ],
+        [
+          "knn_similarity_sum",
+          false
+        ],
+        [
+          "knn_similarity_max",
+          false
+        ],
+        [
+          "knn_neighbor_count",
+          false
+        ],
+        [
+          "knn_weighted_mean_yield",
+          false
+        ],
+        [
+          "reagent_norm",
+          true
+        ],
+        [
+          "solvent_norm",
+          true
+        ]
+      ],
+      "learned_parameters": false
+    },
+    "temperature_protocol": {
+      "architecture": "not_run_for_stage2_ablation",
+      "always_enabled": false,
+      "selection": "not_run_for_stage2_ablation"
+    }
+  },
+  "metrics": {
+    "num_slates": 1099,
+    "covered_slates": 656,
+    "route_covered_slates": 769,
+    "context_covered_slates": 925,
+    "pool_coverage": 0.5969062784349408,
+    "pool_route_coverage": 0.6997270245677889,
+    "pool_context_coverage": 0.8416742493175614,
+    "system_mrr": 0.31510597805000445,
+    "system_ndcg10": 0.3229916303031362,
+    "system_top1_all": 0.2684258416742493,
+    "system_top3_all": 0.3421292083712466,
+    "system_top5_all": 0.35850773430391264,
+    "system_top10_all": 0.3839854413102821,
+    "context_top1_all": 0.5040946314831666,
+    "context_top3_all": 0.6451319381255688,
+    "context_top5_all": 0.6979071883530483,
+    "context_top10_all": 0.7616014558689718,
+    "route_top1_all": 0.45677888989990906,
+    "route_top3_all": 0.45768880800727935,
+    "route_top5_all": 0.4585987261146497,
+    "route_top10_all": 0.4613284804367607,
+    "system_top1_covered": 0.4496951219512195,
+    "system_top3_covered": 0.573170731707317,
+    "system_top5_covered": 0.600609756097561,
+    "system_top10_covered": 0.6432926829268293,
+    "temperature": {
+      "definition": "standalone_temperature_error_on_highest_ranked_full_match",
+      "n": 0,
+      "mae": null,
+      "mse": null,
+      "rmse": null,
+      "support": "highest_ranked_full_match_with_valid_temperature",
+      "within_5c": null,
+      "within_10c": null,
+      "within_20c": null
+    },
+    "candidate_slates": 1098,
+    "missing_candidate_slates": 1,
+    "denominator": "all_test_manifest_samples"
+  },
+  "stage1_route_recall": {
+    "n": 1099,
+    "route_recall_top1": 0.456778889899909,
+    "route_recall_top3": 0.6105550500454959,
+    "route_recall_top5": 0.6596906278434941,
+    "route_recall_top10": 0.6997270245677889
+  },
+  "raw_artifacts_pruned": true,
+  "retention_note": "Raw candidate tables, scored tables, and binary checkpoints were removed after compact result and metadata retention."
+}
