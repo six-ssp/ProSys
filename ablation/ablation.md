@@ -1,13 +1,17 @@
-# Legacy Ablation Plan (Superseded)
+# Archived Ablation Plan
 
-> This document records an earlier KNN-XGB-LTR plan and is retained only for history.
-> The direct-R-GNN historical protocol and result interpretation are in
-> [`ablation_reafnn_gnn_protocol.md`](ablation_reafnn_gnn_protocol.md) and
-> [`current_mainline_ablation_results_20260727.md`](current_mainline_ablation_results_20260727.md).
-> For the maintained tabular XGB-LTR mainline, use [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md)
-> and [`NOMENCLATURE.md`](../NOMENCLATURE.md).
+> Current matched evidence: see
+> current_mainline_matched_ablation_results_20260830.md in this directory. It
+> contains the completed three-seed KNN-only and deterministic no-XGB-LTR
+> controls, aligned to CURRENT_RESULTS.md.
+>
+> This document records an earlier KNN-XGB-LTR plan and is retained only for
+> history. The direct-R-GNN historical protocol and result interpretation are
+> in ablation_reafnn_gnn_protocol.md and
+> current_mainline_ablation_results_20260727.md. Do not combine values in those
+> archived records with the current tabular XGB-LTR results.
 
-# ProSys Ablation 实验规划
+# Historical ProSys Ablation Plan
 
 更新日期：`2026-07-14`
 

@@ -52,6 +52,11 @@ Detailed per-family and per-seed results are in
 [CURRENT_RESULTS.md](CURRENT_RESULTS.md) and
 `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`.
 
+The matched three-seed ablations attribute a +4.76 pp Sys@10 contribution
+to ReaFNN relative to KNN-only plus a re-trained ranker, and a +8.17 pp
+contribution to XGB-LTR relative to a matched-Stage-2 deterministic ordering.
+See ablation/current_mainline_matched_ablation_results_20260830.md.
+
 ## Quick Start
 
 ```bash

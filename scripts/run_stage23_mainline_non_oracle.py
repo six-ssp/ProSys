@@ -30,6 +30,7 @@ from prosys_shared.route_cache import load_route_cache_sample_indices
 from stage2_KNN import KNNContextPoolBuilder
 from stage2_KNN.reafnn_selector import ReaFNNConfig
 from stage3_XGBoost import score_table_with_xgb, train_xgb_ranker_and_temperature, train_xgb_temperature_regressor
+from stage3_XGBoost.xgb_reranker import HEURISTIC_STAGE3_SORT_SPECS
 from stage3_XGBoost.reaction_gnn_features import (
     ReactionGNNConfig,
     augment_table_with_reaction_gnn_features,
@@ -403,6 +404,43 @@ def _ensure_gnn_augmented_tables(
     return paths
 
 
+def _score_table_with_stage2_heuristic(table_file: Path) -> pd.DataFrame:
+    """Apply the fixed Stage 1/2 prior used by the no-XGB-LTR control.
+
+    This arm has no fitted parameters. It uses only candidate fields emitted by
+    Stages 1 and 2 and resolves ties stably, so it cannot learn from labels.
+    """
+
+    frame = pd.read_csv(table_file)
+    sort_columns: list[str] = []
+    ascending: list[bool] = []
+    for column, is_ascending in HEURISTIC_STAGE3_SORT_SPECS:
+        if column in frame.columns:
+            sort_columns.append(column)
+            ascending.append(is_ascending)
+    if sort_columns:
+        ranked = frame.sort_values(
+            sort_columns,
+            ascending=ascending,
+            kind='mergesort',
+        ).reset_index(drop=True)
+    else:
+        ranked = frame.reset_index(drop=True)
+    ranked['stage2_prior_rank'] = ranked.groupby('sample_index', sort=False).cumcount() + 1
+    ranked['stage2_prior_score'] = -ranked['stage2_prior_rank'].astype(np.float32)
+    return ranked
+
+
+def _baseline_identifier(*, ranking_mode: str, enable_temperature: bool) -> str:
+    if ranking_mode == 'stage2_heuristic':
+        return 'stage2_heuristic_no_xgb_ltr'
+    return (
+        'knn_xgb_reaction_gnn_temperature'
+        if enable_temperature
+        else 'knn_xgb_stage2_ablation_ranking_only'
+    )
+
+
 def _run_family(
     repo_root: Path,
     family: str,
@@ -429,6 +467,7 @@ def _run_family(
     reuse_candidate_tables_root: Path | None,
     gnn_force_retrain: bool,
     enable_temperature: bool,
+    ranking_mode: str,
     seed: int,
 ) -> dict:
     family_root = output_root / family
@@ -473,20 +512,28 @@ def _run_family(
         max_contexts=max_contexts,
         prefilter_contexts=prefilter_contexts,
     )
-    result_dir = family_root / 'knn_xgb' / 'non_oracle'
+    result_dir = family_root / (
+        'knn_xgb' if ranking_mode == 'xgb_ltr' else 'stage2_heuristic'
+    ) / 'non_oracle'
     result_file = result_dir / 'result.json'
     if result_file.exists() and not force_rebuild:
         existing = json.loads(result_file.read_text(encoding='utf-8'))
         existing_model = existing.get('model') or {}
         existing_temperature_protocol = existing_model.get('temperature_protocol') or {}
         existing_ranker_features = existing_model.get('feature_columns') or []
+        existing_ranking_protocol = existing_model.get('ranking_protocol') or {}
         existing_stage2_protocol = existing_model.get('stage2_protocol') or {}
         existing_ranker_is_non_graph = bool(existing_ranker_features) and all(
             not str(column).startswith('route_gnn_feat_') for column in existing_ranker_features
         )
-        expected_baseline = (
-            'knn_xgb_reaction_gnn_temperature' if enable_temperature
-            else 'knn_xgb_stage2_ablation_ranking_only'
+        ranker_matches = (
+            existing_ranker_is_non_graph
+            if ranking_mode == 'xgb_ltr'
+            else existing_ranking_protocol.get('architecture') == 'deterministic_stage1_stage2_prior'
+        )
+        expected_baseline = _baseline_identifier(
+            ranking_mode=ranking_mode,
+            enable_temperature=enable_temperature,
         )
         temperature_matches = (
             existing_temperature_protocol.get('always_enabled') is True
@@ -499,7 +546,7 @@ def _run_family(
         if (
             existing.get('baseline') == expected_baseline
             and temperature_matches
-            and existing_ranker_is_non_graph
+            and ranker_matches
             and existing_stage2_protocol == stage2_protocol
         ):
             return existing
@@ -560,13 +607,15 @@ def _run_family(
                     if path.is_file():
                         path.unlink()
 
-    rank_artifacts = train_xgb_ranker_and_temperature(
-        train_table_file=table_paths['table_train'],
-        val_table_file=table_paths['table_val'],
-        output_dir=model_dir,
-        random_state=seed,
-        train_temperature=False,
-    )
+    rank_artifacts: dict = {}
+    if ranking_mode == 'xgb_ltr':
+        rank_artifacts = train_xgb_ranker_and_temperature(
+            train_table_file=table_paths['table_train'],
+            val_table_file=table_paths['table_val'],
+            output_dir=model_dir,
+            random_state=seed,
+            train_temperature=False,
+        )
 
     if enable_temperature:
         # Reusing frozen Stage 2 tables intentionally does not reuse graph
@@ -624,32 +673,57 @@ def _run_family(
         }
         scoring_kwargs = {}
 
-    scored = score_table_with_xgb(
-        table_file=scoring_table,
-        model_file=rank_artifacts['model_file'],
-        metadata_file=rank_artifacts['metadata_file'],
-        **scoring_kwargs,
-    )
+    if ranking_mode == 'xgb_ltr':
+        scored = score_table_with_xgb(
+            table_file=scoring_table,
+            model_file=rank_artifacts['model_file'],
+            metadata_file=rank_artifacts['metadata_file'],
+            **scoring_kwargs,
+        )
+        ranker_model = {
+            'architecture': 'xgb_ranker',
+            'feature_space': 'tabular_non_graph',
+            **rank_artifacts,
+        }
+        ranking_protocol = {
+            'architecture': 'xgb_ranker',
+            'feature_space': 'tabular_non_graph',
+            'feature_count': len(rank_artifacts.get('feature_columns') or []),
+        }
+        score_column = 'xgb_score'
+    else:
+        scored = _score_table_with_stage2_heuristic(scoring_table)
+        ranker_model = {
+            'architecture': 'deterministic_stage1_stage2_prior',
+            'feature_space': 'stage1_stage2_prior_only',
+            'feature_columns': [],
+            'sort_specs': [list(spec) for spec in HEURISTIC_STAGE3_SORT_SPECS],
+            'learned_parameters': False,
+        }
+        ranking_protocol = {
+            'architecture': 'deterministic_stage1_stage2_prior',
+            'feature_space': 'stage1_stage2_prior_only',
+            'score_column': 'stage2_prior_score',
+            'sort_specs': [list(spec) for spec in HEURISTIC_STAGE3_SORT_SPECS],
+            'learned_parameters': False,
+        }
+        score_column = 'stage2_prior_score'
     scored_file = result_dir / 'test_scored.csv'
     scored_file.parent.mkdir(parents=True, exist_ok=True)
     scored.to_csv(scored_file, index=False)
 
     result = {
         'family': family,
-        'baseline': (
-            'knn_xgb_reaction_gnn_temperature' if enable_temperature
-            else 'knn_xgb_stage2_ablation_ranking_only'
+        'baseline': _baseline_identifier(
+            ranking_mode=ranking_mode,
+            enable_temperature=enable_temperature,
         ),
         'seed': seed,
         'candidate_table': str(scoring_table),
         'scored_test_file': str(scored_file),
         'model': {
             'stage2_protocol': stage2_protocol,
-            'ranker': {
-                'architecture': 'xgb_ranker',
-                'feature_space': 'tabular_non_graph',
-                **rank_artifacts,
-            },
+            'ranker': ranker_model,
             'temperature': temperature_model,
             # Preserve flat artifact keys for downstream audit scripts.
             'output_dir': rank_artifacts.get('output_dir'),
@@ -661,17 +735,13 @@ def _run_family(
             'temperature_metadata_file': selected_temperature_metadata_file,
             'temperature_num_train': gnn_temperature_artifacts.get('temperature_num_train'),
             'temperature_gnn': gnn_temperature_artifacts if enable_temperature else None,
-            'ranking_protocol': {
-                'architecture': 'xgb_ranker',
-                'feature_space': 'tabular_non_graph',
-                'feature_count': len(rank_artifacts.get('feature_columns') or []),
-            },
+            'ranking_protocol': ranking_protocol,
             'temperature_protocol': temperature_protocol,
         },
         'metrics': evaluate_scored_frame_with_manifest(
             scored,
             expected_sample_indices=load_route_cache_sample_indices(route_cache),
-            score_column='xgb_score',
+            score_column=score_column,
             temperature_column='xgb_temperature_pred' if enable_temperature else None,
         ),
         'stage1_route_recall': stage1_route_recall(route_cache),
@@ -880,6 +950,13 @@ def main() -> None:
     parser.add_argument('--gnn_device', type=str, default='cpu')
     parser.add_argument('--gnn_force_retrain', action='store_true')
     parser.add_argument('--skip_temperature', action='store_true', help='For Sys@k-only ablations; leaves the full mainline unchanged.')
+    parser.add_argument(
+        '--ranking_mode',
+        type=str,
+        default='xgb_ltr',
+        choices=['xgb_ltr', 'stage2_heuristic'],
+        help='Stage 3 ranking policy; stage2_heuristic is the no-XGB-LTR ablation only.',
+    )
     parser.add_argument('--reuse_candidate_tables_root', type=str, default=None)
     parser.add_argument('--seed', type=int, default=0, help='Shared random seed for ReaFNN, R-GNN, and XGB-LTR.')
     args = parser.parse_args()
@@ -902,6 +979,8 @@ def main() -> None:
         parser.error('ReaFNN context augmentation and KNN-wide refinement are mutually exclusive.')
     if args.disable_reafnn and args.reafnn_enable_context_augmentation:
         parser.error('--disable_reafnn cannot be combined with context augmentation.')
+    if args.ranking_mode == 'stage2_heuristic' and not args.skip_temperature:
+        parser.error('--ranking_mode stage2_heuristic requires --skip_temperature.')
     reafnn_config = ReaFNNConfig(
         fpsize=args.fpsize,
         radius=args.radius,
@@ -960,6 +1039,7 @@ def main() -> None:
                 gnn_config=gnn_config,
                 gnn_force_retrain=args.gnn_force_retrain,
                 enable_temperature=not args.skip_temperature,
+                ranking_mode=args.ranking_mode,
                 reuse_candidate_tables_root=reuse_candidate_tables_root,
                 seed=args.seed,
             )

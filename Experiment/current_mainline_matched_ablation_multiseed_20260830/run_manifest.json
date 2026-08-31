@@ -1,0 +1,61 @@
+{
+  "purpose": "matched current-mainline Stage 2 and Stage 3 ablations",
+  "families": [
+    "Beckmann",
+    "Buchwald-HartwigCross-Coupling",
+    "Chan_LamCoupling",
+    "DielsAlder",
+    "Friedel-CraftsAcylation",
+    "Friedel-CraftsAlkylation"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": {
+    "knn_only": {
+      "description": "Remove ReaFNN while retaining product-Morgan KNN, the 20-context cap, and a separately retrained tabular XGB-LTR.",
+      "runner_args": [
+        "--disable_reafnn",
+        "--skip_temperature",
+        "--ranking_mode",
+        "xgb_ltr"
+      ],
+      "result_subdir": "knn_xgb",
+      "expected_baseline": "knn_xgb_stage2_ablation_ranking_only",
+      "expected_stage2_architecture": "knn_only",
+      "expected_ranker": "xgb_ranker"
+    },
+    "no_xgb_ltr": {
+      "description": "Keep the full product-Morgan KNN plus ReaFNN Stage 2 pool, then replace XGB-LTR with a deterministic Stage 1/2 prior.",
+      "runner_args": [
+        "--skip_temperature",
+        "--ranking_mode",
+        "stage2_heuristic"
+      ],
+      "result_subdir": "stage2_heuristic",
+      "expected_baseline": "stage2_heuristic_no_xgb_ltr",
+      "expected_stage2_architecture": "knn_reafnn",
+      "expected_ranker": "deterministic_stage1_stage2_prior"
+    }
+  },
+  "mainline_reference": "/root/autodl-tmp/ProSys/Experiment/stage23_product_morgan_reafnn_multiseed_20260830/macro_mean_std.csv",
+  "mainline_compact_root": "/root/autodl-tmp/ProSys/Experiment/stage23_product_morgan_reafnn_multiseed_20260830/compact/prosys",
+  "fixed_configuration": {
+    "knn_retrieval_mode": "product_morgan",
+    "fpsize": 4096,
+    "radius": 2,
+    "knn_top_k": 64,
+    "prefilter_contexts": 64,
+    "max_contexts": 20,
+    "train_table_mode": "oracle",
+    "reafnn_hidden_dim": 512,
+    "reafnn_hidden_layers": 2,
+    "reafnn_dropout": 0.1,
+    "reafnn_knn_anchor_contexts": 12,
+    "reafnn_correction_weight": 0.65,
+    "reafnn_correction_clip": 0.35
+  },
+  "scratch_retention": "removed after compact retention"
+}

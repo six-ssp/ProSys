@@ -8,6 +8,9 @@
 - Treat `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/` and
   `CURRENT_RESULTS.md` as the authoritative fixed-Stage-1 three-seed result
   record. Do not mix it with the pre-hardening 2026-08-09 snapshot.
+- Treat Experiment/current_mainline_matched_ablation_multiseed_20260830/ as
+  the authoritative source for current ReaFNN and XGB-LTR attribution figures;
+  do not substitute historical direct-R-GNN ablation values.
 - When rerunning from raw data, keep `data_preprocess/`, `scripts/reproduce_mainline_from_raw.sh`, and `outputs/checklist_stats/` synchronized.
 - Continue pruning large intermediate artifacts once the corresponding summary tables have been confirmed stable.
 
@@ -27,3 +30,6 @@
 - Unified temperature reporting to `Temp MAE` plus `Temp±5C / Temp±10C / Temp±20C`.
 - Promoted the post-hardening product-Morgan KNN + ReaFNN three-seed result as
   the official Stage 2/3 mainline: `Sys@10 = 44.62 +/- 0.42%`.
+- Completed the current matched three-seed ablations: removing ReaFNN lowers
+  Sys@10 by 4.76 pp, and removing XGB-LTR from an identical Stage 2 pool lowers
+  Sys@10 by 8.17 pp.
