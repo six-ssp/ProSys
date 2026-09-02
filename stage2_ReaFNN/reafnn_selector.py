@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import numpy as np
+from scipy import sparse
 import torch
 import torch.nn as nn
 
@@ -28,8 +29,6 @@ from prosys_shared.condition_modeling import (
     route_feature_vector,
     split_condition_tokens,
 )
-
-
 MODEL_FILE_NAME = 'reafnn_model.pt'
 METADATA_FILE_NAME = 'reafnn_meta.json'
 
@@ -71,6 +70,12 @@ class ReaFNNConfig:
     correction_clip: float = 0.10
     enable_context_augmentation: bool = False
     enable_knn_wide_refinement: bool = False
+    # Maintained policy: score the full train-only historical context library
+    # independently, then fuse its top contexts with KNN.
+    enable_independent_post_fusion: bool = True
+    independent_contexts: int = 64
+    post_fusion_weight_grid: str = '0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0'
+    post_fusion_validation_source: str = 'reference_split_routes'
     device: str = 'cpu'
     random_state: int = 0
 
@@ -268,8 +273,12 @@ def train_reafnn_selector(
         weight_decay=config.weight_decay,
     )
 
-    reagent_loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.as_tensor(_pos_weight(y_reagent_train), device=device))
-    solvent_loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.as_tensor(_pos_weight(y_solvent_train), device=device))
+    reagent_loss_fn = nn.BCEWithLogitsLoss(
+        pos_weight=torch.as_tensor(_pos_weight(y_reagent_train), device=device)
+    )
+    solvent_loss_fn = nn.BCEWithLogitsLoss(
+        pos_weight=torch.as_tensor(_pos_weight(y_solvent_train), device=device)
+    )
 
     x_train_t = torch.as_tensor(x_train, dtype=torch.float32, device=device)
     x_val_t = torch.as_tensor(x_val, dtype=torch.float32, device=device)
@@ -285,14 +294,13 @@ def train_reafnn_selector(
     for _epoch in range(config.max_epochs):
         model.train()
         permutation = torch.randperm(x_train_t.shape[0], device=device)
-        for start in range(0, int(permutation.shape[0]), config.batch_size):
-            batch_index = permutation[start:start + config.batch_size]
-            batch_x = x_train_t[batch_index]
-            batch_reagent = y_reagent_train_t[batch_index]
-            batch_solvent = y_solvent_train_t[batch_index]
-            reagent_logits, solvent_logits = model(batch_x)
-            loss = reagent_loss_fn(reagent_logits, batch_reagent) + solvent_loss_fn(solvent_logits, batch_solvent)
-
+        for start_index in range(0, int(permutation.shape[0]), config.batch_size):
+            batch_index = permutation[start_index:start_index + config.batch_size]
+            reagent_logits, solvent_logits = model(x_train_t[batch_index])
+            loss = (
+                reagent_loss_fn(reagent_logits, y_reagent_train_t[batch_index])
+                + solvent_loss_fn(solvent_logits, y_solvent_train_t[batch_index])
+            )
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             optimizer.step()
@@ -358,7 +366,14 @@ class ReaFNNSelector:
     ):
         artifact_dir = Path(artifact_dir)
         payload = torch.load(artifact_dir / MODEL_FILE_NAME, map_location='cpu', weights_only=False)
-        config = ReaFNNConfig(**payload['config'])
+        config_payload = dict(payload['config'])
+        for legacy_field in (
+            'enable_route_validity_head',
+            'route_negative_per_sample',
+            'route_validity_loss_weight',
+        ):
+            config_payload.pop(legacy_field, None)
+        config = ReaFNNConfig(**config_payload)
         self.config = ReaFNNConfig(**{**config.to_dict(), 'device': device})
         self.scaler = FeatureStandardizer.from_state_dict(payload['scaler'])
         self.reagent_vocab = list(payload['reagent_vocab'])
@@ -369,6 +384,10 @@ class ReaFNNSelector:
         self.context_by_key = {
             (context.reagent_norm, context.solvent_norm): context
             for context in self.context_library
+        }
+        self._context_library_index = {
+            (context.reagent_norm, context.solvent_norm): index
+            for index, context in enumerate(self.context_library)
         }
 
         self.device = torch.device(device if device == 'cpu' or torch.cuda.is_available() else 'cpu')
@@ -382,11 +401,28 @@ class ReaFNNSelector:
             activation=self.config.activation,
             use_layer_norm=self.config.use_layer_norm,
         ).to(self.device)
-        self.model.load_state_dict(payload['model_state'])
+        model_state = dict(payload['model_state'])
+        model_state.pop('route_validity_head.weight', None)
+        model_state.pop('route_validity_head.bias', None)
+        self.model.load_state_dict(model_state)
         self.model.eval()
         self._feature_cache: dict[tuple[str, str], np.ndarray] = {}
         self.reagent_token_prior = self._build_token_prior('reagent_tokens')
         self.solvent_token_prior = self._build_token_prior('solvent_tokens')
+        (
+            self._library_reagent_weights,
+            self._library_solvent_weights,
+            self._library_prior_scores,
+            self._library_size_penalties,
+        ) = self._build_library_score_matrices()
+        self._library_reagent_labels = np.asarray(
+            [context.reagent_norm for context in self.context_library],
+            dtype=str,
+        )
+        self._library_solvent_labels = np.asarray(
+            [context.solvent_norm for context in self.context_library],
+            dtype=str,
+        )
 
     def _build_token_prior(self, field: str) -> dict[str, float]:
         weights: dict[str, float] = {}
@@ -400,6 +436,82 @@ class ReaFNNSelector:
             token: float(weight) / float(scale)
             for token, weight in weights.items()
         }
+
+    def _build_library_score_matrices(
+        self,
+    ) -> tuple[sparse.csr_matrix, sparse.csr_matrix, np.ndarray, np.ndarray]:
+        """Precompute sparse train-library token averages for bulk rescoring."""
+
+        library_size = len(self.context_library)
+        reagent_rows: list[int] = []
+        reagent_columns: list[int] = []
+        reagent_values: list[float] = []
+        solvent_rows: list[int] = []
+        solvent_columns: list[int] = []
+        solvent_values: list[float] = []
+        prior_scores = np.zeros((library_size,), dtype=np.float32)
+        size_penalties = np.zeros((library_size,), dtype=np.float32)
+
+        for row_index, context in enumerate(self.context_library):
+            reagent_indices = [
+                self.reagent_to_index[token]
+                for token in context.reagent_tokens
+                if token in self.reagent_to_index
+            ]
+            solvent_indices = [
+                self.solvent_to_index[token]
+                for token in context.solvent_tokens
+                if token in self.solvent_to_index
+            ]
+            if reagent_indices:
+                reagent_rows.extend([row_index] * len(reagent_indices))
+                reagent_columns.extend(reagent_indices)
+                reagent_values.extend([1.0 / float(len(reagent_indices))] * len(reagent_indices))
+            if solvent_indices:
+                solvent_rows.extend([row_index] * len(solvent_indices))
+                solvent_columns.extend(solvent_indices)
+                solvent_values.extend([1.0 / float(len(solvent_indices))] * len(solvent_indices))
+
+            reagent_prior = self._token_prior_score(
+                context.reagent_tokens,
+                self.reagent_token_prior,
+            )
+            solvent_prior = self._token_prior_score(
+                context.solvent_tokens,
+                self.solvent_token_prior,
+            )
+            prior_scores[row_index] = np.float32((reagent_prior + solvent_prior) / 2.0)
+            size_penalties[row_index] = np.float32(
+                self.config.combination_size_penalty
+                * float(
+                    max(len(context.reagent_tokens) - 1, 0)
+                    + max(len(context.solvent_tokens) - 1, 0)
+                )
+            )
+
+        reagent_weights = sparse.csr_matrix(
+            (
+                np.asarray(reagent_values, dtype=np.float32),
+                (
+                    np.asarray(reagent_rows, dtype=np.int32),
+                    np.asarray(reagent_columns, dtype=np.int32),
+                ),
+            ),
+            shape=(library_size, len(self.reagent_vocab)),
+            dtype=np.float32,
+        )
+        solvent_weights = sparse.csr_matrix(
+            (
+                np.asarray(solvent_values, dtype=np.float32),
+                (
+                    np.asarray(solvent_rows, dtype=np.int32),
+                    np.asarray(solvent_columns, dtype=np.int32),
+                ),
+            ),
+            shape=(library_size, len(self.solvent_vocab)),
+            dtype=np.float32,
+        )
+        return reagent_weights, solvent_weights, prior_scores, size_penalties
 
     def _route_feature(self, reactants: str, product: str) -> np.ndarray:
         key = (reactants, product)
@@ -767,7 +879,7 @@ class ReaFNNSelector:
         )
         return rows[: self.config.max_generated_contexts]
 
-    def rescore_contexts(
+    def _rescore_contexts_scalar(
         self,
         reactants: str,
         product: str,
@@ -796,6 +908,233 @@ class ReaFNNSelector:
             row['reafnn_is_historical'] = 0 if row['from_reafnn_novel'] else 1
             scored.append(row)
         return scored
+
+    def _library_indices_for_contexts(self, contexts: list[dict]) -> np.ndarray | None:
+        indices: list[int] = []
+        for context in contexts:
+            context_index = self._context_library_index.get(
+                (str(context['reagent_norm']), str(context['solvent_norm']))
+            )
+            if context_index is None:
+                return None
+            indices.append(context_index)
+        return np.asarray(indices, dtype=np.int64)
+
+    def _known_library_score_arrays(
+        self,
+        *,
+        contexts: list[dict],
+        library_indices: np.ndarray,
+        reagent_probs: np.ndarray,
+        solvent_probs: np.ndarray,
+    ) -> dict[str, np.ndarray]:
+        reagent_scores = np.asarray(
+            self._library_reagent_weights[library_indices] @ reagent_probs,
+            dtype=np.float32,
+        ).reshape(-1)
+        solvent_scores = np.asarray(
+            self._library_solvent_weights[library_indices] @ solvent_probs,
+            dtype=np.float32,
+        ).reshape(-1)
+        token_scores = np.mean(
+            np.stack((reagent_scores, solvent_scores), axis=1),
+            axis=1,
+            dtype=np.float32,
+        ).astype(np.float32, copy=False)
+        context_supports = np.asarray(
+            [
+                float(context.get('reafnn_context_support', context.get('context_support', 0.0)))
+                for context in contexts
+            ],
+            dtype=np.float32,
+        )
+        is_historical = np.asarray(
+            [
+                int(
+                    context.get(
+                        'reafnn_is_historical',
+                        1 if context.get('from_reafnn_novel', 0) == 0 else 0,
+                    )
+                ) == 1
+                for context in contexts
+            ],
+            dtype=bool,
+        )
+        config = self.config
+        historical_bonus = np.where(
+            is_historical,
+            np.float32(config.historical_context_bonus)
+            + (np.float32(config.historical_support_weight) * context_supports),
+            np.float32(0.0),
+        ).astype(np.float32, copy=False)
+        novelty_penalty = np.where(
+            is_historical,
+            np.float32(0.0),
+            np.float32(config.novel_context_penalty),
+        ).astype(np.float32, copy=False)
+        prior_scores = self._library_prior_scores[library_indices]
+        size_penalties = self._library_size_penalties[library_indices]
+        context_scores = (
+            token_scores
+            + (np.float32(config.token_prior_weight) * prior_scores)
+            + historical_bonus
+            - novelty_penalty
+            - size_penalties
+        ).astype(np.float32, copy=False)
+        return {
+            'reagent': reagent_scores,
+            'solvent': solvent_scores,
+            'token': token_scores,
+            'prior': prior_scores,
+            'historical_bonus': historical_bonus,
+            'novelty_penalty': novelty_penalty,
+            'context': context_scores,
+            'support': context_supports,
+        }
+
+    def _materialize_scored_context_row(
+        self,
+        context: dict,
+        *,
+        index: int,
+        score_arrays: dict[str, np.ndarray],
+    ) -> dict:
+        row = dict(context)
+        row.update({
+            'reafnn_reagent_score': float(score_arrays['reagent'][index]),
+            'reafnn_solvent_score': float(score_arrays['solvent'][index]),
+            'reafnn_token_score': float(score_arrays['token'][index]),
+            'reafnn_prior_score': float(score_arrays['prior'][index]),
+            'reafnn_historical_bonus': float(score_arrays['historical_bonus'][index]),
+            'reafnn_novelty_penalty': float(score_arrays['novelty_penalty'][index]),
+            'reafnn_context_score': float(score_arrays['context'][index]),
+        })
+        row['reafnn_context_count'] = float(
+            context.get('reafnn_context_count', context.get('context_count', 0.0))
+        )
+        row['reafnn_context_support'] = float(score_arrays['support'][index])
+        row['reafnn_mean_yield'] = float(
+            context.get('reafnn_mean_yield', context.get('mean_yield', 0.0))
+        )
+        row['from_reafnn_generated'] = int(context.get('from_reafnn_generated', 0))
+        row['from_reafnn_novel'] = int(context.get('from_reafnn_novel', 0))
+        row['reafnn_is_historical'] = 0 if row['from_reafnn_novel'] else 1
+        return row
+
+    def _rescore_known_library_contexts(
+        self,
+        *,
+        contexts: list[dict],
+        library_indices: np.ndarray,
+        reagent_probs: np.ndarray,
+        solvent_probs: np.ndarray,
+    ) -> list[dict]:
+        """Score known train-library contexts with vectorized token averages."""
+
+        score_arrays = self._known_library_score_arrays(
+            contexts=contexts,
+            library_indices=library_indices,
+            reagent_probs=reagent_probs,
+            solvent_probs=solvent_probs,
+        )
+        return [
+            self._materialize_scored_context_row(
+                context,
+                index=index,
+                score_arrays=score_arrays,
+            )
+            for index, context in enumerate(contexts)
+        ]
+
+    def select_historical_contexts(
+        self,
+        reactants: str,
+        product: str,
+        contexts: list[dict],
+        *,
+        lookup_keys: set[tuple[str, str]],
+        top_k: int,
+    ) -> tuple[dict[tuple[str, str], dict], list[dict]]:
+        """Return ReaFNN's top contexts plus scores needed for KNN overlap."""
+
+        if not contexts:
+            return {}, []
+        library_indices = self._library_indices_for_contexts(contexts)
+        if library_indices is None:
+            scored = self._rescore_contexts_scalar(reactants, product, contexts)
+            scored.sort(
+                key=lambda row: (
+                    -float(row.get('reafnn_context_score', 0.0)),
+                    -float(row.get('reafnn_token_score', 0.0)),
+                    -float(row.get('reafnn_context_support', 0.0)),
+                    str(row.get('reagent_norm', '')),
+                    str(row.get('solvent_norm', '')),
+                )
+            )
+            lookup = {
+                (str(row['reagent_norm']), str(row['solvent_norm'])): row
+                for row in scored
+                if (str(row['reagent_norm']), str(row['solvent_norm'])) in lookup_keys
+            }
+            return lookup, scored[:max(0, int(top_k))]
+
+        reagent_probs, solvent_probs = self.predict_token_probabilities(reactants, product)
+        score_arrays = self._known_library_score_arrays(
+            contexts=contexts,
+            library_indices=library_indices,
+            reagent_probs=reagent_probs,
+            solvent_probs=solvent_probs,
+        )
+        order = np.lexsort((
+            self._library_solvent_labels[library_indices],
+            self._library_reagent_labels[library_indices],
+            -score_arrays['support'],
+            -score_arrays['token'],
+            -score_arrays['context'],
+        ))
+        top_positions = [int(index) for index in order[:max(0, int(top_k))]]
+        rows_by_position: dict[int, dict] = {}
+
+        def row_at(position: int) -> dict:
+            row = rows_by_position.get(position)
+            if row is None:
+                row = self._materialize_scored_context_row(
+                    contexts[position],
+                    index=position,
+                    score_arrays=score_arrays,
+                )
+                rows_by_position[position] = row
+            return row
+
+        selected = [row_at(position) for position in top_positions]
+        lookup: dict[tuple[str, str], dict] = {}
+        for position, context in enumerate(contexts):
+            key = (str(context['reagent_norm']), str(context['solvent_norm']))
+            if key in lookup_keys:
+                lookup[key] = row_at(position)
+        return lookup, selected
+
+    def rescore_contexts(
+        self,
+        reactants: str,
+        product: str,
+        contexts: list[dict],
+    ) -> list[dict]:
+        """Rescore a context list, using the vector path for known history."""
+
+        if not contexts:
+            return []
+        library_indices = self._library_indices_for_contexts(contexts)
+        if library_indices is None:
+            return self._rescore_contexts_scalar(reactants, product, contexts)
+        reagent_probs, solvent_probs = self.predict_token_probabilities(reactants, product)
+        return self._rescore_known_library_contexts(
+            contexts=contexts,
+            library_indices=library_indices,
+            reagent_probs=reagent_probs,
+            solvent_probs=solvent_probs,
+        )
+
 
 
 def build_default_context_library(split_file: str | Path) -> list[ContextRecord]:

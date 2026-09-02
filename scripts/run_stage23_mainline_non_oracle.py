@@ -23,7 +23,6 @@ from prosys_shared.mainline import (
     parse_families_arg,
     split_file_for_family,
     stage1_route_recall,
-    stable_sort_candidate_frame,
 )
 from prosys_shared.nomenclature import PUBLIC_METRIC_LABELS
 from prosys_shared.route_cache import load_route_cache_sample_indices
@@ -62,18 +61,6 @@ def _shared_paths(shared_root: Path) -> dict[str, Path]:
     }
 
 
-def _aux_training_paths(shared_root: Path) -> dict[str, Path]:
-    aux_root = shared_root / 'non_oracle_training'
-    return {
-        'candidate_train_non_oracle': aux_root / 'candidate_pool' / 'train.csv',
-        'candidate_val_non_oracle': aux_root / 'candidate_pool' / 'val.csv',
-        'table_train_non_oracle': aux_root / 'training_tables' / 'train.csv',
-        'table_val_non_oracle': aux_root / 'training_tables' / 'val.csv',
-        'table_train_oracle': aux_root / 'training_tables' / 'train_oracle.csv',
-        'table_val_oracle': aux_root / 'training_tables' / 'val_oracle.csv',
-    }
-
-
 def _shared_augmented_table_paths(shared_root: Path) -> dict[str, Path]:
     return {
         'table_train': shared_root / 'training_tables' / 'train.csv',
@@ -104,7 +91,9 @@ def _reafnn_cache_name(
 
     if use_reafnn:
         anchors = 'all' if config.knn_anchor_contexts <= 0 else str(config.knn_anchor_contexts)
-        if config.enable_context_augmentation:
+        if config.enable_independent_post_fusion:
+            policy = 'postfusion'
+        elif config.enable_context_augmentation:
             policy = 'augment'
         elif config.enable_knn_wide_refinement:
             policy = 'refine'
@@ -127,104 +116,6 @@ def _maybe_unlink(paths: dict[str, Path]) -> None:
             path.unlink()
 
 
-def _resolve_route_cache(route_root: Path | None, family: str, split: str) -> Path:
-    if route_root is None:
-        raise ValueError(f'{split} route root is required for this train_table_mode')
-    cache_file = route_root / family / 'route_cache.json'
-    if not cache_file.exists():
-        raise FileNotFoundError(f'missing {split} route cache for {family}: {cache_file}')
-    return cache_file
-
-
-def _dedup_key_columns(frame: pd.DataFrame) -> list[str]:
-    preferred = ['sample_index', 'reaction_id', 'route_canonical', 'reagent_norm', 'solvent_norm']
-    columns = [column for column in preferred if column in frame.columns]
-    if columns:
-        return columns
-    return [
-        column
-        for column in ['sample_index', 'reaction_id', 'reactants', 'product', 'reagent_norm', 'solvent_norm']
-        if column in frame.columns
-    ]
-
-
-def _merge_oracle_with_non_oracle_hard_negatives(
-    *,
-    oracle_table_file: Path,
-    non_oracle_table_file: Path,
-    output_file: Path,
-    hard_negative_per_sample: int,
-) -> Path:
-    oracle = pd.read_csv(oracle_table_file)
-    non_oracle = pd.read_csv(non_oracle_table_file)
-    if oracle.empty or non_oracle.empty:
-        merged = stable_sort_candidate_frame(oracle.copy())
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        merged.to_csv(output_file, index=False)
-        return output_file
-
-    route_match = pd.to_numeric(non_oracle.get('route_match', 0.0), errors='coerce').fillna(0.0)
-    hard = non_oracle.loc[route_match < 0.5].copy()
-    if hard.empty:
-        merged = stable_sort_candidate_frame(oracle.copy())
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        merged.to_csv(output_file, index=False)
-        return output_file
-
-    key_columns = _dedup_key_columns(oracle)
-    if key_columns:
-        oracle_keys = oracle.loc[:, key_columns].drop_duplicates().copy()
-        oracle_keys['_in_oracle'] = 1
-        hard = hard.merge(oracle_keys, on=key_columns, how='left')
-        hard = hard.loc[hard['_in_oracle'].isna()].drop(columns=['_in_oracle'])
-
-    sort_columns: list[str] = []
-    ascending: list[bool] = []
-    for column, is_ascending in [
-        ('sample_index', True),
-        ('context_match', False),
-        ('retro_rank', True),
-        ('retro_probability', False),
-        ('retro_score', False),
-        ('reafnn_context_score', False),
-        ('knn_similarity_sum', False),
-        ('knn_neighbor_count', False),
-        ('reagent_norm', True),
-        ('solvent_norm', True),
-    ]:
-        if column in hard.columns:
-            sort_columns.append(column)
-            ascending.append(is_ascending)
-    if sort_columns:
-        hard = hard.sort_values(sort_columns, ascending=ascending, kind='mergesort').reset_index(drop=True)
-
-    if hard_negative_per_sample > 0 and 'sample_index' in hard.columns:
-        hard = hard.groupby('sample_index', sort=False).head(hard_negative_per_sample).reset_index(drop=True)
-
-    oracle = oracle.copy()
-    hard = hard.copy()
-    oracle['training_source'] = 'oracle'
-    hard['training_source'] = 'non_oracle_hard_negative'
-
-    merged = stable_sort_candidate_frame(pd.concat([oracle, hard], ignore_index=True))
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    merged.to_csv(output_file, index=False)
-    return output_file
-
-
-def _build_labeled_non_oracle_table(
-    *,
-    builder: KNNContextPoolBuilder,
-    route_cache_file: Path,
-    gold_split_file: Path,
-    candidate_output_file: Path,
-    table_output_file: Path,
-    max_routes: int | None,
-) -> Path:
-    builder.build_non_oracle_table(route_cache_file, candidate_output_file, max_routes=max_routes)
-    return label_candidate_table(candidate_output_file, gold_split_file, table_output_file)
-
-
 def _ensure_knn_tables(
     repo_root: Path,
     family: str,
@@ -239,20 +130,17 @@ def _ensure_knn_tables(
     knn_retrieval_mode: str,
     max_train_routes: int | None,
     max_val_routes: int | None,
-    train_table_mode: str,
-    train_route_root: Path | None,
-    val_route_root: Path | None,
-    hard_negative_per_sample: int,
     force_rebuild: bool,
     reafnn_config: ReaFNNConfig,
     use_reafnn: bool,
     reaffn_force_retrain: bool,
+    post_fusion_validation_route_cache: Path | None,
 ) -> dict[str, Path]:
+    """Build reference-route training tables and predicted-route test tables."""
+
     paths = _shared_paths(shared_root)
-    aux_paths = _aux_training_paths(shared_root)
     if force_rebuild:
         _maybe_unlink(paths)
-        _maybe_unlink(aux_paths)
     if all(path.exists() for path in paths.values()):
         return paths
 
@@ -269,87 +157,21 @@ def _ensure_knn_tables(
         reaffn_device=reafnn_config.device,
         reaffn_force_retrain=reaffn_force_retrain,
         reaffn_config=reafnn_config if use_reafnn else None,
+        post_fusion_validation_route_cache=post_fusion_validation_route_cache,
         sparse_similarity=True,
     )
-    builder.build_non_oracle_table(route_cache, paths['candidate_test'])
-    label_candidate_table(paths['candidate_test'], split_file_for_family(repo_root, family, 'test'), paths['table_test'])
-
     train_split_file = split_file_for_family(repo_root, family, 'train')
     val_split_file = split_file_for_family(repo_root, family, 'val')
+    test_split_file = split_file_for_family(repo_root, family, 'test')
 
-    if train_table_mode == 'oracle':
-        builder.build_table('train', paths['candidate_train'], max_routes=max_train_routes)
-        builder.build_table('val', paths['candidate_val'], max_routes=max_val_routes)
-        label_candidate_table(paths['candidate_train'], train_split_file, paths['table_train'])
-        label_candidate_table(paths['candidate_val'], val_split_file, paths['table_val'])
-        return paths
-
-    if train_table_mode == 'non_oracle':
-        train_route_cache = _resolve_route_cache(train_route_root, family, 'train')
-        val_route_cache = _resolve_route_cache(val_route_root, family, 'val')
-        _build_labeled_non_oracle_table(
-            builder=builder,
-            route_cache_file=train_route_cache,
-            gold_split_file=train_split_file,
-            candidate_output_file=paths['candidate_train'],
-            table_output_file=paths['table_train'],
-            max_routes=max_train_routes,
-        )
-        _build_labeled_non_oracle_table(
-            builder=builder,
-            route_cache_file=val_route_cache,
-            gold_split_file=val_split_file,
-            candidate_output_file=paths['candidate_val'],
-            table_output_file=paths['table_val'],
-            max_routes=max_val_routes,
-        )
-        return paths
-
-    if train_table_mode != 'mixed_hard_negative':
-        raise ValueError(f'Unsupported train_table_mode: {train_table_mode}')
-
-    train_route_cache = _resolve_route_cache(train_route_root, family, 'train')
-    val_route_cache = _resolve_route_cache(val_route_root, family, 'val') if val_route_root is not None else None
-
+    # Training and validation candidate rows use their reference split routes;
+    # test rows are emitted solely from persisted Stage 1 predictions.
     builder.build_table('train', paths['candidate_train'], max_routes=max_train_routes)
     builder.build_table('val', paths['candidate_val'], max_routes=max_val_routes)
-    label_candidate_table(paths['candidate_train'], train_split_file, aux_paths['table_train_oracle'])
-    label_candidate_table(paths['candidate_val'], val_split_file, aux_paths['table_val_oracle'])
-
-    _build_labeled_non_oracle_table(
-        builder=builder,
-        route_cache_file=train_route_cache,
-        gold_split_file=train_split_file,
-        candidate_output_file=aux_paths['candidate_train_non_oracle'],
-        table_output_file=aux_paths['table_train_non_oracle'],
-        max_routes=max_train_routes,
-    )
-    _merge_oracle_with_non_oracle_hard_negatives(
-        oracle_table_file=aux_paths['table_train_oracle'],
-        non_oracle_table_file=aux_paths['table_train_non_oracle'],
-        output_file=paths['table_train'],
-        hard_negative_per_sample=hard_negative_per_sample,
-    )
-
-    if val_route_cache is None:
-        val_oracle = pd.read_csv(aux_paths['table_val_oracle'])
-        val_oracle = stable_sort_candidate_frame(val_oracle)
-        val_oracle.to_csv(paths['table_val'], index=False)
-    else:
-        _build_labeled_non_oracle_table(
-            builder=builder,
-            route_cache_file=val_route_cache,
-            gold_split_file=val_split_file,
-            candidate_output_file=aux_paths['candidate_val_non_oracle'],
-            table_output_file=aux_paths['table_val_non_oracle'],
-            max_routes=max_val_routes,
-        )
-        _merge_oracle_with_non_oracle_hard_negatives(
-            oracle_table_file=aux_paths['table_val_oracle'],
-            non_oracle_table_file=aux_paths['table_val_non_oracle'],
-            output_file=paths['table_val'],
-            hard_negative_per_sample=hard_negative_per_sample,
-        )
+    builder.build_non_oracle_table(route_cache, paths['candidate_test'])
+    label_candidate_table(paths['candidate_train'], train_split_file, paths['table_train'])
+    label_candidate_table(paths['candidate_val'], val_split_file, paths['table_val'])
+    label_candidate_table(paths['candidate_test'], test_split_file, paths['table_test'])
     return paths
 
 
@@ -455,14 +277,11 @@ def _run_family(
     knn_retrieval_mode: str,
     max_train_routes: int | None,
     max_val_routes: int | None,
-    train_table_mode: str,
-    train_route_root: Path | None,
-    val_route_root: Path | None,
-    hard_negative_per_sample: int,
     force_rebuild: bool,
     reafnn_config: ReaFNNConfig,
     use_reafnn: bool,
     reaffn_force_retrain: bool,
+    post_fusion_validation_route_root: Path | None,
     gnn_config: ReactionGNNConfig,
     reuse_candidate_tables_root: Path | None,
     gnn_force_retrain: bool,
@@ -471,39 +290,6 @@ def _run_family(
     seed: int,
 ) -> dict:
     family_root = output_root / family
-    stage2_protocol = {
-        'architecture': 'knn_reafnn' if use_reafnn else 'knn_only',
-        # Test slates always come from persisted Stage-1 predictions. Keep the
-        # train/validation candidate-table source explicit so compact result
-        # records cannot be misread as a fully prediction-aligned training run.
-        'training_candidate_table_mode': train_table_mode,
-        'training_candidate_route_source': (
-            'reference_split_routes' if train_table_mode == 'oracle'
-            else 'reference_routes_plus_predicted_route_hard_negatives'
-            if train_table_mode == 'mixed_hard_negative'
-            else 'predicted_stage1_routes'
-        ),
-        'knn_retrieval_mode': knn_retrieval_mode,
-        'knn_feature_space': (
-            'product_morgan_fingerprint' if knn_retrieval_mode == 'product_morgan'
-            else 'reactant_product_delta_morgan_fingerprint'
-        ),
-        'knn_top_k': int(top_k),
-        'prefilter_contexts': int(prefilter_contexts),
-        'max_contexts': int(max_contexts),
-        'candidate_source': 'historical_contexts_retrieved_from_family_train_split',
-        'reafnn_enabled': bool(use_reafnn),
-        'reafnn_feature_space': (
-            'product_fp_plus_delta_fp_plus_route_descriptors' if use_reafnn else None
-        ),
-        'reafnn_candidate_policy': (
-            'knn_wide_pool_refinement' if use_reafnn and reafnn_config.enable_knn_wide_refinement
-            else 'context_augmentation' if use_reafnn and reafnn_config.enable_context_augmentation
-            else 'knn_core_rank_correction' if use_reafnn
-            else 'not_used'
-        ),
-        'reafnn_config': reafnn_config.to_dict() if use_reafnn else None,
-    }
     shared_root = family_root / _reafnn_cache_name(
         reafnn_config,
         knn_retrieval_mode=knn_retrieval_mode,
@@ -512,6 +298,50 @@ def _run_family(
         max_contexts=max_contexts,
         prefilter_contexts=prefilter_contexts,
     )
+    post_fusion_validation_route_cache = (
+        post_fusion_validation_route_root / family / 'route_cache.json'
+        if post_fusion_validation_route_root is not None else None
+    )
+    post_fusion_calibration_file = shared_root / 'reafnn' / 'post_fusion_calibration.json'
+    post_fusion_calibration = (
+        json.loads(post_fusion_calibration_file.read_text(encoding='utf-8'))
+        if use_reafnn and reafnn_config.enable_independent_post_fusion and post_fusion_calibration_file.exists()
+        else None
+    )
+    stage2_protocol = {
+        'architecture': 'knn_reafnn' if use_reafnn else 'knn_only',
+        # Test slates always come from persisted Stage-1 predictions. Training
+        # and validation tables use only their matching reference split routes.
+        'training_candidate_table_mode': 'reference_split_routes',
+        'training_candidate_route_source': 'reference_split_routes',
+        'knn_retrieval_mode': knn_retrieval_mode,
+        'knn_feature_space': (
+            'product_morgan_fingerprint' if knn_retrieval_mode == 'product_morgan'
+            else 'reactant_product_delta_morgan_fingerprint'
+        ),
+        'knn_top_k': int(top_k),
+        'prefilter_contexts': int(prefilter_contexts),
+        'max_contexts': int(max_contexts),
+        'candidate_source': (
+            'historical_contexts_from_family_train_split'
+            if use_reafnn and reafnn_config.enable_independent_post_fusion
+            else 'historical_contexts_retrieved_from_family_train_split'
+        ),
+        'reafnn_enabled': bool(use_reafnn),
+        'reafnn_feature_space': (
+            'product_fp_plus_delta_fp_plus_route_descriptors' if use_reafnn else None
+        ),
+        'reafnn_candidate_policy': (
+            'independent_knn_reafnn_post_fusion' if use_reafnn and reafnn_config.enable_independent_post_fusion
+            else 'knn_wide_pool_refinement' if use_reafnn and reafnn_config.enable_knn_wide_refinement
+            else 'context_augmentation' if use_reafnn and reafnn_config.enable_context_augmentation
+            else 'knn_core_rank_correction' if use_reafnn
+            else 'not_used'
+        ),
+        'reafnn_config': reafnn_config.to_dict() if use_reafnn else None,
+    }
+    if use_reafnn and reafnn_config.enable_independent_post_fusion:
+        stage2_protocol['reafnn_post_fusion_calibration'] = post_fusion_calibration
     result_dir = family_root / (
         'knn_xgb' if ranking_mode == 'xgb_ltr' else 'stage2_heuristic'
     ) / 'non_oracle'
@@ -588,14 +418,19 @@ def _run_family(
             knn_retrieval_mode=knn_retrieval_mode,
             max_train_routes=max_train_routes,
             max_val_routes=max_val_routes,
-            train_table_mode=train_table_mode,
-            train_route_root=train_route_root,
-            val_route_root=val_route_root,
-            hard_negative_per_sample=hard_negative_per_sample,
             force_rebuild=force_rebuild,
             reafnn_config=reafnn_config,
             use_reafnn=use_reafnn,
             reaffn_force_retrain=reaffn_force_retrain,
+            post_fusion_validation_route_cache=post_fusion_validation_route_cache,
+        )
+
+    if use_reafnn and reafnn_config.enable_independent_post_fusion:
+        calibration_file = table_paths['candidate_test'].parents[1] / 'reafnn' / 'post_fusion_calibration.json'
+        if not calibration_file.exists():
+            raise FileNotFoundError(f'{family} is missing post-fusion calibration: {calibration_file}')
+        stage2_protocol['reafnn_post_fusion_calibration'] = json.loads(
+            calibration_file.read_text(encoding='utf-8')
         )
 
     model_dir = result_dir / 'model'
@@ -748,6 +583,64 @@ def _run_family(
     }
     _write_json(result, result_file)
     return result
+
+
+def _prune_completed_family_intermediates(
+    *,
+    family_root: Path,
+    result: dict,
+    ranking_mode: str,
+) -> dict:
+    """Retain the auditable result record while releasing regenerable tables."""
+
+    result_dir = family_root / (
+        'knn_xgb' if ranking_mode == 'xgb_ltr' else 'stage2_heuristic'
+    ) / 'non_oracle'
+    result_file = result_dir / 'result.json'
+    if not result_file.exists():
+        return result
+
+    retained_file = result_file.resolve()
+    removed_files = 0
+    removed_bytes = 0
+    for path in sorted(
+        family_root.rglob('*'),
+        key=lambda value: (len(value.parts), str(value)),
+        reverse=True,
+    ):
+        if not path.is_file():
+            continue
+        if path.resolve() == retained_file:
+            continue
+        removed_bytes += int(path.stat().st_size)
+        path.unlink()
+        removed_files += 1
+
+    for path in sorted(
+        family_root.rglob('*'),
+        key=lambda value: (len(value.parts), str(value)),
+        reverse=True,
+    ):
+        if path.is_dir():
+            try:
+                path.rmdir()
+            except OSError:
+                pass
+
+    compact_result = dict(result)
+    compact_result['intermediate_artifacts'] = {
+        'status': 'pruned_after_completed_family',
+        'retained': ['result.json', 'intermediate_cleanup.json'],
+        'removed_file_count': int(removed_files),
+        'removed_bytes': int(removed_bytes),
+        'note': 'Candidate pools, labeled tables, scored CSVs, and model binaries are regenerable from the recorded protocol.',
+    }
+    _write_json(compact_result, result_file)
+    _write_json(
+        compact_result['intermediate_artifacts'],
+        family_root / 'intermediate_cleanup.json',
+    )
+    return compact_result
 
 
 def _flatten_rows(rows: list[dict]) -> pd.DataFrame:
@@ -915,16 +808,12 @@ def main() -> None:
     parser.add_argument('--prefilter_contexts', type=int, default=64)
     parser.add_argument('--max_train_routes', type=int, default=0, help='0 means use all train routes')
     parser.add_argument('--max_val_routes', type=int, default=0, help='0 means use all val routes')
-    parser.add_argument(
-        '--train_table_mode',
-        type=str,
-        default='oracle',
-        choices=['oracle', 'mixed_hard_negative', 'non_oracle'],
-    )
-    parser.add_argument('--train_route_root', type=str, default=None)
-    parser.add_argument('--val_route_root', type=str, default=None)
-    parser.add_argument('--hard_negative_per_sample', type=int, default=8)
     parser.add_argument('--force_rebuild', action='store_true')
+    parser.add_argument(
+        '--cleanup_family_intermediates',
+        action='store_true',
+        help='After each completed family, retain only its result record and cleanup manifest to limit disk use.',
+    )
     parser.add_argument('--reafnn_device', type=str, default='cpu')
     parser.add_argument('--reafnn_force_retrain', action='store_true')
     parser.add_argument('--disable_reafnn', action='store_true')
@@ -947,6 +836,30 @@ def main() -> None:
         action=argparse.BooleanOptionalAction,
         default=True,
     )
+    parser.add_argument(
+        '--reafnn_enable_independent_post_fusion',
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help='Maintained Stage 2 mode: independently predict historical contexts with KNN and ReaFNN, then fuse validation-calibrated scores.',
+    )
+    parser.add_argument(
+        '--reafnn_independent_contexts',
+        type=int,
+        default=64,
+        help='Historical contexts retained independently from ReaFNN before KNN/ReaFNN post-fusion.',
+    )
+    parser.add_argument(
+        '--reafnn_post_fusion_weights',
+        type=str,
+        default='0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0',
+        help='Validation-only grid for w in w*KNN + (1-w)*ReaFNN.',
+    )
+    parser.add_argument(
+        '--reafnn_post_fusion_validation_route_root',
+        type=str,
+        default='outputs/stage1_routes_validation',
+        help='Held-out Stage 1 validation route caches used only to select the Stage 2 fusion weight; use an empty string to fall back to reference validation routes.',
+    )
     parser.add_argument('--gnn_device', type=str, default='cpu')
     parser.add_argument('--gnn_force_retrain', action='store_true')
     parser.add_argument('--skip_temperature', action='store_true', help='For Sys@k-only ablations; leaves the full mainline unchanged.')
@@ -968,9 +881,11 @@ def main() -> None:
     families = parse_families_arg(args.families)
     max_train_routes = args.max_train_routes if args.max_train_routes > 0 else None
     max_val_routes = args.max_val_routes if args.max_val_routes > 0 else None
-    train_route_root = (repo_root / args.train_route_root).resolve() if args.train_route_root else None
-    val_route_root = (repo_root / args.val_route_root).resolve() if args.val_route_root else None
     reuse_candidate_tables_root = (repo_root / args.reuse_candidate_tables_root).resolve() if args.reuse_candidate_tables_root else None
+    post_fusion_validation_route_root = (
+        (repo_root / args.reafnn_post_fusion_validation_route_root).resolve()
+        if args.reafnn_post_fusion_validation_route_root else None
+    )
     if args.prefilter_contexts < args.max_contexts:
         parser.error('--prefilter_contexts must be at least --max_contexts.')
     if args.reafnn_knn_anchor_contexts < 0 or args.reafnn_knn_anchor_contexts > args.max_contexts:
@@ -979,6 +894,12 @@ def main() -> None:
         parser.error('ReaFNN context augmentation and KNN-wide refinement are mutually exclusive.')
     if args.disable_reafnn and args.reafnn_enable_context_augmentation:
         parser.error('--disable_reafnn cannot be combined with context augmentation.')
+    if args.disable_reafnn and args.reafnn_enable_independent_post_fusion:
+        parser.error('--disable_reafnn cannot be combined with independent post-fusion.')
+    if args.reafnn_enable_independent_post_fusion and args.reafnn_enable_context_augmentation:
+        parser.error('Independent post-fusion uses historical contexts only and cannot be combined with context augmentation.')
+    if args.reafnn_enable_independent_post_fusion and args.reafnn_independent_contexts < args.max_contexts:
+        parser.error('--reafnn_independent_contexts must be at least --max_contexts.')
     if args.ranking_mode == 'stage2_heuristic' and not args.skip_temperature:
         parser.error('--ranking_mode stage2_heuristic requires --skip_temperature.')
     reafnn_config = ReaFNNConfig(
@@ -996,11 +917,22 @@ def main() -> None:
         patience=args.reafnn_patience,
         device=args.reafnn_device,
         random_state=args.seed,
-        knn_anchor_contexts=args.reafnn_knn_anchor_contexts,
-        correction_weight=args.reafnn_correction_weight,
-        correction_clip=args.reafnn_correction_clip,
+        knn_anchor_contexts=(0 if args.reafnn_enable_independent_post_fusion else args.reafnn_knn_anchor_contexts),
+        correction_weight=(0.0 if args.reafnn_enable_independent_post_fusion else args.reafnn_correction_weight),
+        correction_clip=(0.0 if args.reafnn_enable_independent_post_fusion else args.reafnn_correction_clip),
         enable_context_augmentation=args.reafnn_enable_context_augmentation,
-        enable_knn_wide_refinement=args.reafnn_enable_knn_wide_refinement,
+        enable_knn_wide_refinement=(
+            False if args.reafnn_enable_independent_post_fusion
+            else args.reafnn_enable_knn_wide_refinement
+        ),
+        enable_independent_post_fusion=args.reafnn_enable_independent_post_fusion,
+        independent_contexts=args.reafnn_independent_contexts,
+        post_fusion_weight_grid=args.reafnn_post_fusion_weights,
+        post_fusion_validation_source=(
+            'predicted_stage1_validation_routes'
+            if args.reafnn_enable_independent_post_fusion and post_fusion_validation_route_root is not None
+            else 'reference_split_routes'
+        ),
     )
     gnn_config = ReactionGNNConfig(
         device=args.gnn_device,
@@ -1014,36 +946,38 @@ def main() -> None:
             print(f'[mainline] skip {family}: missing {route_cache}', flush=True)
             continue
         print(f'[mainline] running {family}', flush=True)
-        summary_rows.append(
-            _run_family(
-                repo_root=repo_root,
-                family=family,
-                route_cache=route_cache,
-                output_root=output_root,
-                top_k=args.knn_top_k,
-                max_contexts=args.max_contexts,
-                prefilter_contexts=args.prefilter_contexts,
-                fpsize=args.fpsize,
-                radius=args.radius,
-                knn_retrieval_mode=args.knn_retrieval_mode,
-                max_train_routes=max_train_routes,
-                max_val_routes=max_val_routes,
-                train_table_mode=args.train_table_mode,
-                train_route_root=train_route_root,
-                val_route_root=val_route_root,
-                hard_negative_per_sample=args.hard_negative_per_sample,
-                force_rebuild=args.force_rebuild,
-                reafnn_config=reafnn_config,
-                use_reafnn=not args.disable_reafnn,
-                reaffn_force_retrain=args.reafnn_force_retrain,
-                gnn_config=gnn_config,
-                gnn_force_retrain=args.gnn_force_retrain,
-                enable_temperature=not args.skip_temperature,
-                ranking_mode=args.ranking_mode,
-                reuse_candidate_tables_root=reuse_candidate_tables_root,
-                seed=args.seed,
-            )
+        family_result = _run_family(
+            repo_root=repo_root,
+            family=family,
+            route_cache=route_cache,
+            output_root=output_root,
+            top_k=args.knn_top_k,
+            max_contexts=args.max_contexts,
+            prefilter_contexts=args.prefilter_contexts,
+            fpsize=args.fpsize,
+            radius=args.radius,
+            knn_retrieval_mode=args.knn_retrieval_mode,
+            max_train_routes=max_train_routes,
+            max_val_routes=max_val_routes,
+            force_rebuild=args.force_rebuild,
+            reafnn_config=reafnn_config,
+            use_reafnn=not args.disable_reafnn,
+            reaffn_force_retrain=args.reafnn_force_retrain,
+            post_fusion_validation_route_root=post_fusion_validation_route_root,
+            gnn_config=gnn_config,
+            gnn_force_retrain=args.gnn_force_retrain,
+            enable_temperature=not args.skip_temperature,
+            ranking_mode=args.ranking_mode,
+            reuse_candidate_tables_root=reuse_candidate_tables_root,
+            seed=args.seed,
         )
+        if args.cleanup_family_intermediates:
+            family_result = _prune_completed_family_intermediates(
+                family_root=output_root / family,
+                result=family_result,
+                ranking_mode=args.ranking_mode,
+            )
+        summary_rows.append(family_result)
 
     flat = _flatten_rows(summary_rows)
     if not flat.empty:

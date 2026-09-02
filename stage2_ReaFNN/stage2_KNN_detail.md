@@ -1,67 +1,56 @@
 # Stage 2 KNN + ReaFNN: 可行条件筛选
 
-更新日期：`2026-08-30`
+更新日期：`2026-09-01`
 
-## Current Mainline: Product-Morgan KNN + ReaFNN Wide-Pool Refinement
+## Current Mainline: Parallel Product-Morgan KNN + ReaFNN Post-Fusion
 
-> **Authoritative scope.** This section documents the promoted six-family,
-> fixed-Stage-1, three-seed result retained in
-> `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`. The
-> lower fixed-core text is a historical B control, not the maintained default.
+> **Authoritative scope.** The maintained Stage 2 procedure is now the
+> independent KNN--ReaFNN post-fusion implementation invoked by
+> `scripts/run_stage23_non_oracle_suite.sh`. The earlier serial wide-pool
+> refinement and its three-seed figures are retained below only as historical
+> controls; they must not be cited as results of the parallel procedure.
 
 - KNN queries use only a 4,096-bit, radius-2 Morgan fingerprint of the target
-  product; predicted reactants and reaction delta are intentionally omitted
-  from retrieval.
-- The memory contains only the current family's train split. KNN retrieves 64
-  neighbors and aggregates a 64-context historical wide pool.
-- ReaFNN receives the 8,218-dimensional route vector and scores every context
-  in that retrieved historical pool using separate reagent-token and
-  solvent-token heads.
-- The first 12 KNN contexts are retained as anchors. ReaFNN's bounded,
-  within-route rank correction fills the remaining positions from the same
-  retrieved wide pool, with at most 20 contexts per proposed route.
-- The official ReaFNN is a 512x2 ReLU MLP with dropout 0.10, correction weight
-  0.65, correction clip 0.35, and no context augmentation. Therefore no
-  generated or novel reagent-solvent combination enters the official pool.
-- KNN retrieval, route caches, splits, vocabularies, and validation-only score
-  calibration are fixed across seeds 0/1/2. ReaFNN, the R-GNN, and XGBoost are
-  rebuilt independently.
+  product. Predicted reactants and reaction-delta features are intentionally
+  excluded from retrieval.
+- Memory is restricted to the current family's train split. KNN retrieves 64
+  routes and aggregates at most 64 historical reagent-solvent contexts.
+- ReaFNN independently receives the 8,218-dimensional route vector and scores
+  the full train-only historical context library with reagent and solvent token
+  heads. It retains its own top 64 historical contexts.
+- The KNN and ReaFNN lists are unioned. Each branch contributes a within-list
+  rank prior in `[0, 1]`; missing branch support is zero. Their initial score is
+  `s = w*s_KNN + (1-w)*s_ReaFNN`, and the top 20 fused historical contexts are
+  sent to Stage 3 for each Stage 1 route.
+- The family-specific KNN weight `w` is selected only on persisted predicted
+  Stage 1 validation routes by exact Stage 2 candidate coverage over the fixed
+  grid `0.0, 0.1, ..., 1.0`; ties favor the larger KNN weight. Test labels never
+  train either branch or select this weight.
+- ReaFNN is a 512x2 ReLU MLP with dropout 0.10. No generated or novel
+  reagent-solvent combination is admitted: every final candidate occurs in the
+  current-family training memory.
 
-The current Stage 2 candidate coverage is `54.44 +/- 0.14%`; the downstream
-end-to-end macro Sys@1/3/5/10 is
-`27.12 +/- 0.37% / 36.84 +/- 0.80% / 40.47 +/- 0.77% / 44.62 +/- 0.42%`.
-The fixed Stage 1 macro Route@10 is `63.20%`. Test candidate slates use
-persisted Stage 1 predictions; train/validation candidate tables use reference
-split routes, as disclosed in `Experiment/stage23_legality_audit_20260830.md`.
+The verified seed-0 implementation record is
+`Experiment/stage2_parallel_post_fusion_20260901.md`: its six-family Stage 2
+coverage is 52.91% on validation after fusion, and the matched fixed-test run
+has 54.10% candidate recall and 43.44% macro Sys@10. These are single-seed
+measurements, not a replacement for a confirmatory multi-seed headline. Joint
+route-contrastive training and route-error supervision were not adopted and are
+not part of the maintained Stage 2 procedure.
 
-The within-route initialization is
-`stage2_initial_score = p_KNN + clip(0.65 * (q_ReaFNN - p_KNN), -0.35, 0.35)`.
-The XGB-LTR schema excludes the bounded correction columns; validation can only
-select the optional heuristic-prior fusion, never use test labels.
+### Historical serial ReaFNN ablation
 
-Detailed metrics and metadata are retained in
-`Experiment/stage23_product_morgan_reafnn_multiseed_20260830/` and summarized
-in `CURRENT_RESULTS.md`.
-
-### Current matched ReaFNN ablation
-
-Under the exact three-seed product-Morgan configuration, disabling ReaFNN while
-retraining the 52-feature XGB-LTR on the resulting KNN-only candidate tables
-reduces candidate coverage from 54.44 +/- 0.14% to 53.39 +/- 0.00% and macro
-Sys@10 from 44.62 +/- 0.42% to 39.86 +/- 2.08%. The corresponding changes are
--1.06 pp coverage and -4.76 pp Sys@10. The full system has the higher mean
-Sys@10 in all six families. This control isolates ReaFNN from ranker
-distribution shift because each arm trains its own ranker rather than reusing a
-ranker fitted on a different candidate pool.
-
-The exact protocol, all rank cutoffs, per-family values, and audit contracts are
-in ablation/current_mainline_matched_ablation_results_20260830.md.
+The 2026-08-30 serial wide-pool system used 12 KNN anchors and bounded residual
+correction. Its 54.44 +/- 0.14% coverage and 44.62 +/- 0.42% Sys@10, together
+with its KNN-only ablation, are valid only for that historical candidate
+distribution. The exact artifacts remain in
+`Experiment/stage23_product_morgan_reafnn_multiseed_20260830/` and
+`ablation/current_mainline_matched_ablation_results_20260830.md`.
 
 ## Historical Core-Only Policy (B Controlled Ablation)
-> **Historical scope.** This section describes the B core-check control. Any later occurrence of "default" or "current" in this historical block refers to the `2026-08-28` configuration, not the Product-Morgan development mainline above.
+> **Historical scope.** This section describes the B core-check control. Any later occurrence of "default" or "current" in this historical block refers to the `2026-08-28` configuration, not the parallel post-fusion mainline above.
 
-
-> **范围优先级。** 本节定义当前默认实现，并覆盖后文仍保留的历史扩池描述。
+> **范围优先级。** 本节仅保存历史固定 core 实现，不定义当前默认流程。
 
 - KNN 从当前 family 的 train memory 宽召回 `top_k = 64` 个相似路线，并聚合最多 `prefilter_contexts = 64` 个历史条件。
 - KNN 的前 `max_contexts = 20` 个条件构成固定的 **KNN core**，即默认主线最终候选成员。
@@ -78,9 +67,15 @@ in ablation/current_mainline_matched_ablation_results_20260830.md.
 ### Historical core-check note
 
 The material below documents the older fixed-KNN-core control and its archived
-outputs. It is retained to explain the controlled ablation, not to define the
-current method. The only official Stage 2 result source is the promoted
-2026-08-30 artifact named at the top of this document.
+outputs. It is retained to explain controlled ablations, not to define the
+current method. The maintained procedure is the parallel post-fusion interface
+specified at the top of this document.
+
+## Archived Serial Reference Details
+
+> The sections below preserve the earlier KNN-anchored serial refinement for
+> traceability and legacy-control interpretation. They do not define the
+> maintained parallel post-fusion procedure stated above.
 
 ## 1. 模块目标
 
@@ -285,7 +280,7 @@ KNN 的 memory **严格只由当前 family 的 train split 构建**，不会把 
 5. 对条件去重、打分、排序
 6. 截断为 `max_contexts`
 
-当前官方主线快照使用：
+归档的串联快照使用：
 
 - `top_k = 64`
 - `prefilter_contexts = 64`
@@ -442,7 +437,7 @@ input route feature (8218)
 - `KNN` 先负责“把可能可行的条件捞上来”
 - `ReaFNN` 再负责“根据 token 语义重新排序，并小范围补池”
 
-所以当前主线不是：
+因此该归档串联流程不是：
 
 - `KNN` 给一份候选
 - `ReaFNN` 再独立给另一份候选
@@ -451,7 +446,7 @@ input route feature (8218)
 
 - `KNN` 和 `ReaFNN` 共用同一个最终 candidate pool，只是承担的角色不同
 
-其中当前主线明确区分：
+其中该归档串联流程明确区分：
 
 - `Oracle/train/val` 构表：`allow_novel = False`
 - `Non-Oracle` 路线推理：`allow_novel = True`
@@ -721,7 +716,7 @@ Non-Oracle 模式从 Stage 1 的 `route_cache.json` 中读取预测路线：
 
 ## 8. 与主线的接口关系
 
-当前主线里，Stage 2 KNN 的职责是：
+在维护中的并行主线里，Stage 2 的职责是：
 
 1. 接收 Stage 1 路线
 2. 生成 top-N 候选条件池
@@ -736,8 +731,8 @@ Non-Oracle 模式从 Stage 1 的 `route_cache.json` 中读取预测路线：
 
 The fixed-core figures formerly reported in this section belong to the B
 control, which retains the KNN top-20 members and only calibrates their order.
-They are not current headline values. The official wide-pool refinement has 12
-KNN anchors, a 20-context cap, and three-seed candidate coverage
+They are not current headline values. The former serial wide-pool refinement
+had 12 KNN anchors, a 20-context cap, and three-seed candidate coverage
 `54.44 +/- 0.14%`; see `CURRENT_RESULTS.md` and
 `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`.
 

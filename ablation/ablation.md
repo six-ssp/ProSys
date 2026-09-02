@@ -1,9 +1,9 @@
 # Archived Ablation Plan
 
-> Current matched evidence: see
+> Historical serial evidence: see
 > current_mainline_matched_ablation_results_20260830.md in this directory. It
 > contains the completed three-seed KNN-only and deterministic no-XGB-LTR
-> controls, aligned to CURRENT_RESULTS.md.
+> controls for the former serial candidate distribution.
 >
 > This document records an earlier KNN-XGB-LTR plan and is retained only for
 > history. The direct-R-GNN historical protocol and result interpretation are

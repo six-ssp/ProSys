@@ -1,106 +1,91 @@
 # ProSys
 
-**ProSys** is a target-product-driven framework for complete reaction-system
-recommendation. Given a target product and a predefined reaction family, it
-proposes retrosynthetic routes, retrieves feasible reagent-solvent contexts,
-ranks complete systems, and estimates temperature.
+**ProSys** is a family-conditioned, target-product-driven framework for
+complete reaction-system recommendation. Given a target product and a specified
+reaction family, it proposes retrosynthetic routes, selects feasible
+reagent-solvent contexts, ranks complete systems, and estimates temperature.
 
-## Scope
-
-- Evaluation: six Reaxys reaction families, reaction-disjoint and test-time
-  `Non-Oracle` with fixed Stage-1 route caches. The retained training and
-  validation candidate tables use reference routes; see
-  `Experiment/stage23_legality_audit_20260830.md` for the resulting
-  distribution-shift disclosure.
-- Molecular input: target-product structure only.
-- Family handling: the evaluation partition selects a family-specific expert,
-  retrieval memory, and vocabulary; the family label is not concatenated to a
-  molecular, ReaFNN, or XGBoost feature vector.
+## Maintained Mainline
 
 ```text
-target product
+target product + specified reaction family
   -> Stage 1: family-tuned EditRetro route generation
-  -> Stage 2: wide KNN retrieval + ReaFNN condition-pool selection
-  -> Stage 3: tabular XGB-LTR reranking + fixed R-GNN temperature regression
+  -> Stage 2: parallel product-Morgan KNN and ReaFNN context proposals
+  -> validation-only KNN/ReaFNN post-fusion and a 20-context route-local pool
+  -> Stage 3: tabular XGB-LTR reranking + R-GNN-assisted XGBoost temperature regression
   -> ranked route / reagent-set / solvent-set systems with temperature
 ```
 
-The R-GNN is used only by the temperature regressor. The system ranker uses a
-fixed 52-slot non-graph schema; 33 fields vary in the current historical-only
-candidate configuration and 19 retained compatibility fields are constant.
+Stage 2 is deliberately parallel. KNN retrieves up to 64 historical contexts
+from the family training split using only the target product's 4,096-bit,
+radius-2 Morgan fingerprint. ReaFNN independently scores the full
+train-only historical context library from the 8,218-dimensional route vector
+and retains its own top 64 contexts. Their union is fused by
+`w * score_KNN + (1 - w) * score_ReaFNN`; `w` is selected separately for each
+family only on persisted predicted validation routes, and the top 20 historical
+contexts per Stage-1 route are passed to Stage 3.
 
-## Current Mainline Result
+The maintained mainline does **not** use joint Stage-2/Stage-3 optimization,
+wrong-route negative-sample supervision, generated contexts, or novel
+reagent-solvent combinations. XGB-LTR ranks a fixed 52-column non-graph table.
+A separate XGBoost temperature regressor receives those tabular fields plus a
+128-dimensional R-GNN route representation; temperature never alters system
+rank or candidate membership.
 
-The official record is the post-hardening fixed-Stage-1, three-seed Stage-2/3
-robustness experiment in [`CURRENT_RESULTS.md`](CURRENT_RESULTS.md). It covers
-3,860 test identities from six families, with 3,833 candidate slates and 27
-retained no-slate identities in every seed. It measures Stage-2/3 stochastic
-variation; it does not estimate variability from retraining Stage 1.
+## Verified Parallel Result
 
-| Candidate coverage | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 54.44 +/- 0.14 | 27.12 +/- 0.37 | 36.84 +/- 0.80 | 40.47 +/- 0.77 | 44.62 +/- 0.42 | 33.28 +/- 0.48 | 34.70 +/- 0.53 |
+The current verified end-to-end record is the fixed-Stage-1, six-family,
+seed-0 parallel evaluation in
+[Experiment/stage2_parallel_post_fusion_20260901.md](Experiment/stage2_parallel_post_fusion_20260901.md).
+All rates below are equal-family macro averages over the fixed test manifest.
 
-- Fixed Stage-1 Route@10: `63.20%`
-- Conditional temperature MAE: `11.73 +/- 0.54 C`
-- Temperature within +/-5 / +/-10 / +/-20 C:
-  `40.59 +/- 0.56% / 61.80 +/- 2.36% / 83.04 +/- 1.10%`
+| Candidate recall | Sys@1 | Sys@3 | Sys@5 | Sys@10 |
+| ---: | ---: | ---: | ---: | ---: |
+| 54.10 | 23.89 | 33.72 | 38.14 | 43.44 |
 
-Temperature is evaluated only on the highest-ranked exact route-and-condition
-match with a valid temperature label. It does not affect system ranking.
-Detailed per-family and per-seed results are in
-[CURRENT_RESULTS.md](CURRENT_RESULTS.md) and
-`Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`.
+- Fixed Stage-1 Route@10: `63.20%`.
+- The parallel run includes the temperature branch, but a parallel multi-seed
+  temperature summary has not yet been aggregated; no new temperature headline
+  is claimed here.
+- The earlier serial three-seed result (`44.62 +/- 0.42%` Sys@10) and its
+  matched ablations remain historical references only. They are not numerical
+  evidence for the current parallel candidate distribution.
 
-The matched three-seed ablations attribute a +4.76 pp Sys@10 contribution
-to ReaFNN relative to KNN-only plus a re-trained ranker, and a +8.17 pp
-contribution to XGB-LTR relative to a matched-Stage-2 deterministic ordering.
-See ablation/current_mainline_matched_ablation_results_20260830.md.
-
-## Quick Start
+## Reproduction
 
 ```bash
 conda activate ProSys
 bash scripts/setup_prosys_env.sh
 python data_preprocess/audit_data_splits.py --strict
-```
 
-Build a Stage-1 route cache when needed:
-
-```bash
-python stage1_retrosynthesis/build_route_cache.py --repo_root . --family Beckmann
-```
-
-Run the maintained Stage-2/3 pipeline without overwriting archived results:
-
-```bash
-OUTPUT_ROOT=outputs/stage23_mainline_current \
+OUTPUT_ROOT=outputs/stage23_parallel_mainline \
 ROUTE_ROOT=outputs/stage1_routes \
 REAFNN_DEVICE=cuda:0 \
 GNN_DEVICE=cuda:0 \
 bash scripts/run_stage23_non_oracle_suite.sh .
 ```
 
+The maintained launcher always trains Stage-3 tables from the family reference
+train/validation splits and evaluates only on persisted Stage-1 test routes.
+The validation route cache is used only to choose the Stage-2 fusion weight.
+
 ## Repository Map
 
 | Path | Purpose |
 | --- | --- |
 | `stage1_retrosynthesis/` | EditRetro training, fine-tuning, and route caches |
-| `stage2_ReaFNN/` | KNN retrieval and ReaFNN feasible-condition selection |
-| `stage3_XGBoost/` | XGB-LTR reranking and fixed R-GNN temperature regression |
+| `stage2_ReaFNN/` | Parallel KNN/ReaFNN condition-pool construction |
+| `stage3_XGBoost/` | XGB-LTR reranking and R-GNN-assisted temperature regression |
 | `baseline/` | Reproducible comparison methods |
-| `ablation/` | Controlled component analyses |
+| `ablation/` | Controlled component analyses and historical controls |
 | `data_preprocess/` | Cleaning, normalization, splits, and audits |
-| `Experiment/` | Compact promoted result records and historical exploratory material |
+| `Experiment/` | Promoted result records and archived exploratory material |
 
 ## Documentation
 
-- [Workflow](workflow.md): complete end-to-end protocol.
-- [Performance](performance.md): current results and interpretation.
-- [Stage 2 details](stage2_ReaFNN/stage2_KNN_detail.md): candidate-pool construction.
-- [Stage 3 details](stage3_XGBoost/stage3_XGBoost_detail.md): ranking and temperature prediction.
-- [Baseline and ablation study](baseline&ablation.md): comparison scope and safeguards.
-- [Metric nomenclature](NOMENCLATURE.md): public metric names and definitions.
-
-Older analyses, gated-temperature snapshots, direct graph-ranking trials, and
-the pre-hardening 2026-08-09 snapshot are historical records only.
+- [Current result status](CURRENT_RESULTS.md)
+- [Parallel Stage-2 record](Experiment/stage2_parallel_post_fusion_20260901.md)
+- [Stage 2 details](stage2_ReaFNN/stage2_KNN_detail.md)
+- [Stage 3 details](stage3_XGBoost/stage3_XGBoost_detail.md)
+- [Baseline and ablation scope](baseline&ablation.md)
+- [Metric nomenclature](NOMENCLATURE.md)

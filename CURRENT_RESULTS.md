@@ -1,8 +1,43 @@
 # ProSys: A Product-to-System Framework for Target Product-Driven Reaction-System Recommendation
 
-## Current Mainline Results (2026-08-30)
+## Current Maintained Mainline: Parallel KNN + ReaFNN Post-Fusion (2026-09-01)
 
-**Authoritative record.** The current mainline is the post-hardening,
+**Authoritative implementation.** The maintained Stage-2 procedure is the
+parallel product-Morgan KNN + ReaFNN post-fusion workflow invoked by
+`scripts/run_stage23_non_oracle_suite.sh`. KNN and ReaFNN independently propose
+train-only historical contexts, their route-local union is fused with a
+family-specific validation-selected KNN weight, and the top 20 contexts per
+Stage-1 route are sent to the 52-feature XGB-LTR ranker. The R-GNN remains a
+128-dimensional temperature-only representation for the separate XGBoost
+regressor.
+
+The maintained workflow uses no joint Stage-2/Stage-3 optimization, no
+wrong-route negative-sample training, no route-validity auxiliary head, and no
+novel reagent-solvent context generation. Test slates always originate from
+persisted Stage-1 predictions. The KNN and ReaFNN libraries, token
+vocabularies, feature standardizers, and model fitting use only the matching
+family training split; the Stage-2 mixture weight is selected only on predicted
+validation-route caches.
+
+### Verified Six-Family Seed-0 Result
+
+The verified fixed-Stage-1 seed-0 record is
+`Experiment/stage2_parallel_post_fusion_20260901.md`. Rates are equal-family
+macro averages over the fixed test manifest.
+
+| Candidate recall | Sys@1 | Sys@3 | Sys@5 | Sys@10 |
+| ---: | ---: | ---: | ---: | ---: |
+| 54.10 | 23.89 | 33.72 | 38.14 | 43.44 |
+
+The parallel run has an enabled temperature branch, but a matching parallel
+multi-seed temperature summary has not been aggregated. Accordingly, no
+parallel temperature headline or paired parallel ablation effect is claimed.
+The serial three-seed records below remain useful historical controls but are
+not numerically interchangeable with this new candidate distribution.
+
+## Historical Serial Three-Seed Reference (2026-08-30)
+
+**Historical record.** The former serial mainline was the post-hardening,
 fixed-Stage-1, three-seed Stage 2/3 robustness experiment retained in
 `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`. It evaluates
 six families and 3,860 test identities. Stage 1 route caches are fixed across
@@ -10,7 +45,7 @@ seeds; ReaFNN, the R-GNN, and XGBoost are independently rebuilt at seeds 0, 1,
 and 2. This measures Stage 2/3 stochastic variation, not Stage 1 retraining
 variation.
 
-The official configuration uses product-Morgan KNN retrieval (radius 2, 4,096
+The former serial configuration used product-Morgan KNN retrieval (radius 2, 4,096
 bits; `K=64`; 64-context wide pool), ReaFNN 512x2 ReLU refinement with 12 KNN
 anchors, and a 20-context cap per proposed route. ReaFNN selects only from the
 retrieved historical wide pool; context augmentation and novel-combination
@@ -59,8 +94,8 @@ respectively.
 
 Detailed per-seed and per-family CSV tables, source records, and compact model
 metadata are retained with the promoted result artifact. The strongest completed
-baseline is B3 at `31.71 +/- 0.10%` Sys@10, so the current mainline has a
-descriptive `+12.91 pp` Sys@10 advantage on the fixed manifest and route cache.
+baseline is B3 at `31.71 +/- 0.10%` Sys@10, so the former serial reference
+had a descriptive `+12.91 pp` Sys@10 advantage on the fixed manifest and route cache.
 
 ## Historical Pre-Hardening Reference (2026-08-09)
 
@@ -170,9 +205,9 @@ implementation simultaneously changed R-GNN capacity to 128 dimensions and
 four message-passing layers. A matched architecture with and without a gate
 would be required for a causal gate ablation.
 
-## Evidence From Matched Current-Mainline Ablations
+## Historical Serial Matched Ablations
 
-The following component controls are aligned to the promoted product-Morgan
+The following component controls are aligned to the former serial product-Morgan
 configuration, fixed Stage 1 route caches, six-family 3,860-identity manifest,
 and seeds 0/1/2. Their compact records and audit contracts are retained in
 Experiment/current_mainline_matched_ablation_multiseed_20260830/ and are
@@ -182,7 +217,7 @@ described in ablation/current_mainline_matched_ablation_results_20260830.md.
 | --- | ---: | ---: | --- |
 | Base Stage 1 vs family-tuned Stage 1 | n/a | Route@10: 14.97% -> 63.20% | Family fine-tuning improves route availability by +48.22 pp. |
 | KNN-only + XGB-LTR vs full KNN + ReaFNN + XGB-LTR | 53.39 +/- 0.00% -> 54.44 +/- 0.14% | 39.86 +/- 2.08% -> 44.62 +/- 0.42% | With an XGB-LTR retrained on each arm's own candidate table, ReaFNN adds +1.06 pp candidate coverage and +4.76 pp Sys@10. |
-| Full Stage 2 + deterministic no-XGB-LTR vs full current mainline | 54.44 +/- 0.14% -> 54.44 +/- 0.14% | 36.45 +/- 0.08% -> 44.62 +/- 0.42% | The Stage 2 generation protocol and recorded candidate-availability metrics match per family and seed; learned XGB-LTR adds +8.17 pp Sys@10 without a measured availability gain. |
+| Full Stage 2 + deterministic no-XGB-LTR vs full historical serial reference | 54.44 +/- 0.14% -> 54.44 +/- 0.14% | 36.45 +/- 0.08% -> 44.62 +/- 0.42% | The Stage 2 generation protocol and recorded candidate-availability metrics match per family and seed; learned XGB-LTR adds +8.17 pp Sys@10 without a measured availability gain. |
 
 For the ReaFNN control, the downstream ranker is re-trained on the changed
 candidate distribution, so the comparison is not confounded by applying a
@@ -195,7 +230,7 @@ The maintained R-GNN remains a fixed input to the temperature XGBoost
 regressor only. It is not used by the 52-feature system ranker, and the table
 above makes no causal ranking claim for the R-GNN. Earlier frequency-pool and
 direct-R-GNN experiments remain archived for traceability but are not used to
-attribute effects in the current headline configuration.
+attribute effects in the historical serial configuration.
 
 ## Candidate-aware GNN Update
 
@@ -225,9 +260,9 @@ EditRetro + Reaction-GCNN were independently retrained at seeds `0`, `1`, and
 | Product-GNN | 3 seeds | 38.33 +/- 0.28 | 6.11 +/- 0.49 | 12.84 +/- 0.56 | 16.75 +/- 0.43 | 23.03 +/- 0.73 | 11.40 +/- 0.54 | 13.32 +/- 0.58 |
 | EditRetro + Sequential FNN | 3 seeds | 45.85 +/- 0.26 | 16.75 +/- 0.27 | 24.32 +/- 0.28 | 27.68 +/- 0.40 | 31.71 +/- 0.10 | 22.01 +/- 0.22 | 23.64 +/- 0.18 |
 | EditRetro + Reaction-GCNN | 3 seeds | 38.15 +/- 0.24 | 7.43 +/- 0.21 | 13.16 +/- 0.10 | 16.39 +/- 0.34 | 21.10 +/- 0.28 | 11.88 +/- 0.11 | 13.27 +/- 0.10 |
-| ProSys current mainline | 3 seeds | 54.44 +/- 0.14 | 27.12 +/- 0.37 | 36.84 +/- 0.80 | 40.47 +/- 0.77 | 44.62 +/- 0.42 | 33.28 +/- 0.48 | 34.70 +/- 0.53 |
+| ProSys historical serial reference | 3 seeds | 54.44 +/- 0.14 | 27.12 +/- 0.37 | 36.84 +/- 0.80 | 40.47 +/- 0.77 | 44.62 +/- 0.42 | 33.28 +/- 0.48 | 34.70 +/- 0.53 |
 
-B2-B4 are now matched to the mainline in replication depth and use the same
+B2-B4 are matched to the historical serial reference in replication depth and use the same
 fixed full test manifest. B1 remains a deterministic reference, not a
 pseudo-replicated stochastic model. The reaction-level split is not
 product-disjoint, which remains a required disclosure for every product-only
@@ -240,7 +275,7 @@ verified compatible checkpoint was available. It is not a zero-valued baseline.
 
 ## Audit Status
 
-- Current matched ablation audit: PASS; 36 family-seed records cover two
+- Historical serial matched-ablation audit: PASS; 36 family-seed records cover two
   three-seed controls, every arm/seed preserves the 3,860-identity denominator
   with 3,833 candidate slates and 27 no-slate failures, and all 18 no-XGB-LTR
   records exactly match the corresponding official Stage 2 candidate-pool
