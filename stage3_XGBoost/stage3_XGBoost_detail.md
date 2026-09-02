@@ -82,8 +82,7 @@ records.
 - `stage3_XGBoost/xgb_reranker.py`
 - `stage3_XGBoost/reaction_gnn_features.py`
 - `stage3_XGBoost/__init__.py`
-- `stage3_XGBoost/condition_aware_gnn.py`（探索性 candidate-aware residual）
-- `stage3_XGBoost/condition_aware_gnn_detail.md`（该分支的输入、训练、门控和结果状态）
+- `Experiment/legacy_stage3/`（已归档的 candidate-aware ranking probes，不属于主线）
 
 
 ## 2. 输入与输出
@@ -398,7 +397,7 @@ R-GNN 的训练任务是一个辅助多标签任务：
 提升阈值，因此选中 `alpha = 0`；相关 six-family auxiliary residual probe 也没有任何
 family 通过非零 residual gate。故它不改变当前 `full-system Top-k accuracy`、不修改正式输出，不能被写成
 已验证的主线增益。完整细节见
-`stage3_XGBoost/condition_aware_gnn_detail.md`。
+`Experiment/legacy_stage3/condition_aware_gnn_detail.md`。
 
 
 ## 6. 排序模型如何训练

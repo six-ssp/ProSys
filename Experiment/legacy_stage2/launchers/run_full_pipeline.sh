@@ -7,7 +7,7 @@
 #
 # Usage:
 #   conda activate ProSys
-#   bash scripts/run_full_pipeline.sh [repo_root]
+#   bash Experiment/legacy_stage2/launchers/run_full_pipeline.sh [repo_root]
 #
 # Tunables (env, with defaults):
 #   GPU_IDS              slots on the GPU for Stage 1 (repeat a device id to co-locate families)
@@ -22,7 +22,7 @@
 
 set -uo pipefail
 
-REPO_ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
+REPO_ROOT="${1:-$(cd "$(dirname "-e")/../../.." && pwd)}"
 cd "$REPO_ROOT"
 
 PYTHON_BIN="${PYTHON_BIN:-$(which python)}"
@@ -59,7 +59,7 @@ else
 fi
 
 echo "[pipeline] === Stage 2 V2 full-family batch (train + Oracle eval) ==="
-"$PYTHON_BIN" scripts/run_stage2_v2_family_batch.py \
+"$PYTHON_BIN" Experiment/legacy_stage2/launchers/run_stage2_v2_family_batch.py \
   --repo_root "$REPO_ROOT" \
   --families all \
   --output_root outputs/stage2_v2 \
@@ -72,7 +72,7 @@ echo "[pipeline] === Stage 2 V2 full-family batch (train + Oracle eval) ==="
 echo "[pipeline] Stage 2 finished exit=$? $(date)"
 
 echo "[pipeline] === hit-rate summary ==="
-"$PYTHON_BIN" scripts/summarize_hitrates.py \
+"$PYTHON_BIN" Experiment/legacy_stage2/launchers/summarize_hitrates.py \
   --repo_root "$REPO_ROOT" \
   --json_out "$PIPE_DIR/hitrate_summary.json" | tee "$PIPE_DIR/hitrate_summary.txt"
 

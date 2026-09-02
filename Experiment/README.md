@@ -39,4 +39,6 @@ of reportable mainline results.
 - `legacy_outputs/`: old baseline result trees.
 - `route_budget/`: route-budget sensitivity experiments.
 - `legacy_stage2/`: older Stage-2 code preserved for historical reproduction.
+- `legacy_stage3/`: retired ranking probes preserved for historical reproduction.
 - `legacy_tools/`: one-off rendering and helper utilities.
+- `local_archive/`: ignored local-only exploratory records and scripts.

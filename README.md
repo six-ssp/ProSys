@@ -89,3 +89,4 @@ The validation route cache is used only to choose the Stage-2 fusion weight.
 - [Stage 3 details](stage3_XGBoost/stage3_XGBoost_detail.md)
 - [Baseline and ablation scope](baseline&ablation.md)
 - [Metric nomenclature](NOMENCLATURE.md)
+- [Script map](scripts/README.md)

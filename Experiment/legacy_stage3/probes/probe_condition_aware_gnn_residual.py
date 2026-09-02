@@ -15,14 +15,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from prosys_shared.mainline import FAMILY_ORDER, evaluate_scored_frame_with_manifest, parse_families_arg
 from prosys_shared.route_cache import load_route_cache_sample_indices
 from stage3_XGBoost import score_table_with_xgb
-from stage3_XGBoost.condition_aware_gnn import (
+from Experiment.legacy_stage3.condition_aware_gnn import (
     ConditionAwareGNNConfig,
     score_condition_aware_gnn_ranker,
     train_condition_aware_gnn_ranker,

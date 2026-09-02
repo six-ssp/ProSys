@@ -234,7 +234,7 @@ attribute effects in the historical serial configuration.
 
 ## Candidate-aware GNN Update
 
-`stage3_XGBoost/condition_aware_gnn.py` adds a route-context interaction
+`Experiment/legacy_stage3/condition_aware_gnn.py` preserves a route-context interaction
 network on top of frozen 64-dimensional R-GNN features and learned reagent
 and solvent token embeddings. Its score fusion is selected on validation
 full-system Top-10 accuracy only. The completed Beckmann interaction-model pilot selected

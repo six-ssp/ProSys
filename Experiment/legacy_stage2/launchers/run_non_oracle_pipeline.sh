@@ -8,14 +8,14 @@
 #
 # Usage:
 #   conda activate ProSys
-#   bash scripts/run_non_oracle_pipeline.sh [repo_root]
+#   bash Experiment/legacy_stage2/launchers/run_non_oracle_pipeline.sh [repo_root]
 #
 # Tunables (env): FAMILIES (comma/space list; default all with a finetune ckpt),
 #   AUG, TOPK, REPOS_BEAM, TOKEN_BEAM, N_BEST, GEN_DEVICE, EVAL_DEVICE, MAX_PRODUCTS.
 
 set -uo pipefail
 
-REPO_ROOT="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
+REPO_ROOT="${1:-$(cd "$(dirname "-e")/../../.." && pwd)}"
 cd "$REPO_ROOT"
 
 PYTHON_BIN="${PYTHON_BIN:-$(which python)}"
@@ -64,12 +64,12 @@ done
 
 # Phase 2: Stage 2 Non-Oracle evaluation (all families with a cache).
 echo "[non-oracle-pipeline] Non-Oracle evaluation $(date)"
-"$PYTHON_BIN" scripts/run_stage2_v2_non_oracle.py \
+"$PYTHON_BIN" Experiment/legacy_stage2/launchers/run_stage2_v2_non_oracle.py \
   --repo_root "$REPO_ROOT" --families all --device "$EVAL_DEVICE"
 
 # Phase 3: combined summary.
 echo "[non-oracle-pipeline] summary $(date)"
-"$PYTHON_BIN" scripts/summarize_hitrates.py \
+"$PYTHON_BIN" Experiment/legacy_stage2/launchers/summarize_hitrates.py \
   --repo_root "$REPO_ROOT" \
   --json_out stage1_retrosynthesis/results/full_pipeline/hitrate_summary.json \
   | tee stage1_retrosynthesis/results/full_pipeline/hitrate_summary.txt

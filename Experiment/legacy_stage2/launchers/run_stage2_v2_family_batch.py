@@ -10,9 +10,9 @@ import time
 from concurrent.futures import Future, ProcessPoolExecutor
 from pathlib import Path
 
-# Make the repo root importable when invoked as `python scripts/run_stage2_v2_family_batch.py`
+# Make the repo root importable when invoked as `python Experiment/legacy_stage2/launchers/run_stage2_v2_family_batch.py`
 # (running a script puts scripts/ on sys.path, not the repo root that holds the archived legacy package).
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 

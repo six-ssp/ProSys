@@ -30,8 +30,8 @@ can receive different GNN residual scores.
 
 Source files:
 
-- `stage3_XGBoost/condition_aware_gnn.py`
-- `scripts/probe_condition_aware_gnn_residual.py`
+- `Experiment/legacy_stage3/condition_aware_gnn.py`
+- `Experiment/legacy_stage3/probes/probe_condition_aware_gnn_residual.py`
 - `outputs/condition_aware_gnn_probe_20260803/`
 
 ## Inputs and vocabulary

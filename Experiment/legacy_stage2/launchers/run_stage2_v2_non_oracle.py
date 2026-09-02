@@ -10,7 +10,7 @@ Oracle-trained Stage 2 checkpoint:
     -> run_stage2_v2_eval(mode='non_oracle')  [+ Stage 1 route-recall from the cache]
 
 Prereqs: stage1_retrosynthesis/build_route_cache.py has produced outputs/stage1_routes/<family>/route_cache.json,
-and scripts/run_stage2_v2_family_batch.py has produced the family's memory/ and train/best_model.pt.
+and Experiment/legacy_stage2/launchers/run_stage2_v2_family_batch.py has produced the family's memory/ and train/best_model.pt.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import json
 import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 

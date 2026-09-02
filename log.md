@@ -1,5 +1,12 @@
 # ProSys Development Log
 
+## 2026-09-02 - mainline organization and archival
+
+- Confirmed the maintained Stage 2/3 path is parallel product-Morgan KNN plus ReaFNN post-fusion, then tabular XGB-LTR with a separate R-GNN-assisted temperature regressor.
+- Moved candidate-aware GNN ranking code and its three negative-result probes to `Experiment/legacy_stage3/`; they are not imported by the maintained pipeline.
+- Added `scripts/README.md` and `Experiment/local_archive/README.md` to distinguish active entrypoints, tracked history, and local-only exploratory material.
+- No end-to-end metric was recomputed during this organization pass.
+
 ## 2026-08-31 - matched current-mainline component ablations
 
 - Completed Experiment/current_mainline_matched_ablation_multiseed_20260830/:

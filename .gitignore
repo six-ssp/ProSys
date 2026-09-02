@@ -67,3 +67,7 @@ Experiment/notebooks/
 Experiment/legacy_outputs/
 Experiment/route_budget/
 Experiment/legacy_tools/
+
+# Local-only retired exploratory material. The archive index remains tracked.
+Experiment/local_archive/*
+!Experiment/local_archive/README.md
