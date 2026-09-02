@@ -219,6 +219,15 @@ def _has_stage2_correction_fields(frame: pd.DataFrame) -> bool:
     }.issubset(frame.columns)
 
 
+def _has_fixed_stage2_post_fusion(frame: pd.DataFrame) -> bool:
+    """Whether Stage 2 already chose a validation-calibrated fusion score."""
+
+    if 'stage2_post_fusion_enabled' not in frame.columns:
+        return False
+    marker = pd.to_numeric(frame['stage2_post_fusion_enabled'], errors='coerce').fillna(0.0)
+    return bool((marker > 0.5).any())
+
+
 def _apply_stage2_correction_weight(
     frame: pd.DataFrame,
     correction_weight: float | None,
@@ -252,6 +261,14 @@ def _select_stage2_correction_calibration(val_frame: pd.DataFrame) -> dict:
             'selection_metric': 'system_top10_all',
             'tie_break_metric': 'system_top1_all',
             'reason': 'missing_validation_scores',
+        }
+    if _has_fixed_stage2_post_fusion(val_frame):
+        return {
+            'enabled': False,
+            'selected_weight': None,
+            'selection_metric': 'system_top10_all',
+            'tie_break_metric': 'system_top1_all',
+            'reason': 'fixed_validation_selected_stage2_post_fusion',
         }
     if not _has_stage2_correction_fields(val_frame):
         return {

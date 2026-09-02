@@ -1,5 +1,11 @@
 # Current Mainline Matched Ablation Results
 
+## Historical Serial Scope
+
+This artifact is paired only to the former serial wide-pool candidate distribution.
+It is retained for auditability, but it is not an ablation of the maintained
+parallel KNN + ReaFNN post-fusion mainline.
+
 Status: completed and independently audited
 Result artifact: Experiment/current_mainline_matched_ablation_multiseed_20260830/
 Execution entry point: scripts/run_current_mainline_matched_ablations.py
@@ -9,7 +15,7 @@ Execution entry point: scripts/run_current_mainline_matched_ablations.py
 These experiments isolate the contributions of the maintained Stage 2 and Stage
 3 modules under the exact promoted product-Morgan mainline. They are not
 historical point snapshots. Each test sample is evaluated through the same
-persisted family-specific Stage 1 route cache used by the official mainline.
+persisted family-specific Stage 1 route cache used by the historical serial reference.
 
 The two questions are deliberately separated:
 
@@ -85,7 +91,7 @@ coverage or Sys@k.
 
 | Method | Candidate coverage | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Full current mainline | 54.44 +/- 0.14 | 27.12 +/- 0.37 | 36.84 +/- 0.80 | 40.47 +/- 0.77 | 44.62 +/- 0.42 | 33.28 +/- 0.48 | 34.70 +/- 0.53 |
+| Full historical serial reference | 54.44 +/- 0.14 | 27.12 +/- 0.37 | 36.84 +/- 0.80 | 40.47 +/- 0.77 | 44.62 +/- 0.42 | 33.28 +/- 0.48 | 34.70 +/- 0.53 |
 | KNN-only + XGB-LTR | 53.39 +/- 0.00 | 22.72 +/- 1.86 | 31.44 +/- 2.45 | 35.19 +/- 2.23 | 39.86 +/- 2.08 | 28.63 +/- 1.98 | 29.85 +/- 2.05 |
 | Full Stage 2 + deterministic no-XGB-LTR | 54.44 +/- 0.14 | 24.87 +/- 0.35 | 32.23 +/- 0.14 | 34.27 +/- 0.11 | 36.45 +/- 0.08 | 29.56 +/- 0.20 | 30.35 +/- 0.12 |
 
@@ -96,7 +102,7 @@ coverage or Sys@k.
 
 ## 5. Family-Resolved Sys@10
 
-| Family | KNN-only + XGB-LTR | Full Stage 2 + deterministic no-XGB-LTR | Full current mainline |
+| Family | KNN-only + XGB-LTR | Full Stage 2 + deterministic no-XGB-LTR | Full historical serial reference |
 | --- | ---: | ---: | ---: |
 | Beckmann | 24.96 +/- 3.57 | 27.23 +/- 1.13 | 29.36 +/- 1.13 |
 | Buchwald-Hartwig | 49.59 +/- 0.40 | 38.25 +/- 0.14 | 52.65 +/- 0.14 |

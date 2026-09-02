@@ -1,79 +1,69 @@
 # Stage 3 XGB-LTR 重排 + 统一 R-GNN 温度预测
 
-更新日期：`2026-08-30`
+更新日期：`2026-09-01`
 
-## Current Mainline Interface: XGB-LTR + Temperature-Only R-GNN
+## Current Mainline Interface: Parallel-Stage-2 XGB-LTR + Temperature-Only R-GNN
 
-> **Authoritative scope.** This section describes the promoted six-family,
-> fixed-Stage-1, three-seed Stage 2/3 result in
-> `Experiment/stage23_product_morgan_reafnn_multiseed_20260830/`. The
-> fixed-core wording below belongs only to a historical control.
+> **Authoritative scope.** Stage 3 now consumes the parallel KNN + ReaFNN
+> post-fusion candidate distribution specified in
+> `stage2_ReaFNN/stage2_KNN_detail.md`. Earlier serial Stage 2/3 figures and
+> no-XGB ablations remain historical controls; they do not quantify the current
+> candidate distribution.
 
-- Stage 2 builds a product-Morgan KNN wide pool of 64 retrieved historical
-  contexts, retains 12 KNN anchors, and uses ReaFNN bounded refinement to fill
-  the remaining positions from that same pool. The final cap is 20 contexts per
-  Stage 1 route; generated and novel contexts are disabled.
-- XGB-LTR ranks each route-context candidate using an explicit 52-column
-  tabular non-graph schema. It excludes `route_gnn_feat_*` and the bounded
-  Stage 2 correction columns. Nineteen legacy compatibility fields are
-  zero-variance in the current historical-pool configuration, so 33 fields vary
-  in the evaluated tables; 52 is the fixed schema count.
-- Temperature uses a separate 180-column XGBoost regressor: the same 52
-  tabular fields plus 128 R-GNN route features from a four-step message-passing
-  encoder. This branch predicts temperature only and never changes candidate
-  membership or a ranking score.
-- ReaFNN, R-GNN, and XGBoost are rebuilt at seeds 0/1/2. KNN retrieval, route
-  caches, splits, vocabularies, and validation-only score fusion are fixed.
+- Stage 2 independently supplies up to 64 product-Morgan KNN contexts and 64
+  ReaFNN-scored historical contexts, fuses their rank priors using a
+  validation-selected family-specific mixture, and retains the top 20 contexts
+  per Stage 1 route. Generated and novel contexts remain disabled.
+- XGB-LTR ranks each route-context candidate with the fixed 52-column tabular,
+  non-graph schema. It excludes `route_gnn_feat_*` and Stage 2 score-calibration
+  columns so it cannot relearn a validation-selected mixture from a test label.
+  The final score is the route-wise standardized XGB-LTR score plus a
+  deterministic Stage 2 prior; its nonnegative fusion coefficient is selected
+  on validation only and never changes candidate membership.
+- Temperature remains a separate 180-column XGBoost regressor: the 52 tabular
+  fields plus 128 R-GNN route features from a four-step message-passing encoder.
+  It predicts temperature only and never changes candidate membership or rank.
+- Test candidate slates always originate from persisted Stage 1 predictions.
+  Training memory is family-train-only, and the ordinary ranked training table
+  uses canonical leave-one-reaction-out retrieval where required.
 
-The current macro result is candidate coverage `54.44 +/- 0.14%` and
-Sys@1/3/5/10 `27.12 +/- 0.37% / 36.84 +/- 0.80% / 40.47 +/- 0.77% /
-44.62 +/- 0.42%`. MRR and nDCG@10 are `33.28 +/- 0.48%` and
-`34.70 +/- 0.53%`. Conditional temperature MAE is `11.73 +/- 0.54 C`, with
-within +/-5 / +/-10 / +/-20 C rates of
-`40.59 +/- 0.56% / 61.80 +/- 2.36% / 83.04 +/- 1.10%`.
+The latest matched seed-0 parallel record is
+`Experiment/stage2_parallel_post_fusion_20260901.md` (54.10% candidate recall,
+43.44% macro Sys@10). Joint route-contrastive optimization and wrong-route
+negative-sample supervision were retired after exploratory checks; neither is
+part of the maintained XGB-LTR training or the reported parallel result.
 
-The test pool uses persisted Stage 1 route predictions. Training and validation
-candidate tables use reference split routes; the recorded limitation and
-canonical leave-one-reaction-out safeguard are documented in
-`Experiment/stage23_legality_audit_20260830.md`. The reportable tables and
-compact metadata are in `CURRENT_RESULTS.md` and the promoted result artifact.
+### Historical serial XGB-LTR ablation
 
-### Current matched XGB-LTR ablation
-
-The current no-XGB-LTR arm preserves the full ReaFNN Stage 2 generation
-configuration and replaces only learned ranking with a deterministic Stage 1/2 prior. Its
-candidate coverage is therefore exactly the same as the full system,
-54.44 +/- 0.14%, while macro Sys@10 falls from 44.62 +/- 0.42% to
-36.45 +/- 0.08% (-8.17 pp). Sys@1, Sys@3, Sys@5, MRR, and nDCG@10 also
-decrease by 2.25, 4.61, 6.20, 3.71, and 4.34 pp, respectively.
-
-For each family and seed, the runner verifies that the Stage 2 protocol and
-candidate-coverage fields are identical to the official mainline before scoring
-the deterministic order. This makes the difference direct evidence for
-XGB-LTR's ranking value under a matched Stage 2 procedure, not a measured
-Stage 2 availability change. See
-ablation/current_mainline_matched_ablation_results_20260830.md for the sort
-keys, per-family results, and audit contracts.
+The serial 2026-08-30 system's 44.62 +/- 0.42% Sys@10 and its no-XGB-LTR
+comparison are valid only for the former anchor-and-correction Stage 2 pool.
+They remain in `ablation/current_mainline_matched_ablation_results_20260830.md`
+for traceability and must not be reported as an ablation of the parallel pool.
 
 ## Historical Core-Check Interface (B Controlled Arm)
 
-> **排序边界。** 默认 Stage 2 固定 KNN top-20 候选成员；ReaFNN 只提供有界的初始次序校正，不能增加或删除 Stage 3 的候选行。
+> **排序边界。** 此历史控制中 Stage 2 固定 KNN top-20 候选成员；ReaFNN 只提供有界的初始次序校正，不能增加或删除 Stage 3 的候选行。
 
 - `stage2_knn_prior`、`stage2_reafnn_check_score`、`stage2_reafnn_residual` 和 `stage2_initial_score` 都是训练 memory 与 query 生成的推理特征，不含 gold label。
-> **Historical scope.** The fixed-core interface below applies to the B core-check control. Its references to the default Stage 2 policy do not override the Product-Morgan constrained-refinement mainline above.
+> **Historical scope.** The fixed-core interface below applies to the B core-check control. Its references to the default Stage 2 policy do not override the parallel post-fusion mainline above.
 
 - `XGBRanker` 保持 52 维非图特征空间，并显式排除全部上述校正字段；R-GNN 也仍只服务温度回归。
 - 对每个 family，Stage 3 仅在 validation split 上从 `alpha in {0, 0.05, ..., 0.40}` 选择 ReaFNN 校正强度，再选择 XGB 分数与 Stage 2 prior 的融合权重，优化顺序为 Sys@10 后 Sys@1。
 - 如果校正无帮助，验证集可选择 `alpha = 0`；测试标签不参与 alpha 或融合权重选择。
-- The following fixed-core material is retained as a historical B control. It does not override the promoted three-seed wide-pool mainline.
+- The following fixed-core material is retained as a historical B control. It does not override the maintained parallel post-fusion mainline.
 
 ### Historical Core-Check Note
 
 The historical fixed-core configuration and the pre-hardening 2026-08-09 output
-are retained below only for controlled-ablation traceability. The official
-three-seed system and temperature results are the 2026-08-30 compact artifact
-and `CURRENT_RESULTS.md`; do not mix their values with historical point or
-pre-hardening tables.
+are retained below only for controlled-ablation traceability. Do not mix their
+values, or the serial 2026-08-30 values, with the parallel post-fusion result
+records.
+
+## Archived Serial Reference Details
+
+> The detailed serial correction and calibration material below is retained for
+> legacy-control traceability. The maintained parallel interface is the one
+> specified at the top of this document.
 
 ## 1. 模块目标
 
@@ -657,18 +647,19 @@ Stage 3 训练输出目录下会保存：
 
 ## 10. 与主线 pipeline 的关系
 
-在当前主线里：
+在维护中的并行主线里：
 
 1. Stage 1 提供路线候选
-2. Stage 2 `KNN + ReaFNN` 提供可行条件候选池
-3. Stage 3 的无图 `XGBRanker` 对候选池重排
-4. 同规格的 R-GNN 表征和温度 `XGBRegressor` 为每个 family 输出温度预测
+2. KNN 与 ReaFNN 独立提出 train-only historical contexts，并在 Stage 2 后融合
+3. Stage 3 的无图 `XGBRanker` 对固定融合候选池重排
+4. R-GNN 表征和温度 `XGBRegressor` 为每个 family 输出温度预测
 
 所以当前主线更准确的真实含义是：
 
-- `KNN` 负责把“像的历史反应”找出来
-- `ReaFNN` 保留 12 个 KNN anchors，并在同一历史宽池中校正其余候选的初始优先级
-- tabular `XGB-LTR` 负责在这些候选里“把最像真的排前面”
+- `KNN` 负责从 product-only Morgan 近邻提出历史先例
+- `ReaFNN` 独立从完整历史条件库提出 token-compatible contexts
+- validation-only 后融合决定二者对每条路线初始候选池的相对权重
+- tabular `XGB-LTR` 负责在固定候选池中“把最像真的排前面”
 - `R-GNN` 固定提供反应结构表示，温度 `XGBRegressor` 将其与路线和候选条件特征联合建模
 
 不是简单的两个模型串起来，而是一个典型的：
@@ -766,9 +757,9 @@ Stage 3 XGB-LTR 的核心收益不是提升 candidate pool 覆盖率，而是：
 保留结构 encoder，但只把它输入所有家族固定使用的温度分支；新的统一实现见下一节。
 
 
-## 15. 当前统一温度实现与验证状态
+## 15. Historical Serial Temperature Implementation and Validation
 
-当前主线在 `scripts/run_stage23_mainline_non_oracle.py` 中执行两个固定头：
+历史串联主线在 `scripts/run_stage23_mainline_non_oracle.py` 中执行两个固定头：
 
 1. 排序头：从显式排除全部 `route_gnn_feat_*` 的 candidate table 训练 `XGBRanker`，并在
    validation 上选择 Stage 2 heuristic 融合权重。
@@ -780,7 +771,7 @@ Stage 3 XGB-LTR 的核心收益不是提升 candidate pool 覆盖率，而是：
 它只给温度回归器补充从 `(reactants, product)` 提取的结构表征。温度指标仍只在
 最高排名的完整命中候选且温度标签有效时计算。
 
-正式六家族、三随机种子复现已经完成。固定 Stage 1 的宏平均结果为：
+历史串联六家族、三随机种子复现已经完成。固定 Stage 1 的宏平均结果为：
 
 - `full-system Top-1 accuracy = 27.12 +/- 0.37%`
 - `full-system Top-3 accuracy = 36.84 +/- 0.80%`

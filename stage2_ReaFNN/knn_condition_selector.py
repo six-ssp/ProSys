@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import argparse
+import json
 from collections import defaultdict
 from pathlib import Path
 
@@ -24,12 +25,17 @@ from prosys_shared.features import (
 )
 from prosys_shared.mainline import (
     base_candidate_row,
+    load_gold_condition_index,
     load_route_records,
     load_split_rows,
     split_file_for_family,
 )
 from prosys_shared.product_memory import normalize_condition_labels, safe_float
-from prosys_shared.route_cache import RouteRecord, load_route_records_from_cache
+from prosys_shared.route_cache import (
+    RouteRecord,
+    load_route_cache_sample_indices,
+    load_route_records_from_cache,
+)
 from .reafnn_selector import (
     ReaFNNConfig,
     ReaFNNSelector,
@@ -79,6 +85,7 @@ class KNNContextPoolBuilder:
         reaffn_device: str = 'cpu',
         reaffn_force_retrain: bool = False,
         reaffn_config: ReaFNNConfig | None = None,
+        post_fusion_validation_route_cache: Path | None = None,
         parallel_workers: int = 1,
         sparse_similarity: bool = False,
     ):
@@ -101,6 +108,10 @@ class KNNContextPoolBuilder:
         self._product_similarity_cache: dict[str, np.ndarray] = {}
         self._product_similarity_cache_limit = 2048
         self.parallel_workers = max(1, int(parallel_workers))
+        self.post_fusion_validation_route_cache = (
+            Path(post_fusion_validation_route_cache)
+            if post_fusion_validation_route_cache is not None else None
+        )
 
         train_split = split_file_for_family(self.repo_root, self.family, 'train')
         val_split = split_file_for_family(self.repo_root, self.family, 'val')
@@ -129,6 +140,8 @@ class KNNContextPoolBuilder:
 
 
         self.reaffn_selector: ReaFNNSelector | None = None
+        self.post_fusion_calibration: dict | None = None
+        self._post_fusion_selected_weight: float | None = None
         if self.reaffn_artifact_dir is not None:
             config = reaffn_config or ReaFNNConfig(
                 fpsize=self.fpsize,
@@ -147,6 +160,15 @@ class KNNContextPoolBuilder:
                 context_library=build_default_context_library(train_split),
                 device=reaffn_device,
             )
+            if self.reaffn_selector.config.enable_independent_post_fusion:
+                self.post_fusion_calibration = self._load_or_select_post_fusion_weight(
+                    val_split=val_split,
+                    validation_route_cache=self.post_fusion_validation_route_cache,
+                    force_recalibration=reaffn_force_retrain,
+                )
+                self._post_fusion_selected_weight = float(
+                    self.post_fusion_calibration['selected_knn_weight']
+                )
 
     @property
     def _retrieval_feature_dim(self) -> int:
@@ -523,6 +545,342 @@ class KNNContextPoolBuilder:
             row['stage2_initial_score'] = float(knn_prior + correction)
         return work
 
+
+    @staticmethod
+    def _context_key(row: dict) -> tuple[str, str]:
+        return str(row['reagent_norm']), str(row['solvent_norm'])
+
+    @staticmethod
+    def _post_fusion_weight_grid(raw: str) -> list[float]:
+        values: list[float] = []
+        for item in str(raw).replace(';', ',').split(','):
+            item = item.strip()
+            if not item:
+                continue
+            value = float(item)
+            if not 0.0 <= value <= 1.0:
+                raise ValueError('ReaFNN post-fusion weights must lie in [0, 1].')
+            if value not in values:
+                values.append(value)
+        if not values:
+            raise ValueError('ReaFNN post-fusion weight grid must not be empty.')
+        return sorted(values)
+
+    @staticmethod
+    def _rank_prior(index: int, total: int) -> float:
+        return 1.0 - (float(index) / float(max(total - 1, 1)))
+
+    def _independent_reafnn_contexts(
+        self,
+        record: RouteRecord,
+        *,
+        leave_one_reaction_out: bool,
+        lookup_keys: set[tuple[str, str]],
+    ) -> tuple[dict[tuple[str, str], dict], list[dict]]:
+        """Retain ReaFNN's top slice and only KNN-overlap score rows.
+
+        The full historical library is still scored. Materializing every row is
+        unnecessary because the fusion union only needs ReaFNN's own top slice
+        plus values for contexts contributed by KNN.
+        """
+
+        if self.reaffn_selector is None:
+            return {}, []
+
+        excluded, remaining_total = self._excluded_context_stats(
+            record,
+            leave_one_reaction_out=leave_one_reaction_out,
+        )
+        historical_contexts = self._fallback_contexts(
+            excluded=excluded,
+            remaining_total=remaining_total,
+            limit=len(self.global_contexts),
+        )
+        contexts = [
+            {
+                **context,
+                'from_reafnn_generated': 1,
+                'from_reafnn_novel': 0,
+                'reafnn_is_historical': 1,
+            }
+            for context in historical_contexts
+        ]
+        top_count = min(
+            int(self.reaffn_selector.config.independent_contexts),
+            len(contexts),
+        )
+        scored_by_key, selected = self.reaffn_selector.select_historical_contexts(
+            record.reactants,
+            record.product,
+            contexts,
+            lookup_keys=lookup_keys,
+            top_k=top_count,
+        )
+        ranked_selected: list[dict] = []
+        for index, row in enumerate(selected):
+            work = dict(row)
+            work['stage2_reafnn_rank'] = int(index + 1)
+            work['stage2_reafnn_check_score'] = self._rank_prior(index, top_count)
+            ranked_selected.append(work)
+        scored_by_key.update(
+            {self._context_key(row): row for row in ranked_selected}
+        )
+        return scored_by_key, ranked_selected
+
+    def _independent_post_fusion_state(
+        self,
+        record: RouteRecord,
+        *,
+        leave_one_reaction_out: bool,
+    ) -> list[dict]:
+        """Build the KNN/ReaFNN union before applying a fusion weight.
+
+        Each model contributes its own top-M historical contexts. Scores are
+        rank-normalized within that model's output list, so the convex fusion
+        has a stable and directly interpretable [0, 1] scale.
+        """
+
+        if self.reaffn_selector is None:
+            return []
+        config = self.reaffn_selector.config
+        wide_knn = self._annotate_knn_prior(self._aggregate_knn_contexts(
+            record,
+            limit=self.prefilter_contexts,
+            leave_one_reaction_out=leave_one_reaction_out,
+        ))
+        knn_by_key = {self._context_key(row): row for row in wide_knn}
+        reafnn_by_key, selected_reafnn = self._independent_reafnn_contexts(
+            record,
+            leave_one_reaction_out=leave_one_reaction_out,
+            lookup_keys=set(knn_by_key),
+        )
+        selected_reafnn_by_key = {self._context_key(row): row for row in selected_reafnn}
+
+        ordered_keys = [self._context_key(row) for row in wide_knn]
+        ordered_keys.extend(
+            key for key in (self._context_key(row) for row in selected_reafnn)
+            if key not in knn_by_key
+        )
+        rows: list[dict] = []
+        for key in ordered_keys:
+            knn_row = knn_by_key.get(key)
+            reafnn_row = reafnn_by_key.get(key)
+            selected_reafnn_row = selected_reafnn_by_key.get(key)
+            if reafnn_row is None:
+                # This only occurs if a leave-one-out adjustment removes an
+                # otherwise retrieved context. Keep the KNN row usable.
+                work = dict(knn_row or {})
+            else:
+                work = dict(reafnn_row)
+            if knn_row is not None:
+                for field in (
+                    'knn_similarity_sum',
+                    'knn_similarity_max',
+                    'knn_neighbor_count',
+                    'knn_weighted_mean_yield',
+                    'context_count',
+                    'context_support',
+                    'mean_yield',
+                    'stage2_knn_rank',
+                    'stage2_knn_prior',
+                ):
+                    work[field] = knn_row.get(field, 0.0)
+            else:
+                work.update({
+                    'knn_similarity_sum': 0.0,
+                    'knn_similarity_max': 0.0,
+                    'knn_neighbor_count': 0.0,
+                    'knn_weighted_mean_yield': float(work.get('mean_yield', 0.0)),
+                    'stage2_knn_rank': 0,
+                    'stage2_knn_prior': 0.0,
+                })
+
+            knn_score = float(work.get('stage2_knn_prior', 0.0))
+            reafnn_score = float(
+                selected_reafnn_row.get('stage2_reafnn_check_score', 0.0)
+                if selected_reafnn_row is not None else 0.0
+            )
+            work.update({
+                'from_baseline_knn': int(knn_row is not None),
+                'from_reafnn_generated': int(selected_reafnn_row is not None),
+                'from_reafnn_novel': 0,
+                'reafnn_is_historical': 1,
+                'stage2_reafnn_rank': int(
+                    selected_reafnn_row.get('stage2_reafnn_rank', 0)
+                    if selected_reafnn_row is not None else 0
+                ),
+                'stage2_knn_score': knn_score,
+                'stage2_reafnn_score': reafnn_score,
+                'stage2_reafnn_check_score': reafnn_score,
+                'stage2_post_fusion_enabled': 1,
+                'stage2_post_fusion_context_limit': int(config.independent_contexts),
+            })
+            rows.append(work)
+        return rows
+
+    def _select_independent_post_fusion_contexts(
+        self,
+        state: list[dict],
+        *,
+        knn_weight: float,
+    ) -> list[dict]:
+        """Apply `w * KNN + (1 - w) * ReaFNN` to a precomputed union."""
+
+        if not 0.0 <= float(knn_weight) <= 1.0:
+            raise ValueError('KNN post-fusion weight must lie in [0, 1].')
+        work: list[dict] = []
+        for row in state:
+            candidate = dict(row)
+            knn_score = float(candidate.get('stage2_knn_score', candidate.get('stage2_knn_prior', 0.0)))
+            reafnn_score = float(candidate.get('stage2_reafnn_score', 0.0))
+            fused_score = (float(knn_weight) * knn_score) + ((1.0 - float(knn_weight)) * reafnn_score)
+            candidate.update({
+                'stage2_post_fusion_weight': float(knn_weight),
+                'stage2_post_fusion_score': float(fused_score),
+                # Preserve the score selected at Stage 2. Stage 3 recognizes
+                # the marker and does not replace it with residual calibration.
+                'stage2_initial_score': float(fused_score),
+                'stage2_reafnn_residual': float(reafnn_score - knn_score),
+                'stage2_reafnn_correction': 0.0,
+                'stage2_reafnn_correction_clip': 0.0,
+            })
+            work.append(candidate)
+        work.sort(key=self._initial_score_sort_key)
+        return work[:self.max_contexts]
+
+    def _post_fusion_protocol(self) -> dict:
+        if self.reaffn_selector is None:
+            return {}
+        return {
+            'family': self.family,
+            'retrieval_mode': self.retrieval_mode,
+            'knn_top_k': int(self.top_k),
+            'knn_contexts': int(self.prefilter_contexts),
+            'reafnn_contexts': int(self.reaffn_selector.config.independent_contexts),
+            'max_contexts': int(self.max_contexts),
+            'weight_grid': self._post_fusion_weight_grid(
+                self.reaffn_selector.config.post_fusion_weight_grid
+            ),
+            'selection_metric': 'validation_stage2_candidate_coverage',
+            'validation_route_source': self.reaffn_selector.config.post_fusion_validation_source,
+            'tie_break': 'larger_knn_weight',
+        }
+
+    def _route_matches_gold(self, record: RouteRecord, gold_index: dict) -> bool:
+        product_key = canonicalize_smiles(record.product)
+        route_key = canonicalize_reaction_side(record.reactants)
+        if not product_key or not route_key:
+            return False
+        bucket = gold_index.get((str(record.reaction_id), product_key))
+        return bucket is not None and route_key in bucket.route_keys
+
+    def _is_exact_context_hit(
+        self,
+        record: RouteRecord,
+        candidates: list[dict],
+        gold_index: dict,
+    ) -> bool:
+        product_key = canonicalize_smiles(record.product)
+        route_key = canonicalize_reaction_side(record.reactants)
+        if not product_key or not route_key:
+            return False
+        bucket = gold_index.get((str(record.reaction_id), product_key))
+        if bucket is None:
+            return False
+        return any(
+            (route_key, str(row['reagent_norm']), str(row['solvent_norm'])) in bucket.exact_keys
+            for row in candidates
+        )
+
+    def _load_or_select_post_fusion_weight(
+        self,
+        *,
+        val_split: Path,
+        validation_route_cache: Path | None,
+        force_recalibration: bool,
+    ) -> dict:
+        """Tune the Stage 2 mixture on validation routes only, never test data."""
+
+        if self.reaffn_selector is None or self.reaffn_artifact_dir is None:
+            raise RuntimeError('Independent post-fusion requires a trained ReaFNN selector.')
+        protocol = self._post_fusion_protocol()
+        calibration_file = self.reaffn_artifact_dir / 'post_fusion_calibration.json'
+        if calibration_file.exists() and not force_recalibration:
+            cached = json.loads(calibration_file.read_text(encoding='utf-8'))
+            if cached.get('protocol') == protocol and cached.get('selected_knn_weight') in protocol['weight_grid']:
+                return cached
+
+        if validation_route_cache is None:
+            records = load_route_records(val_split, family=self.family)
+            expected_sample_indices = {int(record.sample_index) for record in records}
+        else:
+            if not validation_route_cache.exists():
+                raise FileNotFoundError(
+                    f'Post-fusion validation route cache is missing: {validation_route_cache}'
+                )
+            records = load_route_records_from_cache(validation_route_cache, family=self.family)
+            expected_sample_indices = set(load_route_cache_sample_indices(validation_route_cache))
+        gold_index = load_gold_condition_index(val_split)
+        # A route that differs from every gold reactant set cannot produce a
+        # full system hit under any condition pool. Excluding it here leaves
+        # the candidate-coverage objective unchanged while avoiding needless
+        # full-library ReaFNN scoring for the remaining wrong routes.
+        matchable_records = [
+            record for record in records
+            if self._route_matches_gold(record, gold_index)
+        ]
+        states = [
+            (record, self._independent_post_fusion_state(record, leave_one_reaction_out=False))
+            for record in matchable_records
+        ]
+        candidates: list[dict] = []
+        best_weight = 0.0
+        best_coverage = float('-inf')
+        for weight in protocol['weight_grid']:
+            hit_sample_indices = {
+                int(record.sample_index)
+                for record, state in states
+                if self._is_exact_context_hit(
+                    record,
+                    self._select_independent_post_fusion_contexts(state, knn_weight=float(weight)),
+                    gold_index,
+                )
+            }
+            hits = len(hit_sample_indices)
+            coverage = (
+                float(hits) / float(len(expected_sample_indices))
+                if expected_sample_indices else 0.0
+            )
+            candidates.append({
+                'knn_weight': float(weight),
+                'reafnn_weight': float(1.0 - float(weight)),
+                'validation_exact_candidate_hits': int(hits),
+                'validation_route_records': int(len(records)),
+                'validation_matchable_route_records': int(len(matchable_records)),
+                'validation_sample_identities': int(len(expected_sample_indices)),
+                'validation_stage2_candidate_coverage': coverage,
+            })
+            if coverage > best_coverage + 1e-12 or (
+                abs(coverage - best_coverage) <= 1e-12 and float(weight) > best_weight
+            ):
+                best_weight = float(weight)
+                best_coverage = coverage
+
+        calibration = {
+            'protocol': protocol,
+            'selected_knn_weight': best_weight,
+            'selected_reafnn_weight': float(1.0 - best_weight),
+            'validation_stage2_candidate_coverage': best_coverage,
+            'validation_route_records': int(len(records)),
+            'validation_matchable_route_records': int(len(matchable_records)),
+            'validation_sample_identities': int(len(expected_sample_indices)),
+            'weight_candidates': candidates,
+            'data_boundary': 'family_train_for_context_memory_and_family_validation_for_weight_selection',
+        }
+        calibration_file.parent.mkdir(parents=True, exist_ok=True)
+        calibration_file.write_text(json.dumps(calibration, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+        return calibration
+
     @staticmethod
     def _initial_score_sort_key(row: dict) -> tuple:
         knn_rank = int(row.get('stage2_knn_rank', 0) or 0)
@@ -600,6 +958,17 @@ class KNNContextPoolBuilder:
             return knn_core
 
         config = self.reaffn_selector.config
+        if config.enable_independent_post_fusion:
+            if self._post_fusion_selected_weight is None:
+                raise RuntimeError('Independent ReaFNN post-fusion has no selected validation weight.')
+            state = self._independent_post_fusion_state(
+                record,
+                leave_one_reaction_out=leave_one_reaction_out,
+            )
+            return self._select_independent_post_fusion_contexts(
+                state,
+                knn_weight=self._post_fusion_selected_weight,
+            )
         if config.enable_knn_wide_refinement and config.enable_context_augmentation:
             raise ValueError('KNN wide-pool refinement and context augmentation are mutually exclusive.')
         if config.enable_knn_wide_refinement:
@@ -717,12 +1086,20 @@ class KNNContextPoolBuilder:
         leave_one_reaction_out: bool,
     ) -> list[dict]:
         base = base_candidate_row(record)
-        return [
-            {
+        rows: list[dict] = []
+        for candidate in self.candidate_rows(
+            record,
+            allow_novel=allow_novel,
+            leave_one_reaction_out=leave_one_reaction_out,
+        ):
+            row = {
                 **base,
                 'reagent_norm': candidate['reagent_norm'],
                 'solvent_norm': candidate['solvent_norm'],
-                'from_baseline_knn': int(candidate.get('from_reafnn_generated', 0) == 0),
+                'from_baseline_knn': int(candidate.get(
+                    'from_baseline_knn',
+                    int(candidate.get('from_reafnn_generated', 0) == 0),
+                )),
                 'knn_similarity_sum': float(candidate.get('knn_similarity_sum', 0.0)),
                 'knn_similarity_max': float(candidate.get('knn_similarity_max', 0.0)),
                 'knn_neighbor_count': float(candidate.get('knn_neighbor_count', 0.0)),
@@ -734,6 +1111,12 @@ class KNNContextPoolBuilder:
                 'stage2_reafnn_correction': float(candidate.get('stage2_reafnn_correction', 0.0)),
                 'stage2_reafnn_correction_clip': float(candidate.get('stage2_reafnn_correction_clip', 0.0)),
                 'stage2_initial_score': float(candidate.get('stage2_initial_score', 0.0)),
+                'stage2_knn_score': float(candidate.get('stage2_knn_score', candidate.get('stage2_knn_prior', 0.0))),
+                'stage2_reafnn_score': float(candidate.get('stage2_reafnn_score', 0.0)),
+                'stage2_post_fusion_weight': float(candidate.get('stage2_post_fusion_weight', 0.0)),
+                'stage2_post_fusion_score': float(candidate.get('stage2_post_fusion_score', 0.0)),
+                'stage2_post_fusion_enabled': int(candidate.get('stage2_post_fusion_enabled', 0)),
+                'stage2_post_fusion_context_limit': int(candidate.get('stage2_post_fusion_context_limit', 0)),
                 'reafnn_reagent_score': float(candidate.get('reafnn_reagent_score', 0.0)),
                 'reafnn_solvent_score': float(candidate.get('reafnn_solvent_score', 0.0)),
                 'reafnn_token_score': float(candidate.get('reafnn_token_score', 0.0)),
@@ -752,12 +1135,8 @@ class KNNContextPoolBuilder:
                 'cluster_context_support': 0.0,
                 'cluster_context_mean_yield': 0.0,
             }
-            for candidate in self.candidate_rows(
-                record,
-                allow_novel=allow_novel,
-                leave_one_reaction_out=leave_one_reaction_out,
-            )
-        ]
+            rows.append(row)
+        return rows
 
     def _records_to_frame(
         self,
