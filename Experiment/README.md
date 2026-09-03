@@ -6,14 +6,21 @@ artifacts are retained only for traceability.
 
 ## Current Maintained Record
 
+- `stage23_parallel_post_fusion_multiseed_20260903/`
+  - Fixed-Stage-1, six-family parallel evaluation repeated at seeds 0, 1, and 2.
+  - The current reportable record: `54.26 +/- 0.15%` candidate recall and
+    `43.77 +/- 0.60%` macro Sys@10.
+  - Contains compact per-family metrics, per-seed summaries, route-cache hashes,
+    and small source-run records; large model/table intermediates were pruned.
+
 - `stage2_parallel_post_fusion_20260901.md`
   - Fixed-Stage-1, six-family, seed-0 evaluation of the maintained parallel
     KNN/ReaFNN post-fusion procedure.
   - KNN and ReaFNN independently propose train-only historical contexts; a
     family-specific mixture weight is selected on predicted validation routes.
   - Reports 54.10% candidate recall and 43.44% macro Sys@10.
-  - This is a verified seed-0 record, not a replacement claim for a completed
-    parallel multi-seed study.
+  - This is a verified seed-0 development record; the three-seed directory
+    above is the current headline record.
 
 ## Historical Serial References
 
@@ -39,4 +46,6 @@ of reportable mainline results.
 - `legacy_outputs/`: old baseline result trees.
 - `route_budget/`: route-budget sensitivity experiments.
 - `legacy_stage2/`: older Stage-2 code preserved for historical reproduction.
+- `legacy_stage3/`: retired ranking probes preserved for historical reproduction.
 - `legacy_tools/`: one-off rendering and helper utilities.
+- `local_archive/`: ignored local-only exploratory records and scripts.

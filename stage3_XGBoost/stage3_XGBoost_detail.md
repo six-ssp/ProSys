@@ -27,9 +27,11 @@
   Training memory is family-train-only, and the ordinary ranked training table
   uses canonical leave-one-reaction-out retrieval where required.
 
-The latest matched seed-0 parallel record is
-`Experiment/stage2_parallel_post_fusion_20260901.md` (54.10% candidate recall,
-43.44% macro Sys@10). Joint route-contrastive optimization and wrong-route
+The current matched parallel record is
+`Experiment/stage23_parallel_post_fusion_multiseed_20260903/` (seeds 0/1/2:
+`54.26 +/- 0.15%` candidate recall and `43.77 +/- 0.60%` macro Sys@10).
+`Experiment/stage2_parallel_post_fusion_20260901.md` remains the detailed
+seed-0 snapshot. Joint route-contrastive optimization and wrong-route
 negative-sample supervision were retired after exploratory checks; neither is
 part of the maintained XGB-LTR training or the reported parallel result.
 
@@ -82,8 +84,7 @@ records.
 - `stage3_XGBoost/xgb_reranker.py`
 - `stage3_XGBoost/reaction_gnn_features.py`
 - `stage3_XGBoost/__init__.py`
-- `stage3_XGBoost/condition_aware_gnn.py`（探索性 candidate-aware residual）
-- `stage3_XGBoost/condition_aware_gnn_detail.md`（该分支的输入、训练、门控和结果状态）
+- `Experiment/legacy_stage3/`（已归档的 candidate-aware ranking probes，不属于主线）
 
 
 ## 2. 输入与输出
@@ -398,7 +399,7 @@ R-GNN 的训练任务是一个辅助多标签任务：
 提升阈值，因此选中 `alpha = 0`；相关 six-family auxiliary residual probe 也没有任何
 family 通过非零 residual gate。故它不改变当前 `full-system Top-k accuracy`、不修改正式输出，不能被写成
 已验证的主线增益。完整细节见
-`stage3_XGBoost/condition_aware_gnn_detail.md`。
+`Experiment/legacy_stage3/condition_aware_gnn_detail.md`。
 
 
 ## 6. 排序模型如何训练

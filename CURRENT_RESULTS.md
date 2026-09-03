@@ -1,6 +1,6 @@
 # ProSys: A Product-to-System Framework for Target Product-Driven Reaction-System Recommendation
 
-## Current Maintained Mainline: Parallel KNN + ReaFNN Post-Fusion (2026-09-01)
+## Current Maintained Mainline: Parallel KNN + ReaFNN Post-Fusion (2026-09-03)
 
 **Authoritative implementation.** The maintained Stage-2 procedure is the
 parallel product-Morgan KNN + ReaFNN post-fusion workflow invoked by
@@ -19,21 +19,37 @@ vocabularies, feature standardizers, and model fitting use only the matching
 family training split; the Stage-2 mixture weight is selected only on predicted
 validation-route caches.
 
-### Verified Six-Family Seed-0 Result
+### Verified Six-Family Three-Seed Result
 
-The verified fixed-Stage-1 seed-0 record is
-`Experiment/stage2_parallel_post_fusion_20260901.md`. Rates are equal-family
-macro averages over the fixed test manifest.
+The authoritative record is
+`Experiment/stage23_parallel_post_fusion_multiseed_20260903/`. It repeats the
+current parallel workflow at seeds `0, 1, 2`, while retaining the persisted
+split, six test manifests, and Stage-1 route caches. It measures variation in
+ReaFNN, Reaction-GNN, and XGBoost only; it does not estimate variability from
+retraining EditRetro Stage 1.
 
-| Candidate recall | Sys@1 | Sys@3 | Sys@5 | Sys@10 |
-| ---: | ---: | ---: | ---: | ---: |
-| 54.10 | 23.89 | 33.72 | 38.14 | 43.44 |
+All values below are equal-family macro averages. Rates are percentages and
+`+/-` is sample standard deviation (`ddof=1`).
 
-The parallel run has an enabled temperature branch, but a matching parallel
-multi-seed temperature summary has not been aggregated. Accordingly, no
-parallel temperature headline or paired parallel ablation effect is claimed.
-The serial three-seed records below remain useful historical controls but are
-not numerically interchangeable with this new candidate distribution.
+| Candidate recall | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 54.26 +/- 0.15 | 25.13 +/- 1.20 | 35.12 +/- 1.27 | 39.11 +/- 1.04 | 43.77 +/- 0.60 | 31.53 +/- 1.12 | 33.16 +/- 1.02 |
+
+Conditional temperature MAE is `11.49 +/- 0.26 C`; conditional hit rates are
+`41.41 +/- 2.16%` within `+/-5 C`, `63.09 +/- 1.76%` within `+/-10 C`, and
+`83.74 +/- 0.69%` within `+/-20 C`. The temperature support is 1,785, 1,795,
+and 1,797 products for seeds 0, 1, and 2, respectively, because it is defined
+only for the highest-ranked exact full-system match with a valid temperature.
+
+The fixed manifest contains 3,860 product identities. Each seed has 3,833
+candidate slates and 27 retained no-slate identities, which receive zero in
+the full-system denominator. The fixed Stage-1 macro Route@1/3/5/10 is
+`43.46/56.69/59.97/63.20%` across all three seeds.
+
+`Experiment/stage2_parallel_post_fusion_20260901.md` remains the detailed
+seed-0 development record. The serial three-seed records below remain useful
+historical controls but are not numerically interchangeable with the current
+parallel candidate distribution.
 
 ## Historical Serial Three-Seed Reference (2026-08-30)
 
@@ -234,7 +250,7 @@ attribute effects in the historical serial configuration.
 
 ## Candidate-aware GNN Update
 
-`stage3_XGBoost/condition_aware_gnn.py` adds a route-context interaction
+`Experiment/legacy_stage3/condition_aware_gnn.py` preserves a route-context interaction
 network on top of frozen 64-dimensional R-GNN features and learned reagent
 and solvent token embeddings. Its score fusion is selected on validation
 full-system Top-10 accuracy only. The completed Beckmann interaction-model pilot selected

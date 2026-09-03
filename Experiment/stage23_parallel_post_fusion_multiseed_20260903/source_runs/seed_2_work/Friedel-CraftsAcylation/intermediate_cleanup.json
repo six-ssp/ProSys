@@ -1,0 +1,10 @@
+{
+  "status": "pruned_after_completed_family",
+  "retained": [
+    "result.json",
+    "intermediate_cleanup.json"
+  ],
+  "removed_file_count": 19,
+  "removed_bytes": 656336869,
+  "note": "Candidate pools, labeled tables, scored CSVs, and model binaries are regenerable from the recorded protocol."
+}
