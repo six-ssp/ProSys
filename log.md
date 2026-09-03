@@ -1,5 +1,22 @@
 # ProSys Development Log
 
+## 2026-09-03 - current parallel mainline three-seed robustness
+
+- Completed the maintained parallel KNN + ReaFNN post-fusion mainline at
+  seeds 0, 1, and 2 over the six fixed-family test manifests.
+- Persisted Stage-1 route caches, the 3,860-product denominator, KNN retrieval,
+  family train-only condition memories, and validation-only fusion selection
+  were fixed. ReaFNN, the temperature-only R-GNN, and XGBoost were rebuilt for
+  every seed.
+- Current macro result: candidate recall `54.26 +/- 0.15%`, Sys@1/3/5/10
+  `25.13 +/- 1.20% / 35.12 +/- 1.27% / 39.11 +/- 1.04% /
+  43.77 +/- 0.60%`, MRR `31.53 +/- 1.12%`, and nDCG@10 `33.16 +/- 1.02%`.
+- Conditional temperature: MAE `11.49 +/- 0.26 C`; within `+/-5 / +/-10 /
+  +/-20 C` is `41.41 +/- 2.16% / 63.09 +/- 1.76% / 83.74 +/- 0.69%`.
+- Compact per-family records, source run summaries, manifest counts, and
+  Stage-1 route-cache hashes are retained in
+  `Experiment/stage23_parallel_post_fusion_multiseed_20260903/`.
+
 ## 2026-09-02 - mainline organization and archival
 
 - Confirmed the maintained Stage 2/3 path is parallel product-Morgan KNN plus ReaFNN post-fusion, then tabular XGB-LTR with a separate R-GNN-assisted temperature regressor.

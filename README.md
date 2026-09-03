@@ -32,24 +32,29 @@ A separate XGBoost temperature regressor receives those tabular fields plus a
 128-dimensional R-GNN route representation; temperature never alters system
 rank or candidate membership.
 
-## Verified Parallel Result
+## Verified Parallel Three-Seed Result
 
-The current verified end-to-end record is the fixed-Stage-1, six-family,
-seed-0 parallel evaluation in
-[Experiment/stage2_parallel_post_fusion_20260901.md](Experiment/stage2_parallel_post_fusion_20260901.md).
-All rates below are equal-family macro averages over the fixed test manifest.
+The current reportable end-to-end record is the fixed-Stage-1, six-family,
+parallel evaluation repeated at seeds `0, 1, 2` in
+[Experiment/stage23_parallel_post_fusion_multiseed_20260903](Experiment/stage23_parallel_post_fusion_multiseed_20260903/README.md).
+All values are equal-family macro averages; rates are percentages and `+/-`
+denotes sample standard deviation (`ddof=1`).
 
-| Candidate recall | Sys@1 | Sys@3 | Sys@5 | Sys@10 |
-| ---: | ---: | ---: | ---: | ---: |
-| 54.10 | 23.89 | 33.72 | 38.14 | 43.44 |
+| Candidate recall | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 54.26 +/- 0.15 | 25.13 +/- 1.20 | 35.12 +/- 1.27 | 39.11 +/- 1.04 | 43.77 +/- 0.60 | 31.53 +/- 1.12 | 33.16 +/- 1.02 |
 
-- Fixed Stage-1 Route@10: `63.20%`.
-- The parallel run includes the temperature branch, but a parallel multi-seed
-  temperature summary has not yet been aggregated; no new temperature headline
-  is claimed here.
-- The earlier serial three-seed result (`44.62 +/- 0.42%` Sys@10) and its
-  matched ablations remain historical references only. They are not numerical
-  evidence for the current parallel candidate distribution.
+- The fixed manifest has 3,860 product identities: 3,833 have a candidate
+  slate and 27 no-slate identities remain in every Sys@k denominator.
+- Fixed Stage-1 Route@1/3/5/10 is `43.46/56.69/59.97/63.20%`; this study
+  measures only stochasticity in the learned Stage-2/3 modules.
+- Conditional temperature MAE is `11.49 +/- 0.26 C`; conditional hit rates
+  within `+/-5/+/-10/+/-20 C` are `41.41 +/- 2.16% / 63.09 +/- 1.76% /
+  83.74 +/- 0.69%`.
+- [Experiment/stage2_parallel_post_fusion_20260901.md](Experiment/stage2_parallel_post_fusion_20260901.md)
+  remains the detailed seed-0 development record. The earlier serial
+  three-seed result (`44.62 +/- 0.42%` Sys@10) remains historical only and is
+  not numerical evidence for the current parallel candidate distribution.
 
 ## Reproduction
 
@@ -84,7 +89,8 @@ The validation route cache is used only to choose the Stage-2 fusion weight.
 ## Documentation
 
 - [Current result status](CURRENT_RESULTS.md)
-- [Parallel Stage-2 record](Experiment/stage2_parallel_post_fusion_20260901.md)
+- [Parallel multi-seed record](Experiment/stage23_parallel_post_fusion_multiseed_20260903/README.md)
+- [Parallel seed-0 development record](Experiment/stage2_parallel_post_fusion_20260901.md)
 - [Stage 2 details](stage2_ReaFNN/stage2_KNN_detail.md)
 - [Stage 3 details](stage3_XGBoost/stage3_XGBoost_detail.md)
 - [Baseline and ablation scope](baseline&ablation.md)

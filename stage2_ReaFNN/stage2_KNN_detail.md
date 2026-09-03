@@ -30,13 +30,15 @@
   reagent-solvent combination is admitted: every final candidate occurs in the
   current-family training memory.
 
-The verified seed-0 implementation record is
-`Experiment/stage2_parallel_post_fusion_20260901.md`: its six-family Stage 2
-coverage is 52.91% on validation after fusion, and the matched fixed-test run
-has 54.10% candidate recall and 43.44% macro Sys@10. These are single-seed
-measurements, not a replacement for a confirmatory multi-seed headline. Joint
-route-contrastive training and route-error supervision were not adopted and are
-not part of the maintained Stage 2 procedure.
+The current confirmatory record is
+`Experiment/stage23_parallel_post_fusion_multiseed_20260903/`: across fixed
+Stage-1 route caches and seeds 0/1/2, the six-family macro candidate recall is
+`54.26 +/- 0.15%` and macro Sys@10 is `43.77 +/- 0.60%`. The validation-only
+Stage 2 fusion result above remains the seed-0 detailed mechanism check;
+`Experiment/stage2_parallel_post_fusion_20260901.md` is retained as that
+development snapshot. Joint route-contrastive training and route-error
+supervision were not adopted and are not part of the maintained Stage 2
+procedure.
 
 ### Historical serial ReaFNN ablation
 

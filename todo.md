@@ -1,16 +1,17 @@
 # ProSys TODO
 
-Updated: `2026-09-02`
+Updated: `2026-09-03`
 
 ## Active
 
 - Keep the six-family parallel KNN + ReaFNN post-fusion workflow as the only
   maintained Stage 2/3 mainline.
-- Treat `Experiment/stage2_parallel_post_fusion_20260901.md` and the current
-  section of `CURRENT_RESULTS.md` as the authoritative promoted record.
-- Run a matched parallel multi-seed study, temperature aggregate, and paired
-  baseline/ablation controls when compute is available; do not borrow the
-  historical serial multi-seed values for those claims.
+- Treat `Experiment/stage23_parallel_post_fusion_multiseed_20260903/` and the
+  current section of `CURRENT_RESULTS.md` as the authoritative promoted record.
+- Keep the 2026-09-01 seed-0 file as a development record. Do not borrow
+  historical serial multi-seed values for current-parallel claims.
+- Run only explicitly paired parallel baseline/ablation controls when a new
+  numerical component claim is needed.
 - Keep Stage 1 test route caches fixed for controlled Stage 2/3 comparisons.
 
 ## Maintenance
@@ -27,6 +28,8 @@ Updated: `2026-09-02`
 ## Completed
 
 - Promoted the parallel KNN + ReaFNN post-fusion Stage 2 implementation.
+- Completed the matched fixed-Stage-1 parallel seeds-0/1/2 study, including
+  conditional temperature aggregation and compact source provenance.
 - Kept XGB-LTR in a fixed 52-feature non-graph ranking space and R-GNN features
   in the separate temperature regressor only.
 - Archived retired candidate-aware Stage 3 ranking probes under

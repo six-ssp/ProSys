@@ -2,10 +2,13 @@
 
 Date: `2026-09-01`
 
-Status: promoted as the maintained Stage 2 procedure by project decision. The
-seed-0 comparison with the historical serial system remains below as an honest
-record. Joint Stage-2/Stage-3 training and wrong-route negative-sample
-supervision were retired and do not affect this record.
+Status: promoted as the maintained Stage 2 procedure by project decision. This
+file records the detailed seed-0 development run; the completed fixed-Stage-1
+three-seed headline is
+`Experiment/stage23_parallel_post_fusion_multiseed_20260903/`. The seed-0
+comparison with the historical serial system remains below as an honest record.
+Joint Stage-2/Stage-3 training and wrong-route negative-sample supervision were
+retired and do not affect this record.
 
 ## Question
 
@@ -71,10 +74,12 @@ The final column is the absolute Sys@10 change relative to
 | Friedel-Crafts alkylation | 51.06 | 23.25 | 35.37 | 40.38 | 43.72 | -1.00 |
 | MACRO-AVG | 54.10 | 23.89 | 33.72 | 38.14 | 43.44 | -0.19 |
 
-The pooled candidate-recall macro average is unchanged at 54.10 percent, but
-the reordered candidate distributions interact differently with the current
-Stage 3 reranker. Therefore this run supports the Stage 2 complementarity claim
-without supporting a headline replacement claim.
+The pooled candidate-recall macro average is 54.10 percent in this seed-0
+snapshot. The current reportable headline is the follow-up fixed-Stage-1
+three-seed result (`54.26 +/- 0.15%` candidate recall and `43.77 +/- 0.60%`
+Sys@10) in `Experiment/stage23_parallel_post_fusion_multiseed_20260903/`.
+This seed-level table remains useful for the Stage 2 complementarity mechanism
+check and for exact reproduction of the original promoted configuration.
 
 ## Rejected Follow-Up Trials
 

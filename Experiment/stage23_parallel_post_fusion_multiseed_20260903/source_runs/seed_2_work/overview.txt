@@ -1,0 +1,9 @@
+ProSys Non-Oracle Mainline Results
+family                 Route@10  Candidate recall  Full-system Top-1 accuracy  Full-system Top-3 accuracy  Full-system Top-5 accuracy  Full-system Top-10 accuracy
+Beckmann                   69.8   43.0   11.5   17.9   22.6   26.8
+Buchwald-Hartwig           70.0   59.5   33.1   45.6   48.1   52.2
+Chan-Lam                   77.4   72.8   42.8   55.6   60.0   63.8
+Diels-Alder                37.3   34.8   16.0   22.2   24.1   26.9
+Friedel-Crafts Acyl.       70.3   64.8   26.3   37.5   43.2   50.7
+Friedel-Crafts Alkyl.      54.4   51.4   27.9   38.5   43.3   46.3
+MACRO-AVG                  63.2   54.4   26.3   36.2   40.2   44.5

@@ -19,10 +19,13 @@ shim and must remain importable.
 
 ## Result Scope
 
-- Current maintained record: `Experiment/stage2_parallel_post_fusion_20260901.md`
-  with the fixed Stage-1, six-family seed-0 parallel evaluation.
-- `CURRENT_RESULTS.md` states the reportable boundary and distinguishes this
-  record from historical serial results.
+- Current maintained record:
+  `Experiment/stage23_parallel_post_fusion_multiseed_20260903/`, a fixed
+  Stage-1, six-family, seeds-0/1/2 parallel evaluation.
+- `Experiment/stage2_parallel_post_fusion_20260901.md` remains the detailed
+  seed-0 development record, not the primary uncertainty estimate.
+- `CURRENT_RESULTS.md` states the reportable boundary and distinguishes the
+  current parallel study from historical serial results.
 - The 2026-08-30 serial multi-seed mainline and its ablations are historical
   controls only; do not reuse their values as paired evidence for the current
   parallel candidate distribution.
