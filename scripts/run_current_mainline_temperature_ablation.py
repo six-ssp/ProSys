@@ -29,6 +29,21 @@ from prosys_shared.mainline import FAMILY_ORDER, display_family_name, parse_fami
 
 FULL_ARM = "rgnn_temperature"
 ABLATION_ARM = "no_rgnn_temperature"
+TABULAR_TEMPERATURE_FEATURE_COUNT = 52
+R_GNN_TEMPERATURE_FEATURE_COUNT = 128
+FULL_TEMPERATURE_FEATURE_COUNT = (
+    TABULAR_TEMPERATURE_FEATURE_COUNT + R_GNN_TEMPERATURE_FEATURE_COUNT
+)
+CURRENT_PARALLEL_STAGE2_PROTOCOL = {
+    "architecture": "knn_reafnn",
+    "knn_retrieval_mode": "product_morgan",
+    "knn_top_k": 64,
+    "prefilter_contexts": 64,
+    "max_contexts": 20,
+    "training_candidate_table_mode": "reference_split_routes",
+    "training_candidate_route_source": "reference_split_routes",
+    "reafnn_candidate_policy": "independent_knn_reafnn_post_fusion",
+}
 TEMPERATURE_METRICS = (
     ("temperature_mae", "Temperature MAE (C)"),
     ("temperature_within_5c", "Within +/-5 C"),
@@ -125,6 +140,29 @@ def _load_result(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _validate_current_parallel_stage2_protocol(
+    stage2: dict[str, Any],
+    *,
+    family: str,
+    seed: int,
+    arm: str,
+) -> None:
+    """Reject a record that is not from the promoted parallel Stage-2 protocol."""
+
+    for field, expected in CURRENT_PARALLEL_STAGE2_PROTOCOL.items():
+        observed = stage2.get(field)
+        if observed != expected:
+            raise ValueError(
+                f"{arm} {family}/seed_{seed}: {field}={observed!r}, expected {expected!r}"
+            )
+
+
+def _feature_columns(result: dict[str, Any]) -> list[str]:
+    model = result.get("model") or {}
+    temperature = model.get("temperature") or {}
+    return [str(column) for column in (temperature.get("feature_columns") or [])]
+
+
 def _validate_full_reference(result: dict[str, Any], *, family: str, seed: int) -> None:
     if result.get("family") != family or int(result.get("seed")) != seed:
         raise ValueError(f"full reference {family}/seed_{seed}: wrong identity")
@@ -134,17 +172,40 @@ def _validate_full_reference(result: dict[str, Any], *, family: str, seed: int) 
     temperature = model.get("temperature_protocol") or {}
     if result.get("baseline") != "knn_xgb_reaction_gnn_temperature":
         raise ValueError(f"full reference {family}/seed_{seed}: unexpected baseline")
-    if stage2.get("architecture") != "knn_reafnn":
-        raise ValueError(f"full reference {family}/seed_{seed}: unexpected Stage 2 architecture")
-    if stage2.get("reafnn_candidate_policy") != "independent_knn_reafnn_post_fusion":
-        raise ValueError(f"full reference {family}/seed_{seed}: unexpected Stage 2 policy")
-    if ranker.get("architecture") != "xgb_ranker" or int(ranker.get("feature_count") or 0) != 52:
-        raise ValueError(f"full reference {family}/seed_{seed}: expected 52-feature XGB-LTR")
+    _validate_current_parallel_stage2_protocol(
+        stage2,
+        family=family,
+        seed=seed,
+        arm="full reference",
+    )
+    if (
+        ranker.get("architecture") != "xgb_ranker"
+        or int(ranker.get("feature_count") or 0) != TABULAR_TEMPERATURE_FEATURE_COUNT
+    ):
+        raise ValueError(
+            f"full reference {family}/seed_{seed}: expected "
+            f"{TABULAR_TEMPERATURE_FEATURE_COUNT}-feature XGB-LTR"
+        )
     if temperature.get("architecture") != "reaction_gnn_augmented_xgboost_regressor":
         raise ValueError(f"full reference {family}/seed_{seed}: missing R-GNN temperature head")
     gnn_config = temperature.get("reaction_gnn_config") or {}
-    if int(gnn_config.get("embedding_dim") or 0) != 128:
-        raise ValueError(f"full reference {family}/seed_{seed}: expected 128D R-GNN embedding")
+    if int(gnn_config.get("embedding_dim") or 0) != R_GNN_TEMPERATURE_FEATURE_COUNT:
+        raise ValueError(
+            f"full reference {family}/seed_{seed}: expected "
+            f"{R_GNN_TEMPERATURE_FEATURE_COUNT}D R-GNN embedding"
+        )
+    feature_columns = _feature_columns(result)
+    if len(feature_columns) != FULL_TEMPERATURE_FEATURE_COUNT:
+        raise ValueError(
+            f"full reference {family}/seed_{seed}: expected "
+            f"{FULL_TEMPERATURE_FEATURE_COUNT} temperature features"
+        )
+    route_gnn_count = sum(column.startswith("route_gnn_feat_") for column in feature_columns)
+    if route_gnn_count != R_GNN_TEMPERATURE_FEATURE_COUNT:
+        raise ValueError(
+            f"full reference {family}/seed_{seed}: expected "
+            f"{R_GNN_TEMPERATURE_FEATURE_COUNT} route-GNN features"
+        )
     temp = (result.get("metrics") or {}).get("temperature") or {}
     if int(temp.get("n") or 0) <= 0:
         raise ValueError(f"full reference {family}/seed_{seed}: no valid temperature support")
@@ -157,35 +218,33 @@ def _validate_no_rgnn_result(result: dict[str, Any], *, family: str, seed: int) 
     stage2 = model.get("stage2_protocol") or {}
     ranker = model.get("ranking_protocol") or {}
     temperature = model.get("temperature_protocol") or {}
-    temperature_model = model.get("temperature") or {}
-    feature_columns = temperature_model.get("feature_columns") or []
+    feature_columns = _feature_columns(result)
 
     if result.get("baseline") != "knn_xgb_tabular_temperature_ablation":
         raise ValueError(f"no-R-GNN {family}/seed_{seed}: unexpected baseline")
-    if stage2.get("architecture") != "knn_reafnn":
-        raise ValueError(f"no-R-GNN {family}/seed_{seed}: unexpected Stage 2 architecture")
-    if stage2.get("knn_retrieval_mode") != "product_morgan":
-        raise ValueError(f"no-R-GNN {family}/seed_{seed}: retrieval mode changed")
-    if int(stage2.get("knn_top_k") or 0) != 64:
-        raise ValueError(f"no-R-GNN {family}/seed_{seed}: KNN K changed")
-    if int(stage2.get("prefilter_contexts") or 0) != 64:
-        raise ValueError(f"no-R-GNN {family}/seed_{seed}: wide pool changed")
-    if int(stage2.get("max_contexts") or 0) != 20:
-        raise ValueError(f"no-R-GNN {family}/seed_{seed}: candidate cap changed")
-    if stage2.get("training_candidate_table_mode") != "reference_split_routes":
-        raise ValueError(f"no-R-GNN {family}/seed_{seed}: training table mode changed")
-    if stage2.get("training_candidate_route_source") != "reference_split_routes":
-        raise ValueError(f"no-R-GNN {family}/seed_{seed}: training route source changed")
-    if stage2.get("reafnn_candidate_policy") != "independent_knn_reafnn_post_fusion":
-        raise ValueError(f"no-R-GNN {family}/seed_{seed}: Stage 2 policy changed")
-    if ranker.get("architecture") != "xgb_ranker" or int(ranker.get("feature_count") or 0) != 52:
-        raise ValueError(f"no-R-GNN {family}/seed_{seed}: expected unchanged 52-feature XGB-LTR")
+    _validate_current_parallel_stage2_protocol(
+        stage2,
+        family=family,
+        seed=seed,
+        arm="no-R-GNN",
+    )
+    if (
+        ranker.get("architecture") != "xgb_ranker"
+        or int(ranker.get("feature_count") or 0) != TABULAR_TEMPERATURE_FEATURE_COUNT
+    ):
+        raise ValueError(
+            f"no-R-GNN {family}/seed_{seed}: expected unchanged "
+            f"{TABULAR_TEMPERATURE_FEATURE_COUNT}-feature XGB-LTR"
+        )
     if temperature.get("architecture") != "tabular_xgboost_regressor_without_reaction_gnn":
         raise ValueError(f"no-R-GNN {family}/seed_{seed}: incorrect temperature architecture")
     if temperature.get("always_enabled") is not True or temperature.get("reaction_gnn_enabled") is not False:
         raise ValueError(f"no-R-GNN {family}/seed_{seed}: temperature protocol is not tabular-only")
-    if len(feature_columns) != 52:
-        raise ValueError(f"no-R-GNN {family}/seed_{seed}: expected 52 tabular temperature features")
+    if len(feature_columns) != TABULAR_TEMPERATURE_FEATURE_COUNT:
+        raise ValueError(
+            f"no-R-GNN {family}/seed_{seed}: expected "
+            f"{TABULAR_TEMPERATURE_FEATURE_COUNT} tabular temperature features"
+        )
     if any(str(column).startswith("route_gnn_feat_") for column in feature_columns):
         raise ValueError(f"no-R-GNN {family}/seed_{seed}: leaked R-GNN feature")
     temp = (result.get("metrics") or {}).get("temperature") or {}
@@ -240,9 +299,11 @@ def _validate_matched_pair(
         "candidate_pool_exact": True,
         "ranking_metrics_exact": True,
         "temperature_support_exact": True,
-        "no_rgnn_temperature_feature_count": len(
-            ((no_rgnn.get("model") or {}).get("temperature") or {}).get("feature_columns") or []
+        "full_temperature_feature_count": len(_feature_columns(full)),
+        "full_route_gnn_feature_count": sum(
+            column.startswith("route_gnn_feat_") for column in _feature_columns(full)
         ),
+        "no_rgnn_temperature_feature_count": len(_feature_columns(no_rgnn)),
         "no_rgnn_has_route_gnn_features": False,
     }
 
@@ -548,7 +609,8 @@ def _write_report(
             "## Audit Contract",
             "",
             f"- {len(audit_rows)} matched family/seed pairs passed exact Stage 1 route, Stage 2 protocol/pool, XGB-LTR ranking-metric, and conditional-temperature-support checks.",
-            "- Every no-R-GNN temperature regressor used exactly 52 tabular features and zero route_gnn_feat_* dimensions.",
+            f"- Every full temperature regressor used exactly {FULL_TEMPERATURE_FEATURE_COUNT} features, including {R_GNN_TEMPERATURE_FEATURE_COUNT} route_gnn_feat_* dimensions.",
+            f"- Every no-R-GNN temperature regressor used exactly {TABULAR_TEMPERATURE_FEATURE_COUNT} tabular features and zero route_gnn_feat_* dimensions.",
             "- Raw candidate tables, scored tables, and binary checkpoints were removed after compact retention to respect disk limits.",
         ]
     )
@@ -559,12 +621,13 @@ def _write_report(
         "",
         "Each row below is a paired current-mainline R-GNN versus rerun no-R-GNN comparison.",
         "",
-        "| Family | Seed | Stage 1 | Stage 2 pool | Ranking metrics | Temperature support | No-R-GNN features | Route-GNN features |",
-        "| --- | ---: | --- | --- | --- | --- | ---: | --- |",
+        "| Family | Seed | Stage 1 | Stage 2 pool | Ranking metrics | Temperature support | Full features | Full route-GNN | No-R-GNN features | No-R-GNN route-GNN |",
+        "| --- | ---: | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
     ]
     for row in sorted(audit_rows, key=lambda row: (int(row["seed"]), _family_sort_key(str(row["family"])))):
         audit_lines.append(
             f"| {display_family_name(str(row['family']))} | {row['seed']} | PASS | PASS | PASS | PASS | "
+            f"{row['full_temperature_feature_count']} | {row['full_route_gnn_feature_count']} | "
             f"{row['no_rgnn_temperature_feature_count']} | absent |"
         )
     audit_lines.append("")

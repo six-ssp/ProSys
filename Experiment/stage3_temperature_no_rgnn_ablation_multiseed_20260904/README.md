@@ -32,5 +32,6 @@ A negative MAE difference in the final row favors the R-GNN arm; a positive hit-
 ## Audit Contract
 
 - 18 matched family/seed pairs passed exact Stage 1 route, Stage 2 protocol/pool, XGB-LTR ranking-metric, and conditional-temperature-support checks.
+- Every full temperature regressor used exactly 180 features, including 128 route_gnn_feat_* dimensions.
 - Every no-R-GNN temperature regressor used exactly 52 tabular features and zero route_gnn_feat_* dimensions.
 - Raw candidate tables, scored tables, and binary checkpoints were removed after compact retention to respect disk limits.
