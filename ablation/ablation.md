@@ -10,6 +10,20 @@
 > `36.03 +/- 0.16%` (`-7.74 pp`). This is the only reportable Stage-3 component
 > result for the current parallel candidate distribution.
 
+# Current Parallel Temperature-Representation Result
+
+> **Reportable paired control (2026-09-04):**
+> [`current_parallel_temperature_ablation_results_20260904.md`](current_parallel_temperature_ablation_results_20260904.md) and
+> [`Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/`](../Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/README.md)
+> contain the completed three-seed temperature-only control for the maintained
+> parallel mainline. It preserves Stage 1, Stage 2, XGB-LTR, all ranked systems,
+> and the conditional temperature support exactly; it replaces only the 128D
+> R-GNN route embedding in the temperature XGBoost regressor with no graph
+> features. Macro MAE is `11.49 +/- 0.26 C` with R-GNN versus `13.93 +/- 0.38 C`
+> without it; within-10 C accuracy improves from `55.56 +/- 1.23%` to
+> `63.09 +/- 1.76%` (`+7.53 pp`). This is the reportable R-GNN contribution:
+> temperature quality only, not a Sys@k claim.
+
 # Archived Ablation Plan
 
 > Historical serial evidence: see

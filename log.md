@@ -1,5 +1,18 @@
 # ProSys Development Log
 
+## 2026-09-04 - current parallel R-GNN temperature three-seed ablation
+
+- Completed `Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/`:
+  a six-family, fixed-Stage-1, seeds-0/1/2 matched temperature-only control.
+- The full arm uses a 52-column tabular table plus a 128D R-GNN route embedding;
+  the control retrains only temperature XGBoost from the identical 52 tabular
+  fields and asserts that no `route_gnn_feat_*` feature is available.
+- Every one of the 18 family-seed pairs passes exact Stage-1 recall, Stage-2
+  pool/protocol, Sys@k/MRR/nDCG, and conditional-temperature-support checks.
+- Conditional MAE is `11.49 +/- 0.26 C` with R-GNN versus `13.93 +/- 0.38 C`
+  without it. Within `+/-5 / +/-10 / +/-20 C` improves by `+6.11 / +7.53 /
+  +5.65 pp`; no system-ranking improvement is claimed because rank is fixed.
+
 ## 2026-09-04 - current parallel Stage-3 three-seed ablation
 
 - Completed `Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/`:

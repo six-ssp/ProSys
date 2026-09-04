@@ -78,6 +78,30 @@ Sys@10 comparisons. See
 `ablation/current_parallel_stage3_ablation_results_20260904.md` for the
 family-resolved table and paper-safe interpretation.
 
+## Current Matched Temperature-Representation Ablation (2026-09-04)
+
+The paired temperature-representation control is retained in
+`Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/`. It holds
+fixed the persisted Stage-1 routes, parallel product-Morgan KNN + ReaFNN
+post-fusion candidate pool, 20-context cap, 52-feature XGB-LTR, test manifest,
+and random seed. The full arm uses a 180-column temperature regressor
+(`52` tabular candidate features plus `128` R-GNN route features); the control
+re-trains only the temperature regressor with the identical 52 tabular features
+and no `route_gnn_feat_*` column.
+
+| Temperature arm | Conditional support | MAE (C) | Within +/-5 C | Within +/-10 C | Within +/-20 C |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| R-GNN + XGBoost | 1,792.33 +/- 6.43 | 11.49 +/- 0.26 | 41.41 +/- 2.16 | 63.09 +/- 1.76 | 83.74 +/- 0.69 |
+| Tabular XGBoost, no R-GNN | 1,792.33 +/- 6.43 | 13.93 +/- 0.38 | 35.30 +/- 0.81 | 55.56 +/- 1.23 | 78.09 +/- 1.22 |
+| Full minus no-R-GNN | 0.00 | -2.43 C | +6.11 pp | +7.53 pp | +5.65 pp |
+
+All 18 family-seed pairs passed exact matching of Stage 1 route recall, Stage 2
+protocol and candidate pool, all Sys@k/MRR/nDCG ranking metrics, and conditional
+temperature support. The graph branch therefore improves the conditional
+temperature estimate without changing candidate membership or system ranking.
+See `ablation/current_parallel_temperature_ablation_results_20260904.md` for
+family-resolved results and paper-safe wording.
+
 ## Historical Serial Three-Seed Reference (2026-08-30)
 
 **Historical record.** The former serial mainline was the post-hardening,

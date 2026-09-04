@@ -6,7 +6,9 @@ Updated: `2026-09-04`
 
 - Keep the six-family parallel KNN + ReaFNN post-fusion workflow as the only
   maintained Stage 2/3 mainline.
-- Treat `Experiment/stage23_parallel_post_fusion_multiseed_20260903/` and the
+- Treat `Experiment/stage23_parallel_post_fusion_multiseed_20260903/`,
+  `Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/`,
+  `Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/`, and the
   current section of `CURRENT_RESULTS.md` as the authoritative promoted record.
 - Keep the 2026-09-01 seed-0 file as a development record. Do not borrow
   historical serial multi-seed values for current-parallel claims.
@@ -35,6 +37,10 @@ Updated: `2026-09-04`
 - Completed the paired current-parallel Stage-3 three-seed control: it preserves
   the official Stage-2 pool exactly and measures a `+7.74 pp` Sys@10 effect
   from XGB-LTR reranking.
+- Completed the paired current-parallel temperature three-seed control: it
+  preserves all ranked systems and conditional support exactly, and shows that
+  the 128D R-GNN route representation reduces conditional temperature MAE by
+  `2.43 C` and improves within-10 C accuracy by `7.53 pp`.
 - Archived retired candidate-aware Stage 3 ranking probes under
   `Experiment/legacy_stage3/`.
 - Segregated local-only exploratory records and scripts from maintained files.

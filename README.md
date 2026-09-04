@@ -50,7 +50,10 @@ denotes sample standard deviation (`ddof=1`).
   measures only stochasticity in the learned Stage-2/3 modules.
 - Conditional temperature MAE is `11.49 +/- 0.26 C`; conditional hit rates
   within `+/-5/+/-10/+/-20 C` are `41.41 +/- 2.16% / 63.09 +/- 1.76% /
-  83.74 +/- 0.69%`.
+  83.74 +/- 0.69%`. A matched three-seed control that removes only the 128D
+  R-GNN route representation gives `13.93 +/- 0.38 C` MAE and `55.56 +/-
+  1.23%` within `+/-10 C`, while all system-ranking metrics and temperature
+  support remain exactly matched.
 - [Experiment/stage2_parallel_post_fusion_20260901.md](Experiment/stage2_parallel_post_fusion_20260901.md)
   remains the detailed seed-0 development record. The earlier serial
   three-seed result (`44.62 +/- 0.42%` Sys@10) remains historical only and is
@@ -95,6 +98,7 @@ The validation route cache is used only to choose the Stage-2 fusion weight.
 - [Parallel multi-seed record](Experiment/stage23_parallel_post_fusion_multiseed_20260903/README.md)
 - [Parallel seed-0 development record](Experiment/stage2_parallel_post_fusion_20260901.md)
 - [Matched Stage 3 three-seed ablation](Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/README.md)
+- [Matched R-GNN temperature three-seed ablation](Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/README.md)
 - [Stage 2 details](stage2_ReaFNN/stage2_KNN_detail.md)
 - [Stage 3 details](stage3_XGBoost/stage3_XGBoost_detail.md)
 - [Baseline and ablation scope](baseline&ablation.md)
