@@ -1,3 +1,15 @@
+# Current Parallel Stage-3 Result
+
+> **Reportable paired control (2026-09-04):**
+> [`current_parallel_stage3_ablation_results_20260904.md`](current_parallel_stage3_ablation_results_20260904.md) and
+> [`Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/`](../Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/README.md)
+> contain the completed three-seed Stage-3 ablation for the maintained parallel
+> KNN + ReaFNN post-fusion mainline. The Stage-2 protocol and candidate
+> availability match the current full mainline exactly; replacing XGB-LTR with a
+> deterministic prior lowers macro Sys@10 from `43.77 +/- 0.60%` to
+> `36.03 +/- 0.16%` (`-7.74 pp`). This is the only reportable Stage-3 component
+> result for the current parallel candidate distribution.
+
 # Archived Ablation Plan
 
 > Historical serial evidence: see

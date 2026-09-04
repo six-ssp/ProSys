@@ -1,0 +1,64 @@
+{
+  "purpose": "matched current-mainline Stage 2 and Stage 3 ablations",
+  "families": [
+    "Beckmann",
+    "Buchwald-HartwigCross-Coupling",
+    "Chan_LamCoupling",
+    "DielsAlder",
+    "Friedel-CraftsAcylation",
+    "Friedel-CraftsAlkylation"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": {
+    "no_xgb_ltr": {
+      "description": "Keep the full product-Morgan KNN plus ReaFNN Stage 2 pool, then replace XGB-LTR with a deterministic Stage 1/2 prior.",
+      "runner_args": [
+        "--skip_temperature",
+        "--ranking_mode",
+        "stage2_heuristic"
+      ],
+      "result_subdir": "stage2_heuristic",
+      "expected_baseline": "stage2_heuristic_no_xgb_ltr",
+      "expected_stage2_architecture": "knn_reafnn",
+      "expected_stage2_policy": "independent_knn_reafnn_post_fusion",
+      "expected_ranker": "deterministic_stage1_stage2_prior"
+    }
+  },
+  "mainline_reference": "/root/autodl-tmp/ProSys/Experiment/stage23_parallel_post_fusion_multiseed_20260903/macro_mean_std.csv",
+  "mainline_compact_root": "/root/autodl-tmp/ProSys/Experiment/stage23_parallel_post_fusion_multiseed_20260903/compact/prosys",
+  "route_root": "/root/autodl-tmp/ProSys/outputs/stage1_routes",
+  "post_fusion_validation_route_root": "/root/autodl-tmp/ProSys/outputs/stage1_routes_validation",
+  "fixed_configuration": {
+    "knn_retrieval_mode": "product_morgan",
+    "fpsize": 4096,
+    "radius": 2,
+    "knn_top_k": 64,
+    "prefilter_contexts": 64,
+    "max_contexts": 20,
+    "training_candidate_table_mode": "reference_split_routes",
+    "reafnn_hidden_dim": 512,
+    "reafnn_hidden_layers": 2,
+    "reafnn_dropout": 0.1,
+    "reafnn_candidate_policy": "independent_knn_reafnn_post_fusion",
+    "reafnn_independent_contexts": 64,
+    "post_fusion_validation_source": "predicted_stage1_validation_routes",
+    "post_fusion_weight_grid": [
+      0.0,
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      1.0
+    ]
+  },
+  "scratch_retention": "removed after compact retention"
+}

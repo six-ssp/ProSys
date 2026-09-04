@@ -13,6 +13,13 @@ artifacts are retained only for traceability.
   - Contains compact per-family metrics, per-seed summaries, route-cache hashes,
     and small source-run records; large model/table intermediates were pruned.
 
+- `stage3_parallel_post_fusion_ablation_multiseed_20260904/`
+  - Paired Stage-3-only control for the current parallel candidate pool.
+  - All 18 family-seed records preserve the full mainline Stage-2 protocol and
+    candidate availability exactly, but use deterministic no-XGB-LTR ranking.
+  - Macro Sys@10 is `36.03 +/- 0.16%` versus `43.77 +/- 0.60%` for the full
+    mainline; the `7.74 pp` gap is therefore a within-pool reranking effect.
+
 - `stage2_parallel_post_fusion_20260901.md`
   - Fixed-Stage-1, six-family, seed-0 evaluation of the maintained parallel
     KNN/ReaFNN post-fusion procedure.

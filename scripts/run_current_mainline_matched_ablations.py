@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run compact, three-seed ablations matched to the promoted Stage 2/3 mainline.
+"""Run compact, three-seed ablations matched to the parallel Stage 2/3 mainline.
 
 The runner processes one family at a time, retains only compact result JSON and
 model metadata, then removes its own scratch directory. This keeps the study
@@ -42,6 +42,7 @@ ARMS: dict[str, dict[str, Any]] = {
         "result_subdir": "knn_xgb",
         "expected_baseline": "knn_xgb_stage2_ablation_ranking_only",
         "expected_stage2_architecture": "knn_only",
+        "expected_stage2_policy": "not_used",
         "expected_ranker": "xgb_ranker",
     },
     "no_xgb_ltr": {
@@ -57,6 +58,7 @@ ARMS: dict[str, dict[str, Any]] = {
         "result_subdir": "stage2_heuristic",
         "expected_baseline": "stage2_heuristic_no_xgb_ltr",
         "expected_stage2_architecture": "knn_reafnn",
+        "expected_stage2_policy": "independent_knn_reafnn_post_fusion",
         "expected_ranker": "deterministic_stage1_stage2_prior",
     },
 }
@@ -114,7 +116,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\\n")
         writer.writeheader()
         writer.writerows(rows)
 
@@ -226,6 +228,29 @@ def _load_mainline_reference(macro_file: Path) -> dict[str, Any] | None:
     }
 
 
+def _load_mainline_per_family_sys10(
+    compact_root: Path,
+    *,
+    families: list[str],
+    seeds: list[int],
+) -> dict[str, tuple[float, float]]:
+    """Read the paired full-mainline Sys@10 values for per-family reporting."""
+
+    summaries: dict[str, tuple[float, float]] = {}
+    for family in families:
+        values: list[float] = []
+        for seed in seeds:
+            result_file = compact_root / f"seed_{seed}" / family / "result.json"
+            if not result_file.exists():
+                raise FileNotFoundError(
+                    f"Missing full-mainline compact result for {family}/seed_{seed}: {result_file}"
+                )
+            result = json.loads(result_file.read_text(encoding="utf-8"))
+            values.append(float((result.get("metrics") or {}).get("system_top10_all") or 0.0))
+        summaries[family] = (_mean(values), _std(values))
+    return summaries
+
+
 def _validate_result(
     result: dict[str, Any],
     *,
@@ -255,8 +280,14 @@ def _validate_result(
         raise ValueError(f"{arm}/{seed}/{family}: wide pool is not 64 contexts")
     if int(stage2.get("max_contexts") or 0) != 20:
         raise ValueError(f"{arm}/{seed}/{family}: candidate cap is not 20")
-    if stage2.get("training_candidate_table_mode") != "oracle":
+    if stage2.get("training_candidate_table_mode") != "reference_split_routes":
         raise ValueError(f"{arm}/{seed}/{family}: training table mode changed")
+    if stage2.get("training_candidate_route_source") != "reference_split_routes":
+        raise ValueError(f"{arm}/{seed}/{family}: training route source changed")
+    if stage2.get("reafnn_candidate_policy") != spec["expected_stage2_policy"]:
+        raise ValueError(f"{arm}/{seed}/{family}: unexpected Stage 2 candidate policy")
+    if bool(stage2.get("reafnn_enabled")) != (arm != "knn_only"):
+        raise ValueError(f"{arm}/{seed}/{family}: unexpected ReaFNN enablement")
     if ranker.get("architecture") != spec["expected_ranker"]:
         raise ValueError(f"{arm}/{seed}/{family}: unexpected Stage 3 ranking policy")
     if temperature.get("always_enabled") is not False:
@@ -316,6 +347,7 @@ def _runner_command(
     arm: str,
     scratch_root: Path,
     route_root: Path,
+    post_fusion_validation_route_root: Path,
     reafnn_device: str,
 ) -> list[str]:
     command = [
@@ -341,28 +373,42 @@ def _runner_command(
         "64",
         "--max_contexts",
         "20",
-        "--train_table_mode",
-        "oracle",
         "--reafnn_hidden_dim",
         "512",
         "--reafnn_hidden_layers",
         "2",
         "--reafnn_dropout",
         "0.10",
-        "--reafnn_knn_anchor_contexts",
-        "12",
-        "--reafnn_correction_weight",
-        "0.65",
-        "--reafnn_correction_clip",
-        "0.35",
-        "--reafnn_enable_knn_wide_refinement",
-        "--reafnn_device",
-        reafnn_device if arm == "no_xgb_ltr" else "cpu",
         "--gnn_device",
         "cpu",
         "--seed",
         str(seed),
     ]
+    if arm == "no_xgb_ltr":
+        command.extend(
+            [
+                "--reafnn_device",
+                reafnn_device,
+                "--reafnn_enable_independent_post_fusion",
+                "--no-reafnn_enable_knn_wide_refinement",
+                "--reafnn_independent_contexts",
+                "64",
+                "--reafnn_post_fusion_weights",
+                "0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0",
+                "--reafnn_post_fusion_validation_route_root",
+                str(post_fusion_validation_route_root),
+            ]
+        )
+    else:
+        # The maintained runner defaults to post-fusion, which is incompatible
+        # with a deliberately ReaFNN-free Stage 2 control.
+        command.extend(
+            [
+                "--reafnn_device",
+                "cpu",
+                "--no-reafnn-enable-independent-post-fusion",
+            ]
+        )
     command.extend(ARMS[arm]["runner_args"])
     return command
 
@@ -415,6 +461,7 @@ def _write_report(
     families: list[str],
     seeds: list[int],
     mainline_reference: dict[str, Any] | None,
+    mainline_compact_root: Path,
 ) -> None:
     per_family_seed = sorted(
         rows,
@@ -474,27 +521,50 @@ def _write_report(
         "knn_only": "KNN-only + XGB-LTR",
         "no_xgb_ltr": "Full Stage 2 + deterministic no-XGB-LTR",
     }
+    selected_arms = [
+        arm for arm in ("knn_only", "no_xgb_ltr")
+        if arm in {str(row["arm"]) for row in per_family_mean_std}
+    ]
+    mainline_per_family_sys10 = (
+        _load_mainline_per_family_sys10(
+            mainline_compact_root,
+            families=families,
+            seeds=seeds,
+        )
+        if full_official_scope
+        else {}
+    )
 
     lines = [
         "# Matched Current-Mainline Ablations",
         "",
         "## Scope",
         "",
-        "This record is matched to the promoted product-Morgan mainline: fixed Stage 1 route caches, product-Morgan KNN (radius 2, 4,096 bits, K=64), a 64-context wide pool, and a 20-context cap.",
+        "This record is matched to the maintained parallel post-fusion mainline: fixed Stage 1 route caches, product-Morgan KNN (radius 2, 4,096 bits, K=64), independently generated KNN and ReaFNN 64-context pools, validation-only post-fusion, and a 20-context cap.",
         "",
         f"Each ablation was evaluated over {len(families)} family/families and seeds {', '.join(str(seed) for seed in seeds)}. Each family/seed run was compacted immediately after validation, so raw candidate tables and binary checkpoints are intentionally absent.",
         "",
         "## Arms",
         "",
-        "- **KNN-only + XGB-LTR:** removes ReaFNN but retrains a tabular 52-feature XGB-LTR on its changed candidate distribution.",
-        "- **Full Stage 2 + deterministic no-XGB-LTR:** preserves the full ReaFNN candidate pool but sorts using only the fixed Stage 1/2 prior: route rank, route probability, Stage 2 initial score, KNN evidence, and stable reagent/solvent tie-breaks. It has no fitted ranking parameters.",
-        "- Both ablation arms skip temperature because the temperature branch does not add candidates or contribute to system ranking; temperature omission cannot change Sys@k.",
-        "",
-        "## Macro Results",
-        "",
-        "| Arm | Candidate recall | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
+    if "knn_only" in selected_arms:
+        lines.append(
+            "- **KNN-only + XGB-LTR:** removes ReaFNN but retrains a tabular 52-feature XGB-LTR on its changed candidate distribution."
+        )
+    if "no_xgb_ltr" in selected_arms:
+        lines.append(
+            "- **Full Stage 2 + deterministic no-XGB-LTR:** preserves the official parallel KNN + ReaFNN Stage 2 pool, including validation-only fusion selection, but sorts using only the fixed Stage 1/2 prior: route rank, route probability, Stage 2 initial score, KNN evidence, and stable reagent/solvent tie-breaks. It has no fitted ranking parameters."
+        )
+    lines.extend(
+        [
+            "- The selected ablation arms skip temperature because the temperature branch does not add candidates or contribute to system ranking; temperature omission cannot change Sys@k.",
+            "",
+            "## Macro Results",
+            "",
+            "| Arm | Candidate recall | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
     for row in report_rows:
         label = arm_labels.get(str(row["arm"]), str(row["arm"]))
         values = [
@@ -511,36 +581,46 @@ def _write_report(
         ]
         lines.append(f"| {label} | " + " | ".join(values) + " |")
 
+    per_family_headers = ["Family"]
+    if mainline_per_family_sys10:
+        per_family_headers.append("Full current mainline")
+    per_family_headers.extend(arm_labels[arm] for arm in selected_arms)
     lines.extend(
         [
             "",
             "## Per-Family Sys@10",
             "",
-            "| Family | KNN-only + XGB-LTR | Full Stage 2 + deterministic no-XGB-LTR |",
-            "| --- | ---: | ---: |",
+            "| " + " | ".join(per_family_headers) + " |",
+            "| " + " | ".join(["---"] + ["---:"] * (len(per_family_headers) - 1)) + " |",
         ]
     )
     summary_by_key = {(row["arm"], row["family"]): row for row in per_family_mean_std}
     for family in sorted(families, key=_family_sort_key):
-        knn = summary_by_key[("knn_only", family)]
-        no_xgb = summary_by_key[("no_xgb_ltr", family)]
-        lines.append(
-            f"| {display_family_name(family)} | "
-            f"{_format_mean_std(knn, 'sys_at_10')} | "
-            f"{_format_mean_std(no_xgb, 'sys_at_10')} |"
+        values: list[str] = []
+        if family in mainline_per_family_sys10:
+            mean, std = mainline_per_family_sys10[family]
+            values.append(f"{100.0 * mean:.2f} +/- {100.0 * std:.2f}")
+        values.extend(
+            _format_mean_std(summary_by_key[(arm, family)], "sys_at_10")
+            for arm in selected_arms
         )
+        lines.append("| " + " | ".join([display_family_name(family)] + values) + " |")
 
-    lines.extend(
-        [
-            "",
-            "## Audit Contracts",
-            "",
-            "- Every compact result is checked for the expected family, seed, fixed Stage 1 manifest, product-Morgan retrieval, K=64, 64-context wide pool, 20-context cap, and oracle-only train/validation tables.",
-            "- The KNN-only arm must have a tabular non-graph XGB-LTR and ReaFNN disabled.",
-            "- The no-XGB-LTR arm must have the deterministic Stage 1/2 prior, no fitted ranking parameters, and an exactly matching official Stage 2 protocol plus candidate-coverage record for the same family and seed.",
-            "- The official full-mainline row is read from the retained three-seed compact artifact; it is not recomputed or numerically mixed with old direct-R-GNN snapshots.",
-        ]
+    audit_lines = [
+        "- Every compact result is checked for the expected family, seed, fixed Stage 1 manifest, product-Morgan retrieval, K=64, 64-context pools, 20-context cap, and reference-split training/validation tables.",
+    ]
+    if "knn_only" in selected_arms:
+        audit_lines.append(
+            "- The KNN-only arm must have a tabular non-graph XGB-LTR and ReaFNN disabled."
+        )
+    if "no_xgb_ltr" in selected_arms:
+        audit_lines.append(
+            "- The no-XGB-LTR arm must have the deterministic Stage 1/2 prior, no fitted ranking parameters, and an exactly matching official Stage 2 protocol plus candidate-coverage record for the same family and seed."
+        )
+    audit_lines.append(
+        "- The official full-mainline macro row and per-family Sys@10 entries are read from the retained three-seed compact artifact; they are not recomputed or mixed with historical serial snapshots."
     )
+    lines.extend(["", "## Audit Contracts", "", *audit_lines])
     (output_root / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -549,29 +629,35 @@ def main() -> None:
     parser.add_argument("--repo_root", type=Path, default=PROJECT_ROOT)
     parser.add_argument("--families", default="all")
     parser.add_argument("--seeds", default="0,1,2")
-    parser.add_argument("--arms", default="knn_only,no_xgb_ltr")
+    parser.add_argument("--route_root", type=Path, default=Path("outputs/stage1_routes"))
+    parser.add_argument(
+        "--post_fusion_validation_route_root",
+        type=Path,
+        default=Path("outputs/stage1_routes_validation"),
+    )
+    parser.add_argument("--arms", default="no_xgb_ltr")
     parser.add_argument(
         "--output_root",
         type=Path,
-        default=Path("Experiment/current_mainline_matched_ablation_multiseed_20260830"),
+        default=Path("Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904"),
     )
     parser.add_argument(
         "--scratch_root",
         type=Path,
-        default=Path("outputs/current_mainline_matched_ablation_scratch_20260830"),
+        default=Path("/tmp/prosys_stage3_parallel_post_fusion_ablation_20260904"),
     )
     parser.add_argument(
         "--mainline_macro_file",
         type=Path,
-        default=Path("Experiment/stage23_product_morgan_reafnn_multiseed_20260830/macro_mean_std.csv"),
+        default=Path("Experiment/stage23_parallel_post_fusion_multiseed_20260903/macro_mean_std.csv"),
     )
     parser.add_argument(
         "--mainline_compact_root",
         type=Path,
-        default=Path("Experiment/stage23_product_morgan_reafnn_multiseed_20260830/compact/prosys"),
+        default=Path("Experiment/stage23_parallel_post_fusion_multiseed_20260903/compact/prosys"),
     )
     parser.add_argument("--python_bin", default=sys.executable)
-    parser.add_argument("--reafnn_device", default="cuda")
+    parser.add_argument("--reafnn_device", default="cuda:0")
     parser.add_argument("--cpu_threads", type=int, default=8)
     parser.add_argument("--keep_scratch", action="store_true")
     parser.add_argument("--force", action="store_true")
@@ -581,6 +667,8 @@ def main() -> None:
     repo_root = args.repo_root.resolve()
     output_root = (repo_root / args.output_root).resolve()
     scratch_root = (repo_root / args.scratch_root).resolve()
+    route_root = (repo_root / args.route_root).resolve()
+    post_fusion_validation_route_root = (repo_root / args.post_fusion_validation_route_root).resolve()
     mainline_macro_file = (repo_root / args.mainline_macro_file).resolve()
     mainline_compact_root = (repo_root / args.mainline_compact_root).resolve()
     families = parse_families_arg(args.families)
@@ -591,6 +679,17 @@ def main() -> None:
         parser.error("--scratch_root must be separate from --output_root and the repository root")
     if args.cpu_threads < 1:
         parser.error("--cpu_threads must be positive")
+    if not route_root.is_dir():
+        parser.error(f"--route_root does not exist: {route_root}")
+    if "no_xgb_ltr" in arms and not post_fusion_validation_route_root.is_dir():
+        parser.error(
+            "--post_fusion_validation_route_root does not exist: "
+            f"{post_fusion_validation_route_root}"
+        )
+    if not mainline_macro_file.is_file():
+        parser.error(f"--mainline_macro_file does not exist: {mainline_macro_file}")
+    if not mainline_compact_root.is_dir():
+        parser.error(f"--mainline_compact_root does not exist: {mainline_compact_root}")
 
     manifest = {
         "purpose": "matched current-mainline Stage 2 and Stage 3 ablations",
@@ -599,6 +698,8 @@ def main() -> None:
         "arms": {arm: ARMS[arm] for arm in arms},
         "mainline_reference": str(mainline_macro_file),
         "mainline_compact_root": str(mainline_compact_root),
+        "route_root": str(route_root),
+        "post_fusion_validation_route_root": str(post_fusion_validation_route_root),
         "fixed_configuration": {
             "knn_retrieval_mode": "product_morgan",
             "fpsize": 4096,
@@ -606,13 +707,14 @@ def main() -> None:
             "knn_top_k": 64,
             "prefilter_contexts": 64,
             "max_contexts": 20,
-            "train_table_mode": "oracle",
+            "training_candidate_table_mode": "reference_split_routes",
             "reafnn_hidden_dim": 512,
             "reafnn_hidden_layers": 2,
             "reafnn_dropout": 0.10,
-            "reafnn_knn_anchor_contexts": 12,
-            "reafnn_correction_weight": 0.65,
-            "reafnn_correction_clip": 0.35,
+            "reafnn_candidate_policy": "independent_knn_reafnn_post_fusion",
+            "reafnn_independent_contexts": 64,
+            "post_fusion_validation_source": "predicted_stage1_validation_routes",
+            "post_fusion_weight_grid": [round(step / 10.0, 1) for step in range(11)],
         },
         "scratch_retention": "kept" if args.keep_scratch else "removed after compact retention",
     }
@@ -648,7 +750,8 @@ def main() -> None:
                     seed=seed,
                     arm=arm,
                     scratch_root=family_scratch_root,
-                    route_root=(repo_root / "outputs/stage1_routes").resolve(),
+                    route_root=route_root,
+                    post_fusion_validation_route_root=post_fusion_validation_route_root,
                     reafnn_device=args.reafnn_device,
                 )
                 print(
@@ -700,6 +803,7 @@ def main() -> None:
         families=families,
         seeds=seeds,
         mainline_reference=_load_mainline_reference(mainline_macro_file),
+        mainline_compact_root=mainline_compact_root,
     )
     _write_json(
         {

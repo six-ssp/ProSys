@@ -1,0 +1,371 @@
+{
+  "family": "Buchwald-HartwigCross-Coupling",
+  "baseline": "stage2_heuristic_no_xgb_ltr",
+  "seed": 0,
+  "candidate_table": "pruned_after_compaction",
+  "scored_test_file": "pruned_after_compaction",
+  "model": {
+    "stage2_protocol": {
+      "architecture": "knn_reafnn",
+      "training_candidate_table_mode": "reference_split_routes",
+      "training_candidate_route_source": "reference_split_routes",
+      "knn_retrieval_mode": "product_morgan",
+      "knn_feature_space": "product_morgan_fingerprint",
+      "knn_top_k": 64,
+      "prefilter_contexts": 64,
+      "max_contexts": 20,
+      "candidate_source": "historical_contexts_from_family_train_split",
+      "reafnn_enabled": true,
+      "reafnn_feature_space": "product_fp_plus_delta_fp_plus_route_descriptors",
+      "reafnn_candidate_policy": "independent_knn_reafnn_post_fusion",
+      "reafnn_config": {
+        "fpsize": 4096,
+        "radius": 2,
+        "hidden_dim": 512,
+        "hidden_layers": 2,
+        "dropout": 0.1,
+        "activation": "relu",
+        "use_layer_norm": false,
+        "learning_rate": 0.001,
+        "weight_decay": 1e-05,
+        "batch_size": 64,
+        "max_epochs": 30,
+        "patience": 8,
+        "top_reagent_tokens": 12,
+        "top_solvent_tokens": 8,
+        "max_generated_contexts": 48,
+        "max_novel_contexts": 8,
+        "max_selected_novel_contexts": 1,
+        "max_reagent_tokens_per_context": 3,
+        "max_solvent_tokens_per_context": 2,
+        "max_reagent_combinations": 16,
+        "max_solvent_combinations": 8,
+        "generation_min_context_support": 0.0,
+        "min_token_probability": 0.05,
+        "token_prior_weight": 0.05,
+        "combination_size_penalty": 0.02,
+        "historical_context_bonus": 0.4,
+        "historical_support_weight": 0.15,
+        "novel_context_penalty": 0.6,
+        "knn_anchor_contexts": 0,
+        "correction_weight": 0.0,
+        "correction_clip": 0.0,
+        "enable_context_augmentation": false,
+        "enable_knn_wide_refinement": false,
+        "enable_independent_post_fusion": true,
+        "independent_contexts": 64,
+        "post_fusion_weight_grid": "0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0",
+        "post_fusion_validation_source": "predicted_stage1_validation_routes",
+        "device": "cuda:0",
+        "random_state": 0
+      },
+      "reafnn_post_fusion_calibration": {
+        "protocol": {
+          "family": "Buchwald-HartwigCross-Coupling",
+          "retrieval_mode": "product_morgan",
+          "knn_top_k": 64,
+          "knn_contexts": 64,
+          "reafnn_contexts": 64,
+          "max_contexts": 20,
+          "weight_grid": [
+            0.0,
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6,
+            0.7,
+            0.8,
+            0.9,
+            1.0
+          ],
+          "selection_metric": "validation_stage2_candidate_coverage",
+          "validation_route_source": "predicted_stage1_validation_routes",
+          "tie_break": "larger_knn_weight"
+        },
+        "selected_knn_weight": 0.7,
+        "selected_reafnn_weight": 0.30000000000000004,
+        "validation_stage2_candidate_coverage": 0.5806745670009116,
+        "validation_route_records": 10313,
+        "validation_matchable_route_records": 759,
+        "validation_sample_identities": 1097,
+        "weight_candidates": [
+          {
+            "knn_weight": 0.0,
+            "reafnn_weight": 1.0,
+            "validation_exact_candidate_hits": 503,
+            "validation_route_records": 10313,
+            "validation_matchable_route_records": 759,
+            "validation_sample_identities": 1097,
+            "validation_stage2_candidate_coverage": 0.4585232452142206
+          },
+          {
+            "knn_weight": 0.1,
+            "reafnn_weight": 0.9,
+            "validation_exact_candidate_hits": 525,
+            "validation_route_records": 10313,
+            "validation_matchable_route_records": 759,
+            "validation_sample_identities": 1097,
+            "validation_stage2_candidate_coverage": 0.4785779398359161
+          },
+          {
+            "knn_weight": 0.2,
+            "reafnn_weight": 0.8,
+            "validation_exact_candidate_hits": 537,
+            "validation_route_records": 10313,
+            "validation_matchable_route_records": 759,
+            "validation_sample_identities": 1097,
+            "validation_stage2_candidate_coverage": 0.48951686417502277
+          },
+          {
+            "knn_weight": 0.3,
+            "reafnn_weight": 0.7,
+            "validation_exact_candidate_hits": 553,
+            "validation_route_records": 10313,
+            "validation_matchable_route_records": 759,
+            "validation_sample_identities": 1097,
+            "validation_stage2_candidate_coverage": 0.504102096627165
+          },
+          {
+            "knn_weight": 0.4,
+            "reafnn_weight": 0.6,
+            "validation_exact_candidate_hits": 563,
+            "validation_route_records": 10313,
+            "validation_matchable_route_records": 759,
+            "validation_sample_identities": 1097,
+            "validation_stage2_candidate_coverage": 0.5132178669097539
+          },
+          {
+            "knn_weight": 0.5,
+            "reafnn_weight": 0.5,
+            "validation_exact_candidate_hits": 628,
+            "validation_route_records": 10313,
+            "validation_matchable_route_records": 759,
+            "validation_sample_identities": 1097,
+            "validation_stage2_candidate_coverage": 0.5724703737465816
+          },
+          {
+            "knn_weight": 0.6,
+            "reafnn_weight": 0.4,
+            "validation_exact_candidate_hits": 635,
+            "validation_route_records": 10313,
+            "validation_matchable_route_records": 759,
+            "validation_sample_identities": 1097,
+            "validation_stage2_candidate_coverage": 0.5788514129443938
+          },
+          {
+            "knn_weight": 0.7,
+            "reafnn_weight": 0.30000000000000004,
+            "validation_exact_candidate_hits": 637,
+            "validation_route_records": 10313,
+            "validation_matchable_route_records": 759,
+            "validation_sample_identities": 1097,
+            "validation_stage2_candidate_coverage": 0.5806745670009116
+          },
+          {
+            "knn_weight": 0.8,
+            "reafnn_weight": 0.19999999999999996,
+            "validation_exact_candidate_hits": 631,
+            "validation_route_records": 10313,
+            "validation_matchable_route_records": 759,
+            "validation_sample_identities": 1097,
+            "validation_stage2_candidate_coverage": 0.5752051048313582
+          },
+          {
+            "knn_weight": 0.9,
+            "reafnn_weight": 0.09999999999999998,
+            "validation_exact_candidate_hits": 622,
+            "validation_route_records": 10313,
+            "validation_matchable_route_records": 759,
+            "validation_sample_identities": 1097,
+            "validation_stage2_candidate_coverage": 0.5670009115770283
+          },
+          {
+            "knn_weight": 1.0,
+            "reafnn_weight": 0.0,
+            "validation_exact_candidate_hits": 617,
+            "validation_route_records": 10313,
+            "validation_matchable_route_records": 759,
+            "validation_sample_identities": 1097,
+            "validation_stage2_candidate_coverage": 0.5624430264357339
+          }
+        ],
+        "data_boundary": "family_train_for_context_memory_and_family_validation_for_weight_selection"
+      }
+    },
+    "ranker": {
+      "architecture": "deterministic_stage1_stage2_prior",
+      "feature_space": "stage1_stage2_prior_only",
+      "feature_columns": [],
+      "sort_specs": [
+        [
+          "sample_index",
+          true
+        ],
+        [
+          "retro_rank",
+          true
+        ],
+        [
+          "retro_probability",
+          false
+        ],
+        [
+          "stage2_initial_score",
+          false
+        ],
+        [
+          "stage2_knn_rank",
+          true
+        ],
+        [
+          "knn_similarity_sum",
+          false
+        ],
+        [
+          "knn_similarity_max",
+          false
+        ],
+        [
+          "knn_neighbor_count",
+          false
+        ],
+        [
+          "knn_weighted_mean_yield",
+          false
+        ],
+        [
+          "reagent_norm",
+          true
+        ],
+        [
+          "solvent_norm",
+          true
+        ]
+      ],
+      "learned_parameters": false
+    },
+    "temperature": {
+      "architecture": "not_run_for_stage2_ablation",
+      "always_enabled": false,
+      "reason": "Sys@k-only controlled Stage 2 ablation"
+    },
+    "output_dir": null,
+    "model_file": null,
+    "metadata_file": null,
+    "feature_columns": null,
+    "best_iteration": null,
+    "temperature_model_file": null,
+    "temperature_metadata_file": null,
+    "temperature_num_train": null,
+    "temperature_gnn": null,
+    "ranking_protocol": {
+      "architecture": "deterministic_stage1_stage2_prior",
+      "feature_space": "stage1_stage2_prior_only",
+      "score_column": "stage2_prior_score",
+      "sort_specs": [
+        [
+          "sample_index",
+          true
+        ],
+        [
+          "retro_rank",
+          true
+        ],
+        [
+          "retro_probability",
+          false
+        ],
+        [
+          "stage2_initial_score",
+          false
+        ],
+        [
+          "stage2_knn_rank",
+          true
+        ],
+        [
+          "knn_similarity_sum",
+          false
+        ],
+        [
+          "knn_similarity_max",
+          false
+        ],
+        [
+          "knn_neighbor_count",
+          false
+        ],
+        [
+          "knn_weighted_mean_yield",
+          false
+        ],
+        [
+          "reagent_norm",
+          true
+        ],
+        [
+          "solvent_norm",
+          true
+        ]
+      ],
+      "learned_parameters": false
+    },
+    "temperature_protocol": {
+      "architecture": "not_run_for_stage2_ablation",
+      "always_enabled": false,
+      "selection": "not_run_for_stage2_ablation"
+    }
+  },
+  "metrics": {
+    "num_slates": 1099,
+    "covered_slates": 648,
+    "route_covered_slates": 769,
+    "context_covered_slates": 913,
+    "pool_coverage": 0.5896269335759782,
+    "pool_route_coverage": 0.6997270245677889,
+    "pool_context_coverage": 0.8307552320291174,
+    "system_mrr": 0.3174330857082626,
+    "system_ndcg10": 0.3234737488353466,
+    "system_top1_all": 0.27388535031847133,
+    "system_top3_all": 0.3421292083712466,
+    "system_top5_all": 0.36032757051865333,
+    "system_top10_all": 0.3776160145586897,
+    "context_top1_all": 0.5122838944494996,
+    "context_top3_all": 0.6524112829845313,
+    "context_top5_all": 0.7170154686078253,
+    "context_top10_all": 0.7707006369426752,
+    "route_top1_all": 0.45677888989990906,
+    "route_top3_all": 0.45677888989990906,
+    "route_top5_all": 0.45677888989990906,
+    "route_top10_all": 0.45677888989990906,
+    "system_top1_covered": 0.4645061728395062,
+    "system_top3_covered": 0.5802469135802469,
+    "system_top5_covered": 0.6111111111111112,
+    "system_top10_covered": 0.6404320987654321,
+    "temperature": {
+      "definition": "standalone_temperature_error_on_highest_ranked_full_match",
+      "n": 0,
+      "mae": null,
+      "mse": null,
+      "rmse": null,
+      "support": "highest_ranked_full_match_with_valid_temperature",
+      "within_5c": null,
+      "within_10c": null,
+      "within_20c": null
+    },
+    "candidate_slates": 1098,
+    "missing_candidate_slates": 1,
+    "denominator": "all_test_manifest_samples"
+  },
+  "stage1_route_recall": {
+    "n": 1099,
+    "route_recall_top1": 0.456778889899909,
+    "route_recall_top3": 0.6105550500454959,
+    "route_recall_top5": 0.6596906278434941,
+    "route_recall_top10": 0.6997270245677889
+  },
+  "raw_artifacts_pruned": true,
+  "retention_note": "Raw candidate tables, scored tables, and binary checkpoints were removed after compact result and metadata retention."
+}

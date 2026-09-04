@@ -1,5 +1,21 @@
 # ProSys Development Log
 
+## 2026-09-04 - current parallel Stage-3 three-seed ablation
+
+- Completed `Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/`:
+  six families, fixed Stage-1 test-route caches, and seeds 0/1/2 (18 compact
+  records).
+- The deterministic no-XGB-LTR arm preserves the exact current parallel Stage-2
+  protocol and candidate-availability metrics for every matched family/seed; it
+  has no learned ranking parameters and skips temperature, which cannot alter
+  Sys@k.
+- Candidate recall is unchanged at `54.26 +/- 0.15%`; Sys@10 is
+  `36.03 +/- 0.16%` versus `43.77 +/- 0.60%` for the full mainline, a
+  `+7.74 pp` XGB-LTR within-pool reranking effect.
+- Sys@1 changes by only `+0.65 pp` on average and is seed-variable; the
+  report therefore makes no stable Top-1 claim.
+
+
 ## 2026-09-03 - current parallel mainline three-seed robustness
 
 - Completed the maintained parallel KNN + ReaFNN post-fusion mainline at
