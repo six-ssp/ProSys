@@ -55,6 +55,9 @@ denotes sample standard deviation (`ddof=1`).
   remains the detailed seed-0 development record. The earlier serial
   three-seed result (`44.62 +/- 0.42%` Sys@10) remains historical only and is
   not numerical evidence for the current parallel candidate distribution.
+- The paired current Stage-3 ablation holds the complete Stage-2 pool fixed and
+  gives `36.03 +/- 0.16%` Sys@10 without XGB-LTR, a `7.74 pp` lower macro
+  value than the current mainline.
 
 ## Reproduction
 
@@ -91,6 +94,7 @@ The validation route cache is used only to choose the Stage-2 fusion weight.
 - [Current result status](CURRENT_RESULTS.md)
 - [Parallel multi-seed record](Experiment/stage23_parallel_post_fusion_multiseed_20260903/README.md)
 - [Parallel seed-0 development record](Experiment/stage2_parallel_post_fusion_20260901.md)
+- [Matched Stage 3 three-seed ablation](Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/README.md)
 - [Stage 2 details](stage2_ReaFNN/stage2_KNN_detail.md)
 - [Stage 3 details](stage3_XGBoost/stage3_XGBoost_detail.md)
 - [Baseline and ablation scope](baseline&ablation.md)

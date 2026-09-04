@@ -51,6 +51,33 @@ seed-0 development record. The serial three-seed records below remain useful
 historical controls but are not numerically interchangeable with the current
 parallel candidate distribution.
 
+## Current Parallel Stage-3 Matched Ablation (2026-09-04)
+
+The paired Stage-3 control is retained in
+`Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/`. It uses
+the same fixed Stage-1 route caches, family train-only condition memory,
+product-Morgan KNN (`K=64`), independently generated ReaFNN top-64 contexts,
+validation-only post-fusion, and 20-context cap as the current mainline at
+seeds 0/1/2. The only ranking change is to replace the fitted 52-feature
+XGB-LTR with the deterministic Stage-1/2 prior. Temperature is skipped because
+it neither changes candidate membership nor the system-ranking score.
+
+| System | Candidate recall | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Full current mainline | 54.26 +/- 0.15 | 25.13 +/- 1.20 | 35.12 +/- 1.27 | 39.11 +/- 1.04 | 43.77 +/- 0.60 | 31.53 +/- 1.12 | 33.16 +/- 1.02 |
+| Full Stage 2 + deterministic no-XGB-LTR | 54.26 +/- 0.15 | 24.48 +/- 0.09 | 32.23 +/- 0.34 | 34.05 +/- 0.02 | 36.03 +/- 0.16 | 29.24 +/- 0.07 | 29.99 +/- 0.06 |
+| Full minus no-XGB-LTR (pp) | 0.00 | +0.65 | +2.89 | +5.06 | +7.74 | +2.29 | +3.16 |
+
+All 18 family-seed records passed exact Stage-2-protocol and candidate-availability
+matching against the corresponding full-mainline compact record. Thus the
+`+7.74 pp` macro Sys@10 difference is a within-pool ranking effect, not a
+candidate-availability effect. The Sys@1 mean difference is smaller and changes
+direction across seeds (`-0.69`, `+0.81`, and `+1.83 pp`); no stable Top-1
+claim is made. The effect is consistently positive in the six family-mean
+Sys@10 comparisons. See
+`ablation/current_parallel_stage3_ablation_results_20260904.md` for the
+family-resolved table and paper-safe interpretation.
+
 ## Historical Serial Three-Seed Reference (2026-08-30)
 
 **Historical record.** The former serial mainline was the post-hardening,

@@ -24,6 +24,10 @@ shim and must remain importable.
   Stage-1, six-family, seeds-0/1/2 parallel evaluation.
 - `Experiment/stage2_parallel_post_fusion_20260901.md` remains the detailed
   seed-0 development record, not the primary uncertainty estimate.
+- `Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/` is the
+  paired current Stage-3 control: it keeps the complete parallel Stage-2 pool
+  fixed for each family and seed, then replaces XGB-LTR with deterministic
+  Stage-1/2 ranking. Use it, not serial controls, for current XGB-LTR claims.
 - `CURRENT_RESULTS.md` states the reportable boundary and distinguishes the
   current parallel study from historical serial results.
 - The 2026-08-30 serial multi-seed mainline and its ablations are historical

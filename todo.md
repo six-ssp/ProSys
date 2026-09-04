@@ -1,6 +1,6 @@
 # ProSys TODO
 
-Updated: `2026-09-03`
+Updated: `2026-09-04`
 
 ## Active
 
@@ -32,6 +32,9 @@ Updated: `2026-09-03`
   conditional temperature aggregation and compact source provenance.
 - Kept XGB-LTR in a fixed 52-feature non-graph ranking space and R-GNN features
   in the separate temperature regressor only.
+- Completed the paired current-parallel Stage-3 three-seed control: it preserves
+  the official Stage-2 pool exactly and measures a `+7.74 pp` Sys@10 effect
+  from XGB-LTR reranking.
 - Archived retired candidate-aware Stage 3 ranking probes under
   `Experiment/legacy_stage3/`.
 - Segregated local-only exploratory records and scripts from maintained files.
