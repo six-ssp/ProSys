@@ -35,6 +35,35 @@ seed-0 snapshot. Joint route-contrastive optimization and wrong-route
 negative-sample supervision were retired after exploratory checks; neither is
 part of the maintained XGB-LTR training or the reported parallel result.
 
+### Current matched no-R-GNN temperature ablation
+
+The current graph contribution is tested with a matched, three-seed,
+six-family temperature-only control in
+`Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/`. The
+full arm uses the maintained 52 tabular candidate descriptors plus the 128D
+R-GNN route embedding (`180` temperature inputs). The no-R-GNN control
+re-trains the same XGBoost regressor on exactly the 52 tabular descriptors;
+`route_gnn_feat_*` is absent by assertion.
+
+The persisted Stage-1 routes, product-Morgan KNN (`K=64`), independently
+proposed ReaFNN top-64 contexts, validation-selected post-fusion, top-20
+route-local cap, 52-feature XGB-LTR, seed, and test manifest are held fixed.
+All 18 family-seed pairs pass exact Stage 1/Stage 2/ranking-metric and
+conditional-support audits. Thus Sys@k, MRR, nDCG@10, candidate recall, and
+temperature support are identical by design; only conditional temperature error
+is compared.
+
+| Temperature features | MAE (C) | Within +/-5 C | Within +/-10 C | Within +/-20 C |
+| --- | ---: | ---: | ---: | ---: |
+| 52 tabular + 128D R-GNN | 11.49 +/- 0.26 | 41.41 +/- 2.16 | 63.09 +/- 1.76 | 83.74 +/- 0.69 |
+| 52 tabular only | 13.93 +/- 0.38 | 35.30 +/- 0.81 | 55.56 +/- 1.23 | 78.09 +/- 1.22 |
+| Full minus tabular | -2.43 C | +6.11 pp | +7.53 pp | +5.65 pp |
+
+The dedicated reproducible launcher is
+`scripts/run_current_mainline_temperature_ablation.py`. It uses a temporary
+per-family scratch root and retains only compact result/metadata files after
+audit, which makes the control suitable for the limited-disk environment.
+
 ### Historical serial XGB-LTR ablation
 
 The serial 2026-08-30 system's 44.62 +/- 0.42% Sys@10 and its no-XGB-LTR

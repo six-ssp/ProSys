@@ -253,14 +253,21 @@ def _score_table_with_stage2_heuristic(table_file: Path) -> pd.DataFrame:
     return ranked
 
 
-def _baseline_identifier(*, ranking_mode: str, enable_temperature: bool) -> str:
+def _baseline_identifier(
+    *,
+    ranking_mode: str,
+    enable_temperature: bool,
+    temperature_feature_mode: str,
+) -> str:
     if ranking_mode == 'stage2_heuristic':
         return 'stage2_heuristic_no_xgb_ltr'
-    return (
-        'knn_xgb_reaction_gnn_temperature'
-        if enable_temperature
-        else 'knn_xgb_stage2_ablation_ranking_only'
-    )
+    if not enable_temperature:
+        return 'knn_xgb_stage2_ablation_ranking_only'
+    if temperature_feature_mode == 'rgnn':
+        return 'knn_xgb_reaction_gnn_temperature'
+    if temperature_feature_mode == 'no_rgnn':
+        return 'knn_xgb_tabular_temperature_ablation'
+    raise ValueError(f'Unsupported temperature feature mode: {temperature_feature_mode}')
 
 
 def _run_family(
@@ -286,9 +293,12 @@ def _run_family(
     reuse_candidate_tables_root: Path | None,
     gnn_force_retrain: bool,
     enable_temperature: bool,
+    temperature_feature_mode: str,
     ranking_mode: str,
     seed: int,
 ) -> dict:
+    if temperature_feature_mode not in {'rgnn', 'no_rgnn'}:
+        raise ValueError(f'Unsupported temperature feature mode: {temperature_feature_mode}')
     family_root = output_root / family
     shared_root = family_root / _reafnn_cache_name(
         reafnn_config,
@@ -364,15 +374,27 @@ def _run_family(
         expected_baseline = _baseline_identifier(
             ranking_mode=ranking_mode,
             enable_temperature=enable_temperature,
+            temperature_feature_mode=temperature_feature_mode,
         )
-        temperature_matches = (
-            existing_temperature_protocol.get('always_enabled') is True
-            and existing_temperature_protocol.get('selection') == 'none'
-            and existing_temperature_protocol.get('reaction_gnn_config') == gnn_config.to_dict()
-        ) if enable_temperature else (
-            existing_temperature_protocol.get('always_enabled') is False
-            and existing_temperature_protocol.get('selection') == 'not_run_for_stage2_ablation'
-        )
+        if enable_temperature and temperature_feature_mode == 'rgnn':
+            temperature_matches = (
+                existing_temperature_protocol.get('architecture') == 'reaction_gnn_augmented_xgboost_regressor'
+                and existing_temperature_protocol.get('always_enabled') is True
+                and existing_temperature_protocol.get('selection') == 'none'
+                and existing_temperature_protocol.get('reaction_gnn_config') == gnn_config.to_dict()
+            )
+        elif enable_temperature:
+            temperature_matches = (
+                existing_temperature_protocol.get('architecture') == 'tabular_xgboost_regressor_without_reaction_gnn'
+                and existing_temperature_protocol.get('always_enabled') is True
+                and existing_temperature_protocol.get('reaction_gnn_enabled') is False
+                and existing_temperature_protocol.get('selection') == 'none'
+            )
+        else:
+            temperature_matches = (
+                existing_temperature_protocol.get('always_enabled') is False
+                and existing_temperature_protocol.get('selection') == 'not_run_for_stage2_ablation'
+            )
         if (
             existing.get('baseline') == expected_baseline
             and temperature_matches
@@ -435,8 +457,9 @@ def _run_family(
 
     model_dir = result_dir / 'model'
     gnn_temperature_model_dir = result_dir / 'gnn_temperature_model'
+    tabular_temperature_model_dir = result_dir / 'tabular_temperature_model'
     if force_rebuild:
-        for directory in (model_dir, gnn_temperature_model_dir):
+        for directory in (model_dir, gnn_temperature_model_dir, tabular_temperature_model_dir):
             if directory.exists():
                 for path in sorted(directory.glob('*')):
                     if path.is_file():
@@ -452,7 +475,7 @@ def _run_family(
             train_temperature=False,
         )
 
-    if enable_temperature:
+    if enable_temperature and temperature_feature_mode == 'rgnn':
         # Reusing frozen Stage 2 tables intentionally does not reuse graph
         # tables: the R-GNN cache remains tied to the current Stage 2 cache.
         gnn_table_paths = _ensure_gnn_augmented_tables(
@@ -485,6 +508,45 @@ def _run_family(
             'architecture': 'reaction_gnn_augmented_xgboost_regressor',
             'always_enabled': True,
             'reaction_gnn_config': gnn_config.to_dict(),
+            'selection': 'none',
+        }
+        scoring_kwargs = {
+            'temperature_model_file': selected_temperature_model_file,
+            'temperature_metadata_file': selected_temperature_metadata_file,
+        }
+    elif enable_temperature:
+        # Matched temperature ablation: retain the identical labeled Stage 2
+        # tables and XGB-LTR, but omit every route-GNN embedding dimension.
+        tabular_temperature_artifacts = train_xgb_temperature_regressor(
+            train_table_file=table_paths['table_train'],
+            val_table_file=table_paths['table_val'],
+            output_dir=tabular_temperature_model_dir,
+            random_state=seed,
+        )
+        temperature_feature_columns = tabular_temperature_artifacts.get('feature_columns') or []
+        if len(temperature_feature_columns) != 52:
+            raise RuntimeError(
+                f'{family}: no-R-GNN temperature model must receive exactly 52 tabular features; '
+                f'got {len(temperature_feature_columns)}.'
+            )
+        if any(str(column).startswith('route_gnn_feat_') for column in temperature_feature_columns):
+            raise RuntimeError(f'{family}: no-R-GNN temperature model received route-GNN features.')
+        selected_temperature_model_file = tabular_temperature_artifacts.get('model_file')
+        selected_temperature_metadata_file = tabular_temperature_artifacts.get('metadata_file')
+        if selected_temperature_model_file is None or selected_temperature_metadata_file is None:
+            raise RuntimeError(f'{family}: the no-R-GNN temperature model could not be trained.')
+        gnn_temperature_artifacts = {}
+        scoring_table = table_paths['table_test']
+        temperature_model = {
+            'architecture': 'tabular_xgboost_regressor_without_reaction_gnn',
+            'always_enabled': True,
+            'reaction_gnn_enabled': False,
+            **tabular_temperature_artifacts,
+        }
+        temperature_protocol = {
+            'architecture': 'tabular_xgboost_regressor_without_reaction_gnn',
+            'always_enabled': True,
+            'reaction_gnn_enabled': False,
             'selection': 'none',
         }
         scoring_kwargs = {
@@ -552,6 +614,7 @@ def _run_family(
         'baseline': _baseline_identifier(
             ranking_mode=ranking_mode,
             enable_temperature=enable_temperature,
+            temperature_feature_mode=temperature_feature_mode,
         ),
         'seed': seed,
         'candidate_table': str(scoring_table),
@@ -568,8 +631,13 @@ def _run_family(
             'best_iteration': rank_artifacts.get('best_iteration'),
             'temperature_model_file': selected_temperature_model_file,
             'temperature_metadata_file': selected_temperature_metadata_file,
-            'temperature_num_train': gnn_temperature_artifacts.get('temperature_num_train'),
-            'temperature_gnn': gnn_temperature_artifacts if enable_temperature else None,
+            'temperature_num_train': temperature_model.get('temperature_num_train'),
+            'temperature_feature_mode': temperature_feature_mode if enable_temperature else 'not_run',
+            'temperature_gnn': (
+                gnn_temperature_artifacts
+                if enable_temperature and temperature_feature_mode == 'rgnn'
+                else None
+            ),
             'ranking_protocol': ranking_protocol,
             'temperature_protocol': temperature_protocol,
         },
@@ -864,6 +932,12 @@ def main() -> None:
     parser.add_argument('--gnn_force_retrain', action='store_true')
     parser.add_argument('--skip_temperature', action='store_true', help='For Sys@k-only ablations; leaves the full mainline unchanged.')
     parser.add_argument(
+        '--temperature_feature_mode',
+        choices=['rgnn', 'no_rgnn'],
+        default='rgnn',
+        help='Use maintained R-GNN temperature features or the matched tabular no-R-GNN control.',
+    )
+    parser.add_argument(
         '--ranking_mode',
         type=str,
         default='xgb_ltr',
@@ -902,6 +976,8 @@ def main() -> None:
         parser.error('--reafnn_independent_contexts must be at least --max_contexts.')
     if args.ranking_mode == 'stage2_heuristic' and not args.skip_temperature:
         parser.error('--ranking_mode stage2_heuristic requires --skip_temperature.')
+    if args.skip_temperature and args.temperature_feature_mode != 'rgnn':
+        parser.error('--temperature_feature_mode no_rgnn requires temperature evaluation.')
     reafnn_config = ReaFNNConfig(
         fpsize=args.fpsize,
         radius=args.radius,
@@ -967,6 +1043,7 @@ def main() -> None:
             gnn_config=gnn_config,
             gnn_force_retrain=args.gnn_force_retrain,
             enable_temperature=not args.skip_temperature,
+            temperature_feature_mode=args.temperature_feature_mode,
             ranking_mode=args.ranking_mode,
             reuse_candidate_tables_root=reuse_candidate_tables_root,
             seed=args.seed,

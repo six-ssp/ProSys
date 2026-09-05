@@ -29,6 +29,17 @@ a valid temperature. Its macro MAE is `11.49 +/- 0.26 C`; hit rates within
 `83.74 +/- 0.69%`, respectively. Supports are 1,785, 1,795, and 1,797 for
 seeds 0, 1, and 2 because ranked exact system matches can differ by seed.
 
+## Matched Temperature-Representation Control
+
+The R-GNN temperature branch is tested by the paired three-seed control in
+[`../stage3_temperature_no_rgnn_ablation_multiseed_20260904/`](../stage3_temperature_no_rgnn_ablation_multiseed_20260904/README.md). It preserves
+this record's Stage 1 routes, Stage 2 post-fusion pool, XGB-LTR ranking,
+test-manifest denominator, and conditional support exactly. The sole change is
+from the full `52 + 128D R-GNN` temperature feature space to the same `52D`
+tabular feature space without graph features. MAE is `11.49 +/- 0.26 C` with
+R-GNN versus `13.93 +/- 0.38 C` without it; within-10 C accuracy is
+`63.09 +/- 1.76%` versus `55.56 +/- 1.23%`.
+
 ## Per-Family Mean +/- Std
 
 | Family | Coverage | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 | Temp. MAE (C) |

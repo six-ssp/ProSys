@@ -51,6 +51,33 @@ seed-0 development record. The serial three-seed records below remain useful
 historical controls but are not numerically interchangeable with the current
 parallel candidate distribution.
 
+## Current Parallel Stage-2 Matched ReaFNN Ablation (2026-09-05)
+
+The paired Stage-2 control is retained in
+`Experiment/stage2_parallel_post_fusion_ablation_multiseed_20260904/`. It
+compares the full parallel KNN + ReaFNN post-fusion pool with a KNN-only pool
+at seeds 0/1/2. Both arms use the same persisted Stage-1 routes, 3,860-product
+denominator, product-Morgan KNN (radius 2, 4,096 bits, K=64), 64-context
+prefilter, route-local top-20 cap, family train-only memory, and reference-split
+training/validation tables. The control disables ReaFNN and post-fusion, then
+re-trains its own 52-feature XGB-LTR on the changed KNN-only candidate
+distribution. Temperature is skipped because it does not affect Sys@k.
+
+| System | Candidate recall | Sys@1 | Sys@3 | Sys@5 | Sys@10 | MRR | nDCG@10 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Full current mainline | 54.26 +/- 0.15 | 25.13 +/- 1.20 | 35.12 +/- 1.27 | 39.11 +/- 1.04 | 43.77 +/- 0.60 | 31.53 +/- 1.12 | 33.16 +/- 1.02 |
+| KNN-only + XGB-LTR | 53.39 +/- 0.00 | 22.72 +/- 1.86 | 31.44 +/- 2.45 | 35.19 +/- 2.23 | 39.86 +/- 2.08 | 28.63 +/- 1.98 | 29.85 +/- 2.05 |
+| Full minus KNN-only (pp) | +0.87 | +2.42 | +3.68 | +3.92 | +3.91 | +2.90 | +3.30 |
+
+All 18 family-seed pairs pass fixed Stage-1 route-recall, manifest and
+candidate-slate accounting, and common-KNN-protocol checks. Every family mean
+favors the full pool at Sys@10; the paired seed-level gains are `+1.42`,
+`+3.72`, and `+6.59 pp`. Because the candidate composition changes and each
+arm retrains its own ranker, this is a Stage-2 availability/composition result,
+not a within-identical-pool ranking attribution. See
+`ablation/current_parallel_stage2_ablation_results_20260905.md` for the
+family-resolved table and paper-safe interpretation.
+
 ## Current Parallel Stage-3 Matched Ablation (2026-09-04)
 
 The paired Stage-3 control is retained in
@@ -77,6 +104,30 @@ claim is made. The effect is consistently positive in the six family-mean
 Sys@10 comparisons. See
 `ablation/current_parallel_stage3_ablation_results_20260904.md` for the
 family-resolved table and paper-safe interpretation.
+
+## Current Matched Temperature-Representation Ablation (2026-09-04)
+
+The paired temperature-representation control is retained in
+`Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/`. It holds
+fixed the persisted Stage-1 routes, parallel product-Morgan KNN + ReaFNN
+post-fusion candidate pool, 20-context cap, 52-feature XGB-LTR, test manifest,
+and random seed. The full arm uses a 180-column temperature regressor
+(`52` tabular candidate features plus `128` R-GNN route features); the control
+re-trains only the temperature regressor with the identical 52 tabular features
+and no `route_gnn_feat_*` column.
+
+| Temperature arm | Conditional support | MAE (C) | Within +/-5 C | Within +/-10 C | Within +/-20 C |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| R-GNN + XGBoost | 1,792.33 +/- 6.43 | 11.49 +/- 0.26 | 41.41 +/- 2.16 | 63.09 +/- 1.76 | 83.74 +/- 0.69 |
+| Tabular XGBoost, no R-GNN | 1,792.33 +/- 6.43 | 13.93 +/- 0.38 | 35.30 +/- 0.81 | 55.56 +/- 1.23 | 78.09 +/- 1.22 |
+| Full minus no-R-GNN | 0.00 | -2.43 C | +6.11 pp | +7.53 pp | +5.65 pp |
+
+All 18 family-seed pairs passed exact matching of Stage 1 route recall, Stage 2
+protocol and candidate pool, all Sys@k/MRR/nDCG ranking metrics, and conditional
+temperature support. The graph branch therefore improves the conditional
+temperature estimate without changing candidate membership or system ranking.
+See `ablation/current_parallel_temperature_ablation_results_20260904.md` for
+family-resolved results and paper-safe wording.
 
 ## Historical Serial Three-Seed Reference (2026-08-30)
 

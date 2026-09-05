@@ -1,0 +1,20 @@
+{
+  "status": "complete",
+  "families": [
+    "Beckmann",
+    "Buchwald-HartwigCross-Coupling",
+    "Chan_LamCoupling",
+    "DielsAlder",
+    "Friedel-CraftsAcylation",
+    "Friedel-CraftsAlkylation"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "full_reference_arm": "rgnn_temperature",
+  "new_ablation_arm": "no_rgnn_temperature",
+  "result_count": 36,
+  "audit_count": 18
+}

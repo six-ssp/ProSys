@@ -13,12 +13,31 @@ artifacts are retained only for traceability.
   - Contains compact per-family metrics, per-seed summaries, route-cache hashes,
     and small source-run records; large model/table intermediates were pruned.
 
+- `stage2_parallel_post_fusion_ablation_multiseed_20260904/`
+  - Paired Stage-2 ReaFNN-removal control for the current parallel candidate
+    pool, evaluated over all six families and seeds 0, 1, and 2.
+  - It keeps the fixed Stage-1 routes and common product-Morgan KNN protocol,
+    disables ReaFNN, and re-trains a 52-feature XGB-LTR on KNN-only candidates.
+  - Candidate recall is `53.39 +/- 0.00%` and Sys@10 is `39.86 +/- 2.08%`,
+    versus `54.26 +/- 0.15%` and `43.77 +/- 0.60%` for the full mainline.
+    The full Stage-2 pool therefore gains `+0.87 pp` recall and `+3.91 pp`
+    Sys@10; every family mean favors the full pool.
+
 - `stage3_parallel_post_fusion_ablation_multiseed_20260904/`
   - Paired Stage-3-only control for the current parallel candidate pool.
   - All 18 family-seed records preserve the full mainline Stage-2 protocol and
     candidate availability exactly, but use deterministic no-XGB-LTR ranking.
   - Macro Sys@10 is `36.03 +/- 0.16%` versus `43.77 +/- 0.60%` for the full
     mainline; the `7.74 pp` gap is therefore a within-pool reranking effect.
+
+- `stage3_temperature_no_rgnn_ablation_multiseed_20260904/`
+  - Paired current-mainline temperature-representation control over the same
+    six families and seeds 0/1/2.
+  - Full temperature XGBoost uses 52 tabular plus 128 R-GNN features; the
+    control uses exactly the same 52 tabular fields and no graph features.
+  - All 18 pairs match Stage 1/2/3 system metrics and temperature support
+    exactly. R-GNN reduces conditional MAE from `13.93 +/- 0.38 C` to
+    `11.49 +/- 0.26 C` and improves within-10 C accuracy by `7.53 pp`.
 
 - `stage2_parallel_post_fusion_20260901.md`
   - Fixed-Stage-1, six-family, seed-0 evaluation of the maintained parallel

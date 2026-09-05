@@ -116,7 +116,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\\n")
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
@@ -406,7 +406,7 @@ def _runner_command(
             [
                 "--reafnn_device",
                 "cpu",
-                "--no-reafnn-enable-independent-post-fusion",
+                "--no-reafnn_enable_independent_post_fusion",
             ]
         )
     command.extend(ARMS[arm]["runner_args"])
@@ -708,11 +708,15 @@ def main() -> None:
             "prefilter_contexts": 64,
             "max_contexts": 20,
             "training_candidate_table_mode": "reference_split_routes",
-            "reafnn_hidden_dim": 512,
-            "reafnn_hidden_layers": 2,
-            "reafnn_dropout": 0.10,
-            "reafnn_candidate_policy": "independent_knn_reafnn_post_fusion",
-            "reafnn_independent_contexts": 64,
+            "training_candidate_route_source": "reference_split_routes",
+        },
+        "full_mainline_reafnn_reference": {
+            "architecture": "knn_reafnn",
+            "hidden_dim": 512,
+            "hidden_layers": 2,
+            "dropout": 0.10,
+            "candidate_policy": "independent_knn_reafnn_post_fusion",
+            "independent_contexts": 64,
             "post_fusion_validation_source": "predicted_stage1_validation_routes",
             "post_fusion_weight_grid": [round(step / 10.0, 1) for step in range(11)],
         },

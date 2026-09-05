@@ -24,10 +24,19 @@ shim and must remain importable.
   Stage-1, six-family, seeds-0/1/2 parallel evaluation.
 - `Experiment/stage2_parallel_post_fusion_20260901.md` remains the detailed
   seed-0 development record, not the primary uncertainty estimate.
+- `Experiment/stage2_parallel_post_fusion_ablation_multiseed_20260904/` is the
+  paired current Stage-2 ReaFNN-removal control: it disables ReaFNN, preserves
+  fixed Stage-1 routes and the common KNN settings, and re-trains XGB-LTR on
+  the KNN-only pool. Use it, not serial controls, for current ReaFNN claims.
 - `Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/` is the
   paired current Stage-3 control: it keeps the complete parallel Stage-2 pool
   fixed for each family and seed, then replaces XGB-LTR with deterministic
   Stage-1/2 ranking. Use it, not serial controls, for current XGB-LTR claims.
+- `Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/` is
+  the paired current temperature-representation control. It preserves all
+  Stage 1/2/3 ranking inputs and outputs while changing the temperature XGBoost
+  input from `52 + 128` R-GNN-augmented features to the same 52 tabular
+  features alone. All 18 family-seed audit pairs pass exactly.
 - `CURRENT_RESULTS.md` states the reportable boundary and distinguishes the
   current parallel study from historical serial results.
 - The 2026-08-30 serial multi-seed mainline and its ablations are historical

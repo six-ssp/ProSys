@@ -1,6 +1,6 @@
 # ProSys Baseline Experiments
 
-Updated: `2026-08-30`
+Updated: `2026-09-04`
 
 The current citable comparison is maintained in
 [`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md).
@@ -35,7 +35,7 @@ The current ProSys mainline is:
 ```text
 target product
   -> family-specific EditRetro route proposals
-  -> KNN wide recall + ReaFNN condition-pool selection
+  -> parallel product-Morgan KNN + ReaFNN post-fusion condition-pool selection
   -> tabular XGB-LTR full-system reranking
   -> fixed R-GNN temperature prediction
 ```
@@ -68,7 +68,7 @@ standard deviation across the three seeds.
 | Baseline 2 | Product-GNN | 38.33 +/- 0.28 | 6.11 +/- 0.49 | 12.84 +/- 0.56 | 16.75 +/- 0.43 | 23.03 +/- 0.73 | 11.40 +/- 0.54 | 13.32 +/- 0.58 |
 | Baseline 3 | EditRetro + Sequential FNN | 45.85 +/- 0.26 | 16.75 +/- 0.27 | 24.32 +/- 0.28 | 27.68 +/- 0.40 | 31.71 +/- 0.10 | 22.01 +/- 0.22 | 23.64 +/- 0.18 |
 | Baseline 4 | EditRetro + Reaction-GCNN | 38.15 +/- 0.24 | 7.43 +/- 0.21 | 13.16 +/- 0.10 | 16.39 +/- 0.34 | 21.10 +/- 0.28 | 11.88 +/- 0.11 | 13.27 +/- 0.10 |
-| Mainline | ProSys current three-seed result | 54.44 +/- 0.14 | 27.12 +/- 0.37 | 36.84 +/- 0.80 | 40.47 +/- 0.77 | 44.62 +/- 0.42 | 33.28 +/- 0.48 | 34.70 +/- 0.53 |
+| Mainline | ProSys current parallel three-seed result | 54.26 +/- 0.15 | 25.13 +/- 1.20 | 35.12 +/- 1.27 | 39.11 +/- 1.04 | 43.77 +/- 0.60 | 31.53 +/- 1.12 | 33.16 +/- 1.02 |
 
 The full protocol, family-resolved System@10 results, conditional temperature
 metrics, and compact artifact inventory are in

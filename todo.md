@@ -1,12 +1,15 @@
 # ProSys TODO
 
-Updated: `2026-09-04`
+Updated: `2026-09-05`
 
 ## Active
 
 - Keep the six-family parallel KNN + ReaFNN post-fusion workflow as the only
   maintained Stage 2/3 mainline.
-- Treat `Experiment/stage23_parallel_post_fusion_multiseed_20260903/` and the
+- Treat `Experiment/stage23_parallel_post_fusion_multiseed_20260903/`,
+  `Experiment/stage2_parallel_post_fusion_ablation_multiseed_20260904/`,
+  `Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/`,
+  `Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/`, and the
   current section of `CURRENT_RESULTS.md` as the authoritative promoted record.
 - Keep the 2026-09-01 seed-0 file as a development record. Do not borrow
   historical serial multi-seed values for current-parallel claims.
@@ -32,9 +35,17 @@ Updated: `2026-09-04`
   conditional temperature aggregation and compact source provenance.
 - Kept XGB-LTR in a fixed 52-feature non-graph ranking space and R-GNN features
   in the separate temperature regressor only.
+- Completed the paired current-parallel Stage-2 ReaFNN-removal control: KNN-only
+  plus a separately re-trained 52-feature XGB-LTR reaches `53.39 +/- 0.00%`
+  candidate recall and `39.86 +/- 2.08%` Sys@10, versus `54.26 +/- 0.15%` and
+  `43.77 +/- 0.60%` for the full pool.
 - Completed the paired current-parallel Stage-3 three-seed control: it preserves
   the official Stage-2 pool exactly and measures a `+7.74 pp` Sys@10 effect
   from XGB-LTR reranking.
+- Completed the paired current-parallel temperature three-seed control: it
+  preserves all ranked systems and conditional support exactly, and shows that
+  the 128D R-GNN route representation reduces conditional temperature MAE by
+  `2.43 C` and improves within-10 C accuracy by `7.53 pp`.
 - Archived retired candidate-aware Stage 3 ranking probes under
   `Experiment/legacy_stage3/`.
 - Segregated local-only exploratory records and scripts from maintained files.
