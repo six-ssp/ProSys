@@ -16,8 +16,13 @@
 
 - `collect_stage1_base_vs_tuned.py`, `collect_checklist_stats.py`, and
   `analyze_fixed_manifest_checks.py`: reproducibility and reporting audits.
-- `run_current_mainline_matched_ablations.py`: historical serial control only;
-  it is not a paired ablation of the current parallel candidate pool.
+- `run_current_mainline_matched_ablations.py`: paired current-parallel Stage-2
+  and Stage-3 controls. The three-seed `knn_only` and `no_xgb_ltr` arms are
+  complete in separate artifacts; the launcher reuses compact records safely
+  when a run is resumed after interruption.
+- `build_paper_statistics_bundle.py`: archival July-artifact builder only. It
+  is not a source for the maintained parallel mainline and requires a rewrite
+  before generating a current paper-statistics bundle.
 
 ## Historical Launchers
 

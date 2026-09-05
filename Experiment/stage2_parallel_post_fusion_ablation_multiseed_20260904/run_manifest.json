@@ -1,0 +1,69 @@
+{
+  "purpose": "matched current-mainline Stage 2 and Stage 3 ablations",
+  "families": [
+    "Beckmann",
+    "Buchwald-HartwigCross-Coupling",
+    "Chan_LamCoupling",
+    "DielsAlder",
+    "Friedel-CraftsAcylation",
+    "Friedel-CraftsAlkylation"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": {
+    "knn_only": {
+      "description": "Remove ReaFNN while retaining product-Morgan KNN, the 20-context cap, and a separately retrained tabular XGB-LTR.",
+      "runner_args": [
+        "--disable_reafnn",
+        "--skip_temperature",
+        "--ranking_mode",
+        "xgb_ltr"
+      ],
+      "result_subdir": "knn_xgb",
+      "expected_baseline": "knn_xgb_stage2_ablation_ranking_only",
+      "expected_stage2_architecture": "knn_only",
+      "expected_stage2_policy": "not_used",
+      "expected_ranker": "xgb_ranker"
+    }
+  },
+  "mainline_reference": "/root/autodl-tmp/ProSys/Experiment/stage23_parallel_post_fusion_multiseed_20260903/macro_mean_std.csv",
+  "mainline_compact_root": "/root/autodl-tmp/ProSys/Experiment/stage23_parallel_post_fusion_multiseed_20260903/compact/prosys",
+  "route_root": "/root/autodl-tmp/ProSys/outputs/stage1_routes",
+  "post_fusion_validation_route_root": "/root/autodl-tmp/ProSys/outputs/stage1_routes_validation",
+  "fixed_configuration": {
+    "knn_retrieval_mode": "product_morgan",
+    "fpsize": 4096,
+    "radius": 2,
+    "knn_top_k": 64,
+    "prefilter_contexts": 64,
+    "max_contexts": 20,
+    "training_candidate_table_mode": "reference_split_routes",
+    "training_candidate_route_source": "reference_split_routes"
+  },
+  "full_mainline_reafnn_reference": {
+    "architecture": "knn_reafnn",
+    "hidden_dim": 512,
+    "hidden_layers": 2,
+    "dropout": 0.1,
+    "candidate_policy": "independent_knn_reafnn_post_fusion",
+    "independent_contexts": 64,
+    "post_fusion_validation_source": "predicted_stage1_validation_routes",
+    "post_fusion_weight_grid": [
+      0.0,
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      1.0
+    ]
+  },
+  "scratch_retention": "removed after compact retention"
+}

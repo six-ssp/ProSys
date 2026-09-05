@@ -980,9 +980,9 @@ Baseline 1 工作量和风险最高，最后实现。
 | Method | Route@10 | Cover | System@1 | System@3 | System@5 | System@10 | nDCG@10 | MRR |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Product-to-System Transformer | Not reported | Not reported | Not reported | Not reported | Not reported | Not reported | Not reported | Not reported |
-| EditRetro + Sequential FNN | 63.2 | 46.0 | 17.1 | 24.6 | 28.0 | 31.7 | 0.238 | 0.223 |
-| EditRetro + Reaction-GCNN | 63.2 | 38.0 | 7.9 | 13.2 | 16.4 | 21.0 | 0.135 | 0.122 |
-| ProSys current mainline | 63.2 | 49.2 | 27.6 | 35.6 | 38.5 | 42.7 | 0.341 | 0.327 |
+| EditRetro + Sequential FNN | 63.2 | 45.85 +/- 0.26 | 16.75 +/- 0.27 | 24.32 +/- 0.28 | 27.68 +/- 0.40 | 31.71 +/- 0.10 | 0.236 +/- 0.002 | 0.220 +/- 0.002 |
+| EditRetro + Reaction-GCNN | 63.2 | 38.15 +/- 0.24 | 7.43 +/- 0.21 | 13.16 +/- 0.10 | 16.39 +/- 0.34 | 21.10 +/- 0.28 | 0.133 +/- 0.001 | 0.119 +/- 0.001 |
+| ProSys current parallel mainline | 63.2 | 54.26 +/- 0.15 | 25.13 +/- 1.20 | 35.12 +/- 1.27 | 39.11 +/- 1.04 | 43.77 +/- 0.60 | 0.332 +/- 0.010 | 0.315 +/- 0.011 |
 
 注意：
 
@@ -993,9 +993,9 @@ Baseline 1 工作量和风险最高，最后实现。
 
 | Method | Temp MAE | Temp±5 °C | Temp±10 °C | Temp±20 °C | Support N |
 |---|---:|---:|---:|---:|---:|
-| EditRetro + Sequential FNN | 11.87 | 49.5 | 67.3 | 81.6 | 1,464 |
+| EditRetro + Sequential FNN | 12.20 +/- 0.29 | 47.81 +/- 2.32 | 66.04 +/- 1.32 | 81.11 +/- 0.47 | 1,464 / 1,424 / 1,455 |
 | EditRetro + Reaction-GCNN | N/A | N/A | N/A | N/A | N/A |
-| ProSys current mainline | 11.28 | 38.0 | 61.6 | 83.0 | 1,603 |
+| ProSys current parallel mainline | 11.49 +/- 0.26 | 41.41 +/- 2.16 | 63.09 +/- 1.76 | 83.74 +/- 0.69 | 1,785 / 1,795 / 1,797 |
 
 ---
 

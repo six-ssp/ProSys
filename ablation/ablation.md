@@ -1,3 +1,19 @@
+# Current Parallel Stage-2 Result
+
+> **Reportable paired control (2026-09-05):**
+> [`current_parallel_stage2_ablation_results_20260905.md`](current_parallel_stage2_ablation_results_20260905.md) and
+> [`Experiment/stage2_parallel_post_fusion_ablation_multiseed_20260904/`](../Experiment/stage2_parallel_post_fusion_ablation_multiseed_20260904/README.md)
+> contain the completed three-seed ReaFNN-removal ablation for the maintained
+> parallel KNN + ReaFNN post-fusion mainline. The fixed Stage-1 route caches,
+> KNN retrieval settings, and split contracts match the current full mainline.
+> The KNN-only arm necessarily rebuilds its candidate pool and retrains its
+> 52D XGB-LTR on that pool; it therefore tests end-to-end candidate
+> availability and composition, rather than a fixed-pool ranking effect.
+> Removing ReaFNN changes macro candidate recall from `54.26 +/- 0.15%` to
+> `53.39 +/- 0.00%` and macro Sys@10 from `43.77 +/- 0.60%` to
+> `39.86 +/- 2.08%` (`-3.91 pp`). All six family-level mean Sys@10 changes
+> favor the full pipeline.
+
 # Current Parallel Stage-3 Result
 
 > **Reportable paired control (2026-09-04):**

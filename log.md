@@ -1,5 +1,23 @@
 # ProSys Development Log
 
+## 2026-09-05 - current parallel Stage-2 ReaFNN three-seed ablation
+
+- Completed `Experiment/stage2_parallel_post_fusion_ablation_multiseed_20260904/`:
+  six families, fixed Stage-1 test-route caches, and seeds 0/1/2 (18 compact
+  records).
+- The KNN-only control preserves product-Morgan KNN (`K=64`), the 64-context
+  prefilter, top-20 cap, train-only memory, and reference-split candidate
+  construction. It disables ReaFNN/post-fusion and re-trains a 52-feature
+  tabular XGB-LTR on its own KNN-only candidate distribution.
+- KNN-only achieves `53.39 +/- 0.00%` candidate recall and `39.86 +/- 2.08%`
+  Sys@10, versus `54.26 +/- 0.15%` and `43.77 +/- 0.60%` for the full parallel
+  pool. The paired full-minus-KNN-only effects are `+0.87 pp` recall and
+  `+3.91 pp` Sys@10; all six family mean Sys@10 effects are positive.
+- All 18 results pass the KNN-only protocol and fixed Stage-1/manifest pairing
+  audit. The launcher was corrected to use the current
+  `--no-reafnn_enable_independent_post_fusion` flag and successfully resumed
+  from 17 compact records after an interrupted terminal session.
+
 ## 2026-09-04 - current parallel R-GNN temperature three-seed ablation
 
 - Completed `Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/`:

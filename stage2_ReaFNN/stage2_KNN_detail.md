@@ -40,6 +40,25 @@ development snapshot. Joint route-contrastive training and route-error
 supervision were not adopted and are not part of the maintained Stage 2
 procedure.
 
+### Current matched ReaFNN-removal ablation
+
+`Experiment/stage2_parallel_post_fusion_ablation_multiseed_20260904/` is the
+current paired, three-seed Stage-2 component control. It retains the fixed
+Stage-1 route caches, product-Morgan KNN (`K=64`), 64-context prefilter,
+route-local top-20 cap, train-only memory, and reference-split candidate-table
+construction. The control disables ReaFNN and post-fusion, then re-trains the
+52-feature XGB-LTR on its KNN-only candidate distribution; temperature is
+omitted because it has no effect on Sys@k.
+
+KNN-only gives `53.39 +/- 0.00%` candidate recall and `39.86 +/- 2.08%`
+Sys@10, versus `54.26 +/- 0.15%` and `43.77 +/- 0.60%` for the full parallel
+pool. The corresponding full-minus-KNN-only effects are `+0.87 pp` candidate
+recall and `+3.91 pp` Sys@10. All six family mean Sys@10 effects are positive.
+This is evidence that ReaFNN improves the candidate availability/composition
+seen by the downstream ranker; it is not an identical-pool reranking ablation.
+Detailed results and audit boundaries are in
+`ablation/current_parallel_stage2_ablation_results_20260905.md`.
+
 ### Historical serial ReaFNN ablation
 
 The 2026-08-30 serial wide-pool system used 12 KNN anchors and bounded residual

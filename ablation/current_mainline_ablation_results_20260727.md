@@ -2,7 +2,7 @@
 
 Date: `2026-07-27`
 
-> **Historical evidence only.** This controlled snapshot evaluates the earlier direct-R-GNN-ranking configuration. It is not the maintained headline mainline; use [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md) for the current `candidate recall = 49.18%`, `full-system Top-10 accuracy = 43.91%`, and `MAE (deg C) = 11.11` results.
+> **Historical evidence only.** This controlled snapshot evaluates the earlier direct-R-GNN-ranking configuration. It is not the maintained headline mainline; use [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md) and the current parallel artifacts for `candidate recall = 54.26 +/- 0.15%`, `full-system Top-10 accuracy = 43.77 +/- 0.60%`, and conditional `MAE = 11.49 +/- 0.26 C`.
 
 ## Status and Scope
 

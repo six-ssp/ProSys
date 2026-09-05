@@ -4,8 +4,8 @@
 > fixed-manifest, candidate-budget, and information-flow checks. Its ProSys
 > numbers predate the corrected leave-one-reaction-out training retrieval and
 > are not current performance values. Cite
-> [`current_baseline_results_20260727.md`](current_baseline_results_20260727.md)
-> and `outputs/stage23_mainline_reafnn_gnn_fused_20260723/` instead.
+> [`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md)
+> and [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md) instead.
 
 ## Scope
 

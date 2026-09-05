@@ -13,6 +13,16 @@ artifacts are retained only for traceability.
   - Contains compact per-family metrics, per-seed summaries, route-cache hashes,
     and small source-run records; large model/table intermediates were pruned.
 
+- `stage2_parallel_post_fusion_ablation_multiseed_20260904/`
+  - Paired Stage-2 ReaFNN-removal control for the current parallel candidate
+    pool, evaluated over all six families and seeds 0, 1, and 2.
+  - It keeps the fixed Stage-1 routes and common product-Morgan KNN protocol,
+    disables ReaFNN, and re-trains a 52-feature XGB-LTR on KNN-only candidates.
+  - Candidate recall is `53.39 +/- 0.00%` and Sys@10 is `39.86 +/- 2.08%`,
+    versus `54.26 +/- 0.15%` and `43.77 +/- 0.60%` for the full mainline.
+    The full Stage-2 pool therefore gains `+0.87 pp` recall and `+3.91 pp`
+    Sys@10; every family mean favors the full pool.
+
 - `stage3_parallel_post_fusion_ablation_multiseed_20260904/`
   - Paired Stage-3-only control for the current parallel candidate pool.
   - All 18 family-seed records preserve the full mainline Stage-2 protocol and

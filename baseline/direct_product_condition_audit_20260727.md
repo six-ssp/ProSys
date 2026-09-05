@@ -2,6 +2,12 @@
 
 Date: `2026-07-27`
 
+> **Historical snapshot warning.** This is a data-flow audit of the original
+> direct product-condition runs. Its old mainline row is retained only for the
+> contemporaneous comparison; use `multiseed_baseline_results_20260810.md` and
+> `CURRENT_RESULTS.md` for the completed baseline table and maintained parallel
+> mainline.
+
 ## Scope
 
 This audit covers the six completed canonical `product_naive_bayes` runs in
@@ -81,7 +87,7 @@ stress test.
 | --- | ---: | ---: | ---: |
 | Product-Bernoulli Naive Bayes | 31.68 | 9.10 | 21.48 |
 | Product-GNN | 38.03 | 6.55 | 23.05 |
-| Current mainline | 49.18 | 27.64 | 42.68 |
+| Archived mainline snapshot (2026-07) | 49.18 | 27.64 | 42.68 |
 
 The canonical Naive Bayes and Product-GNN controls are both well below the
 mainline at every reported macro cutoff.

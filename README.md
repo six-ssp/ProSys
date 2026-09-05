@@ -61,6 +61,12 @@ denotes sample standard deviation (`ddof=1`).
 - The paired current Stage-3 ablation holds the complete Stage-2 pool fixed and
   gives `36.03 +/- 0.16%` Sys@10 without XGB-LTR, a `7.74 pp` lower macro
   value than the current mainline.
+- The paired current Stage-2 ablation removes only ReaFNN, rebuilds its
+  KNN-only candidate pool, and retrains its 52D XGB-LTR on that pool. It gives
+  `53.39 +/- 0.00%` candidate recall and `39.86 +/- 2.08%` Sys@10, versus
+  `54.26 +/- 0.15%` and `43.77 +/- 0.60%` for the full parallel pipeline.
+  Thus, ReaFNN contributes `+0.87 pp` candidate recall and `+3.91 pp` Sys@10
+  under this end-to-end candidate-composition control.
 
 ## Reproduction
 
@@ -97,6 +103,7 @@ The validation route cache is used only to choose the Stage-2 fusion weight.
 - [Current result status](CURRENT_RESULTS.md)
 - [Parallel multi-seed record](Experiment/stage23_parallel_post_fusion_multiseed_20260903/README.md)
 - [Parallel seed-0 development record](Experiment/stage2_parallel_post_fusion_20260901.md)
+- [Matched Stage 2 ReaFNN three-seed ablation](Experiment/stage2_parallel_post_fusion_ablation_multiseed_20260904/README.md)
 - [Matched Stage 3 three-seed ablation](Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/README.md)
 - [Matched R-GNN temperature three-seed ablation](Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/README.md)
 - [Stage 2 details](stage2_ReaFNN/stage2_KNN_detail.md)
