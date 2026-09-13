@@ -71,3 +71,7 @@ Experiment/legacy_tools/
 # Local-only retired exploratory material. The archive index remains tracked.
 Experiment/local_archive/*
 !Experiment/local_archive/README.md
+
+# Local paper cases and archived manuscript/example drafts.
+Experiment/current_mainline_case_examples_seed0_20260905/
+Experiment/document_archive_20260913/example_before_first_hit_fix.md

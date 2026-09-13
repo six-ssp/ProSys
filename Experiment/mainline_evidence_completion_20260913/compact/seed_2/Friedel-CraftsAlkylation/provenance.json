@@ -1,0 +1,22 @@
+{
+  "family": "Friedel-CraftsAlkylation",
+  "seed": 2,
+  "splits": {
+    "train": "a76a32f827caa5069c607a82d32f53e46036cd9dea9265de1306bb92ada5b1e7",
+    "val": "6474d5036c5e1702ad6ef3fef3a07d037da8996df8b92d3afc31f6aa0c65d5e0",
+    "test": "abc86a7ef2017b9977d157589d096cbb55734e633ab007321f0552e94ca85b1a"
+  },
+  "route_test": "ff3230145a942a901b659523f14084b628a7fe66b15eb9de3acc3bba7367d4a3",
+  "route_validation": "bf66e69dd9990b372bf0f65d0fd3508b0206a7b45cee314d3ecd0ff0559d470d",
+  "models": {
+    "reafnn/reafnn_model.pt": "9314a21ca080ed34b7489441aa3826ddf47a1c4db7331877c7c4321825c8587b",
+    "reafnn/reafnn_meta.json": "723de1e9c0be22c88022ec557f915d6bcd86ea086656e2797a02328cad0c3610",
+    "reafnn/post_fusion_calibration.json": "231c4c9fa2fe1b6cf21e1268ea8dd6386c926cdd899b8eca31c9730fe3f4e061",
+    "rgnn/reaction_gnn.pt": "25d0ffb86a439ba0e9d8060871600f73dde60209f3e26ba1a0daa7cd71a4d49d",
+    "rgnn/reaction_gnn_meta.json": "e1cb38126036c45df7ae88aa961346402cc33fb6b80ee147a2d8d6ecc3d645f3",
+    "ranker/xgb_ranker.json": "e0d025a0a8fffa56c6a74e317eaa54b22e30f931e4f2027227c47a1b7d5e21c0",
+    "ranker/xgb_ranker_meta.json": "2dbe9c827ce8bae40af43c1f57da84e8665221acb059656b286855852741d423",
+    "temperature/xgb_temperature.json": "1de9472d0dce1b2517917bc87560727c41fa645367b731cc1828ad619a19a80f",
+    "temperature/xgb_temperature_meta.json": "e4568e600cae5d28dc81f2269411163e8c484b0b222480b1c3bd77e55d7d3d19"
+  }
+}

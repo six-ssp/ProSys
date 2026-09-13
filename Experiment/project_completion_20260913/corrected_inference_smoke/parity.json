@@ -1,0 +1,15 @@
+{
+  "sample_index": 0,
+  "rows": 100,
+  "canonical_candidate_identities_equal": true,
+  "all_52_ltr_features_exactly_equal": true,
+  "prediction_max_absolute_error": {
+    "xgb_score": 0.0,
+    "xgb_temperature_pred": 0.0
+  },
+  "no_gold_inputs_or_output_labels": true,
+  "route_cache_sha256": "b953575edd3972a82a1bcc232add407e3a05f0774a8c5ba659f244e161f799fb",
+  "artifact_result_sha256": "4dff77d1424cb61492fef3774670dd64573dcfc873e5824d24f5c5c29bc2cba6",
+  "scope": "one unique product, cached Stage-1 routes, corrected model bundle",
+  "identity_note": "CLI canonicalizes its product string; raw string equality is not chemical identity equality."
+}

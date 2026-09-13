@@ -1,0 +1,128 @@
+[
+  {
+    "family": "Beckmann",
+    "case": 1,
+    "sample_index": 2,
+    "first_exact_rank": 1,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Beckmann_case_1.json.gz"
+  },
+  {
+    "family": "Beckmann",
+    "case": 2,
+    "sample_index": 82,
+    "first_exact_rank": 3,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Beckmann_case_2.json.gz"
+  },
+  {
+    "family": "Beckmann",
+    "case": 3,
+    "sample_index": 147,
+    "first_exact_rank": 10,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Beckmann_case_3.json.gz"
+  },
+  {
+    "family": "Buchwald-HartwigCross-Coupling",
+    "case": 1,
+    "sample_index": 3,
+    "first_exact_rank": 1,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Buchwald-HartwigCross-Coupling_case_1.json.gz"
+  },
+  {
+    "family": "Buchwald-HartwigCross-Coupling",
+    "case": 2,
+    "sample_index": 0,
+    "first_exact_rank": 5,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Buchwald-HartwigCross-Coupling_case_2.json.gz"
+  },
+  {
+    "family": "Buchwald-HartwigCross-Coupling",
+    "case": 3,
+    "sample_index": 353,
+    "first_exact_rank": 10,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Buchwald-HartwigCross-Coupling_case_3.json.gz"
+  },
+  {
+    "family": "Chan_LamCoupling",
+    "case": 1,
+    "sample_index": 5,
+    "first_exact_rank": 1,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Chan_LamCoupling_case_1.json.gz"
+  },
+  {
+    "family": "Chan_LamCoupling",
+    "case": 2,
+    "sample_index": 42,
+    "first_exact_rank": 3,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Chan_LamCoupling_case_2.json.gz"
+  },
+  {
+    "family": "Chan_LamCoupling",
+    "case": 3,
+    "sample_index": 288,
+    "first_exact_rank": 10,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Chan_LamCoupling_case_3.json.gz"
+  },
+  {
+    "family": "DielsAlder",
+    "case": 1,
+    "sample_index": 1,
+    "first_exact_rank": 1,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/DielsAlder_case_1.json.gz"
+  },
+  {
+    "family": "DielsAlder",
+    "case": 2,
+    "sample_index": 79,
+    "first_exact_rank": 5,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/DielsAlder_case_2.json.gz"
+  },
+  {
+    "family": "DielsAlder",
+    "case": 3,
+    "sample_index": 651,
+    "first_exact_rank": 10,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/DielsAlder_case_3.json.gz"
+  },
+  {
+    "family": "Friedel-CraftsAcylation",
+    "case": 1,
+    "sample_index": 11,
+    "first_exact_rank": 1,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Friedel-CraftsAcylation_case_1.json.gz"
+  },
+  {
+    "family": "Friedel-CraftsAcylation",
+    "case": 2,
+    "sample_index": 23,
+    "first_exact_rank": 3,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Friedel-CraftsAcylation_case_2.json.gz"
+  },
+  {
+    "family": "Friedel-CraftsAcylation",
+    "case": 3,
+    "sample_index": 7,
+    "first_exact_rank": 10,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Friedel-CraftsAcylation_case_3.json.gz"
+  },
+  {
+    "family": "Friedel-CraftsAlkylation",
+    "case": 1,
+    "sample_index": 0,
+    "first_exact_rank": 1,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Friedel-CraftsAlkylation_case_1.json.gz"
+  },
+  {
+    "family": "Friedel-CraftsAlkylation",
+    "case": 2,
+    "sample_index": 13,
+    "first_exact_rank": 5,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Friedel-CraftsAlkylation_case_2.json.gz"
+  },
+  {
+    "family": "Friedel-CraftsAlkylation",
+    "case": 3,
+    "sample_index": 136,
+    "first_exact_rank": 10,
+    "file": "Experiment/mainline_evidence_completion_20260913/examples/Friedel-CraftsAlkylation_case_3.json.gz"
+  }
+]

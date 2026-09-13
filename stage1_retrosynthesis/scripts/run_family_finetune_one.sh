@@ -31,6 +31,8 @@ WARMUP="${WARMUP:-10000}"
 MAX_TOKENS="${MAX_TOKENS:-16384}"
 UPDATE_FREQ="${UPDATE_FREQ:-1}"
 USE_FP16="${USE_FP16:-1}"
+SEED="${SEED:-1}"
+SKIP_PREPARE="${SKIP_PREPARE:-0}"
 # Throughput / disk knobs.
 NUM_WORKERS="${NUM_WORKERS:-8}"          # dataloader workers (host has many cores)
 PATIENCE="${PATIENCE:-15}"               # early-stop after N validations w/o val-loss improvement (-1 disables)
@@ -38,7 +40,7 @@ KEEP_LAST_EPOCHS="${KEEP_LAST_EPOCHS:-1}"
 SAVE_INTERVAL_UPDATES="${SAVE_INTERVAL_UPDATES:-0}"
 NO_EPOCH_CHECKPOINTS="${NO_EPOCH_CHECKPOINTS:-1}"
 
-run_name="$(date "+%Y%m%d_%H%M%S")"
+run_name="${RUN_NAME:-$(date "+%Y%m%d_%H%M%S")}"
 family_root="$RESULTS_ROOT/$DATASET/$run_name"
 model_dir="$family_root/checkpoints"
 prepare_log="$family_root/prepare.log"
@@ -59,6 +61,12 @@ fi
 
 cd "$REPO_ROOT"
 
+if [[ -n "${DATA_BIN:-}" && "$SKIP_PREPARE" != "1" ]]; then
+  echo "[stage1] DATA_BIN override requires SKIP_PREPARE=1; refusing to prepare a different dataset" >&2
+  exit 2
+fi
+
+if [[ "$SKIP_PREPARE" != "1" ]]; then
 echo "[stage1] preparing $DATASET -> $prepare_log"
 "$PYTHON_BIN" stage1_retrosynthesis/scripts/prepare_family_binarized.py \
   --dataset "$DATASET" \
@@ -66,8 +74,17 @@ echo "[stage1] preparing $DATASET -> $prepare_log"
   --processes "$PROCESSES" \
   --repo_root "$REPO_ROOT" \
   > "$prepare_log" 2>&1
+fi
 
-databin="$REPO_ROOT/data/editretro/datasets/$DATASET/aug$AUGMENTATION/data-bin"
+databin="${DATA_BIN:-$REPO_ROOT/data/editretro/datasets/$DATASET/aug$AUGMENTATION/data-bin}"
+for required in dict.src.txt dict.tgt.txt train.src-tgt.src.bin train.src-tgt.src.idx train.src-tgt.tgt.bin train.src-tgt.tgt.idx valid.src-tgt.src.bin valid.src-tgt.src.idx valid.src-tgt.tgt.bin valid.src-tgt.tgt.idx; do
+  if [[ ! -s "$databin/$required" ]]; then
+    echo "[stage1] missing prepared input: $databin/$required" >&2
+    exit 2
+  fi
+done
+
+"$PYTHON_BIN" "$REPO_ROOT/scripts/build_stage1_nonempty_inputs.py" --check-databin "$databin"
 
 train_cmd=(
   "$PYTHON_BIN"
@@ -100,6 +117,7 @@ train_cmd=(
   --log-format simple
   --log-interval 200
   --fixed-validation-seed 7
+  --seed "$SEED"
   --max-tokens "$MAX_TOKENS"
   --num-workers "$NUM_WORKERS"
   --patience "$PATIENCE"

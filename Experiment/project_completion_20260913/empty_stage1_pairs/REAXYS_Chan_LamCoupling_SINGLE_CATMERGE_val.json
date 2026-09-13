@@ -1,0 +1,24 @@
+{
+  "dataset": "REAXYS_Chan_LamCoupling_SINGLE_CATMERGE",
+  "split": "val",
+  "rows": 3930,
+  "empty_pair_indices": [
+    3920,
+    3921,
+    3922,
+    3923,
+    3924,
+    3925,
+    3926,
+    3927,
+    3928,
+    3929
+  ],
+  "empty_pairs": 10,
+  "empty_sides": {
+    "src": 0,
+    "tgt": 10
+  },
+  "remaining_rows": 3920,
+  "empty_side_binary_eos_verified": true
+}

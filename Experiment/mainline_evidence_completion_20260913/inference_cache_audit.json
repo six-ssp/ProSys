@@ -1,0 +1,30 @@
+{
+  "label_free_inference": {
+    "candidate_identity_count": 200,
+    "feature_count": 52,
+    "features_equal": true,
+    "ranking_and_temperature_equal": true,
+    "fresh_stage1_to_temperature": true,
+    "fresh_prediction_sha256": "d98a28b58ff2725faf79258aa747e34d78f42168316f523862d283b9fa68ec60"
+  },
+  "cache_entrypoint": [
+    {
+      "command": "forced_rebuild",
+      "seconds": 54.62857407703996,
+      "returncode": 0
+    },
+    {
+      "command": "identical_cache_reuse",
+      "seconds": 4.058694187551737,
+      "returncode": 0,
+      "model_bytes_and_mtimes_unchanged": true
+    },
+    {
+      "command": "changed_seed_rejected",
+      "seconds": 4.059419699013233,
+      "returncode": 1,
+      "model_bytes_and_mtimes_unchanged": true
+    }
+  ],
+  "scope": "cache smoke limits labelled ranker training/validation routes to 20/10; not a reportable accuracy experiment"
+}

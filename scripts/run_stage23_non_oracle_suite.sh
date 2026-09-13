@@ -70,7 +70,7 @@ echo "[stage23-suite] output_root=$OUTPUT_ROOT families=$FAMILIES"
 export OMP_NUM_THREADS
 
 cmd=(
-  "$PYTHON_BIN" scripts/run_stage23_mainline_non_oracle.py
+  "$PYTHON_BIN" scripts/run_verified_mainline.py
   --repo_root "$REPO_ROOT" \
   --families "$FAMILIES" \
   --output_root "$OUTPUT_ROOT" \

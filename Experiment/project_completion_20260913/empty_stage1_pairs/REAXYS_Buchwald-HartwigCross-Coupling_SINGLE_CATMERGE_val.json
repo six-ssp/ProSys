@@ -1,0 +1,13 @@
+{
+  "dataset": "REAXYS_Buchwald-HartwigCross-Coupling_SINGLE_CATMERGE",
+  "split": "val",
+  "rows": 11010,
+  "empty_pair_indices": [],
+  "empty_pairs": 0,
+  "empty_sides": {
+    "src": 0,
+    "tgt": 0
+  },
+  "remaining_rows": 11010,
+  "empty_side_binary_eos_verified": true
+}

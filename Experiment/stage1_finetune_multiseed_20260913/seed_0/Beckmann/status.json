@@ -1,0 +1,10 @@
+{
+  "phase": "stopped_pending_validation_protocol_decision",
+  "former_pid": 15015,
+  "started": 1789302999.0527666,
+  "reason": "Independent USPTO audit found condition-validation reaction overlap; SIGINT sent to this study only before expanding training.",
+  "last_saved_epoch": 22,
+  "last_saved_updates": 2464,
+  "best_and_last_retained": true,
+  "reportable_completed_replicate": false
+}

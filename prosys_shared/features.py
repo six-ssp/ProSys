@@ -26,15 +26,15 @@ def canonicalize_smiles(smiles: str) -> str:
 
 
 def canonicalize_reaction_side(smiles: str) -> str:
-    fragments = []
-    for fragment in str(smiles).split('.'):
-        fragment = fragment.strip()
-        if not fragment:
-            continue
-        canonical = canonicalize_smiles(fragment)
-        if canonical:
-            fragments.append(canonical)
-    return '.'.join(sorted(fragments))
+    # Ring closures may cross a dot in the SMILES notation. Split connected
+    # components only after parsing the whole side; never salvage invalid sides.
+    mol = Chem.MolFromSmiles(str(smiles).strip())
+    if mol is None:
+        return ''
+    return '.'.join(sorted(
+        Chem.MolToSmiles(fragment, canonical=True)
+        for fragment in Chem.GetMolFrags(mol, asMols=True)
+    ))
 
 
 def product_morgan_fp(product: str, n_bits: int = 2048, radius: int = 2) -> np.ndarray:

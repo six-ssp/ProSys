@@ -1,0 +1,22 @@
+{
+  "family": "Beckmann",
+  "seed": 0,
+  "splits": {
+    "train": "ac582483f925b5275b08df50c4cf8fad2a11065937dd62b05c6a93655aa1d587",
+    "val": "96352315b50fed86752fe31f6c889b888cbe5b86e777c7dc504aecc7fcc54414",
+    "test": "719dcd6e8af7f9c2bbbd0f7fc7bb04c8b5438bdf142413f223e00e25c69a2068"
+  },
+  "route_test": "da01367b3c2c7ec4b4c8487ea754f12007d5a85158cef2d7415f1633cfc8d219",
+  "route_validation": "8c82ad5501686d6c76e5d882892d9695e0d8cdc409a9def666593181c546cdf3",
+  "models": {
+    "reafnn/reafnn_model.pt": "0ee41b11f18ea9b911428f982996397764549d824c91c20c1c718e81a3db3960",
+    "reafnn/reafnn_meta.json": "08eb3528207971b7c503513b47c6ba3abae76bb007b9f009b16065c9e4115b99",
+    "reafnn/post_fusion_calibration.json": "84d695d0fb92e98b84357617ee032637fb0af3826f12c66686f4139d71ac5aef",
+    "rgnn/reaction_gnn.pt": "ec240d51b95ea2fcdbcd79960e8d2695ee14bd53d8b868a6b497eb0311578e01",
+    "rgnn/reaction_gnn_meta.json": "8b34aa2ad38d25424e389c3ccf383a42f70faf19b8e8fd5e8a2bc659d1de60c8",
+    "ranker/xgb_ranker.json": "0df61b5565b7260d72638db84f11b39ddafe58c5993e457e2b862595b158534a",
+    "ranker/xgb_ranker_meta.json": "d20de12ebf29ed94df6a472e332b5c052a69077c8ee8301a92493c9b4f98323e",
+    "temperature/xgb_temperature.json": "904e030ef9433d1f6dba403d46bd9994d8bd89a9b61b7b25ba953d5a3b456f32",
+    "temperature/xgb_temperature_meta.json": "233836b9ac160d0183e52c322f780838901be954f53b9f6dfa0dc9484dd15bbe"
+  }
+}

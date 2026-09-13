@@ -1,0 +1,7 @@
+family,condition_val_unique_reactions,excluded_unique_reactions,remaining_unique_reactions,condition_val_rows,condition_remove_rows,condition_remaining_rows
+Beckmann,234,1,233,515,1,514
+Buchwald-HartwigCross-Coupling,1097,46,1051,1722,257,1465
+Chan_LamCoupling,389,12,377,571,14,557
+DielsAlder,760,10,750,813,24,789
+Friedel-CraftsAcylation,475,25,450,648,54,594
+Friedel-CraftsAlkylation,893,4,889,1594,9,1585

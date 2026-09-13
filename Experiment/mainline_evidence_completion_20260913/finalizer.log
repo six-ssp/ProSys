@@ -1,0 +1,3 @@
+PASS: 18 retained runs replayed; exact controls, diagnostics, differences and cost reports written
+Wrote 18 fully traced cases to example.md; archived previous text
+Cold full-pipeline inference measured for all six families

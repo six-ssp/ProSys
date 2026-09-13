@@ -1,0 +1,16 @@
+{
+  "command": [
+    "bash",
+    "/root/autodl-tmp/ProSys/stage1_retrosynthesis/scripts/run_family_finetune_one.sh",
+    "/root/autodl-tmp/ProSys",
+    "REAXYS_Beckmann_SINGLE_CATMERGE"
+  ],
+  "environment": {
+    "SEED": "0",
+    "MAX_TOKENS": "8192",
+    "NUM_WORKERS": "2",
+    "OMP_NUM_THREADS": "2",
+    "RESULTS_ROOT": "/root/autodl-tmp/ProSys/Experiment/stage1_finetune_multiseed_20260913/seed_0/Beckmann/training",
+    "SKIP_PREPARE": "1"
+  }
+}

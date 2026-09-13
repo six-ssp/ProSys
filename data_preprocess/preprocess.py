@@ -51,6 +51,7 @@ Stage 1 输出（每个反应族）：
 """
 
 import os
+import sys
 import re
 import math
 import json
@@ -69,6 +70,9 @@ from tqdm import tqdm
 from rdkit import Chem
 from rdkit import RDLogger
 from sklearn.utils import shuffle
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from prosys_shared.features import canonicalize_reaction_side
 
 # 关闭 RDKit 的警告日志，避免刷屏
 RDLogger.DisableLog('rdApp.*')
@@ -345,33 +349,17 @@ def remove_duplicates_in_string(s: str) -> str:
 # ──────────────────────────────────────────────────────
 
 def make_canonical_reaction_key(reactants: str, product: str) -> str:
-    """
-    生成 canonical reaction key，用于 split 时的分组。
-    步骤：
-      1. 反应物按 '.' 拆分 → 每个分子 canonicalize → 排序 → '.' 拼接
-      2. 产物同样按 '.' 拆分 → 每个分子 canonicalize → 排序 → '.' 拼接
-      3. 拼接为 'sorted_reactants>>sorted_products'
+    """Group complete canonical reactions without losing cross-dot ring bonds.
 
-    示例：'CCO.CC' + 'CCOCC' → 'CC.CCO>>CCOCC'
-          'Br.CCO' + 'CCOCC.Br'  → 'Br.CCO>>Br.CCOCC'
-          （多产物 A+B→C+D 正确拆为多个产物分子分别标准化）
-
-    设计目的：同一反应的不同条件记录共享同一个 canonical key，
-    确保它们全部进入同一个 split（train/val/test），避免数据泄露。
+    Both sides use the same whole-side parser as downstream route matching.
+    Invalid complete sides are rejected rather than partially retained.
+    Existing frozen splits are not rewritten by this implementation change.
     """
-    # 反应物：拆分 → 逐个标准化 → 排序 → 拼接
-    r_parts = str(reactants).split('.')
-    r_canon = sorted(
-        c for p in r_parts if (c := canonical_smiles(p.strip()))
-    )
-    # 产物：同样处理，支持 A+B→C+D 等多产物反应
-    p_parts = str(product).split('.')
-    p_canon = sorted(
-        c for p in p_parts if (c := canonical_smiles(p.strip()))
-    )
+    r_canon = canonicalize_reaction_side(reactants)
+    p_canon = canonicalize_reaction_side(product)
     if not r_canon or not p_canon:
         return ''
-    return f"{'.'.join(r_canon)}>>{'.'.join(p_canon)}"
+    return f'{r_canon}>>{p_canon}'
 
 
 # ──────────────────────────────────────────────────────

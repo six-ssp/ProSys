@@ -1,0 +1,17 @@
+{
+  "rows": 125600,
+  "candidate_identity_sha256": "7e55f7bf92d1fbdce33b4d41aa17d27f6c5bb7510abf6bf582fda0392ef8680f",
+  "all_retained_candidate_columns_exactly_equal": true,
+  "temperature_support": {
+    "count": 208,
+    "identity_sha256": "030fa06366e3016d3747e4525d6665e06e62b6cee69856f6f968de15b7090810",
+    "reference_temperature_sha256": "b380ae9bee3933fd4bf976c062de69ba93f8936344d585b64f31671e21aed1b8"
+  },
+  "family": "DielsAlder",
+  "seed": 0,
+  "rgnn_tensors_exactly_equal": true,
+  "same_data_and_route_hashes": true,
+  "reference_result_sha256": "4dff77d1424cb61492fef3774670dd64573dcfc873e5824d24f5c5c29bc2cba6",
+  "repeat_result_sha256": "6d09f0a05aa6d36ee90a7b00b2aa01bdc1ba411c175a4f59cb0b966805d00618",
+  "scope": "fresh full corrected Stage-2/3 fit, same seed and fixed old validation; current environment only"
+}

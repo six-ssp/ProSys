@@ -1,0 +1,43 @@
+{
+  "protocol": "fixed_stage1_route_cache_multiseed_baselines",
+  "methods": [
+    "product_gnn",
+    "sequential_fnn",
+    "reaction_gcnn"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "families": [
+    "Beckmann",
+    "Buchwald-HartwigCross-Coupling",
+    "Chan_LamCoupling",
+    "DielsAlder",
+    "Friedel-CraftsAcylation",
+    "Friedel-CraftsAlkylation"
+  ],
+  "input_root": "/root/autodl-tmp/ProSys/outputs/baseline23_inputs_multiseed_20260810",
+  "route_cache_sha256": {
+    "Beckmann": "da01367b3c2c7ec4b4c8487ea754f12007d5a85158cef2d7415f1633cfc8d219",
+    "Buchwald-HartwigCross-Coupling": "1b7dd9542de3579719a609a8b0c77ac2d1455dbcd906aad48f1de3a07850fa8d",
+    "Chan_LamCoupling": "6f8bc3c6b7695d3503d06b08cdb9ca26527a5fded9bb281bec464345f52a4bed",
+    "DielsAlder": "b953575edd3972a82a1bcc232add407e3a05f0774a8c5ba659f244e161f799fb",
+    "Friedel-CraftsAcylation": "a7431fb74a0ecc273dfe2d3845ef1c122aad64367191662289a19867a686b055",
+    "Friedel-CraftsAlkylation": "ff3230145a942a901b659523f14084b628a7fe66b15eb9de3acc3bba7367d4a3"
+  },
+  "validation_route_cache_sha256": {
+    "Beckmann": "8c82ad5501686d6c76e5d882892d9695e0d8cdc409a9def666593181c546cdf3",
+    "Buchwald-HartwigCross-Coupling": "4f67b656f07aa8cc61b62e3fde979e0a21a420783f1d5f773cd41ad8aa3f73ed",
+    "Chan_LamCoupling": "63db9c3cc7d64b580627c18efcb7b9f68509c1c7bf7deafe4a2139b6a05ba8de",
+    "DielsAlder": "6305976fb983446e2e9a39ae97dbf3bf40494b40acd673a235d00770e36d6a4a",
+    "Friedel-CraftsAcylation": "e0218841b7c868ff79642326021a46c8c350b4459ee4c5dc3814ac0b52f5ec75",
+    "Friedel-CraftsAlkylation": "bf66e69dd9990b372bf0f65d0fd3508b0206a7b45cee314d3ecd0ff0559d470d"
+  },
+  "device": "cuda",
+  "max_epochs": 50,
+  "patience": 7,
+  "top_contexts": 20,
+  "external_work_retention": "compact JSON audit only unless --keep-external-work is set"
+}

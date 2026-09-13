@@ -1,0 +1,27 @@
+{
+  "candidate_identity_sha256": "1d5314e8493d8ac32a2b889b4bb3d693fe782decc5ed1bd7d42bc50d2763d23a",
+  "same_pool_no_ltr": true,
+  "same_ranked_identities_no_graph": true,
+  "temperature_support": {
+    "count": 440,
+    "identity_sha256": "03c7ffcc099cbf48a8cd635edb1586566e318f6d2cbf021035fce93e0311b637",
+    "reference_temperature_sha256": "9a1f08e69454a7d8d7622815c87cb58fa1c812b93ff8760fe948b59731a2cf5b"
+  },
+  "training_validation_pairing": {
+    "train": {
+      "candidate_identity_sha256": "c984d050d4fb371857c7748fd57de1877464c2f054bb3df7cd443902e89ae611",
+      "rows": 143860,
+      "shared_feature_values_equal": true
+    },
+    "val": {
+      "candidate_identity_sha256": "928cd6e1b4aee78f8d637c0da23cb4a4cbb4c89b827a9688c58c96c329bce398",
+      "rows": 17920,
+      "shared_feature_values_equal": true
+    },
+    "test": {
+      "candidate_identity_sha256": "1d5314e8493d8ac32a2b889b4bb3d693fe782decc5ed1bd7d42bc50d2763d23a",
+      "rows": 171200,
+      "shared_feature_values_equal": true
+    }
+  }
+}

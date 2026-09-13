@@ -1,0 +1,34 @@
+{
+  "status": "complete",
+  "workers": 3,
+  "preserved_active_job": [
+    2,
+    "Chan_LamCoupling"
+  ],
+  "receipts": [
+    {
+      "seed": 2,
+      "family": "Friedel-CraftsAcylation",
+      "elapsed_seconds": 127.84363627433777,
+      "source_hashes_match_frozen_study": true,
+      "cpu_threads": 2,
+      "batch_size_and_model_hyperparameters_changed": false
+    },
+    {
+      "seed": 2,
+      "family": "DielsAlder",
+      "elapsed_seconds": 223.47482132911682,
+      "source_hashes_match_frozen_study": true,
+      "cpu_threads": 2,
+      "batch_size_and_model_hyperparameters_changed": false
+    },
+    {
+      "seed": 2,
+      "family": "Friedel-CraftsAlkylation",
+      "elapsed_seconds": 307.05517387390137,
+      "source_hashes_match_frozen_study": true,
+      "cpu_threads": 2,
+      "batch_size_and_model_hyperparameters_changed": false
+    }
+  ]
+}

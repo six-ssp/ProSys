@@ -1,0 +1,173 @@
+{
+  "scope": "condition splits only; full-molecule parsing followed by connected-component canonicalization",
+  "mismatches": [
+    {
+      "family": "DielsAlder",
+      "split": "train",
+      "reaction_id": "11028191",
+      "side": "reactants",
+      "original": "[K+].C=CC(=C)[Si-]123OC4=C(O1)C=CC=C4.O2C1=C(O3)C=CC=C1.O=C1C=CC(=O)N1C1=CC=CC=C1",
+      "complete_components": "C=CC(=C)[Si-]12(Oc3ccccc3O1)Oc1ccccc1O2.O=C1C=CC(=O)N1c1ccccc1.[K+]",
+      "current_dot_split": "O=C1C=CC(=O)N1c1ccccc1.[K+]"
+    },
+    {
+      "family": "DielsAlder",
+      "split": "train",
+      "reaction_id": "11028191",
+      "side": "product",
+      "original": "[K+].O=C1C2CC=C(CC2C(=O)N1C1=CC=CC=C1)[Si-]123OC4=C(O1)C=CC=C4.O2C1=C(O3)C=CC=C1",
+      "complete_components": "O=C1C2CC=C([Si-]34(Oc5ccccc5O3)Oc3ccccc3O4)CC2C(=O)N1c1ccccc1.[K+]",
+      "current_dot_split": "[K+]"
+    }
+  ],
+  "invalid_whole_sides": [],
+  "overlaps": [
+    {
+      "family": "Beckmann",
+      "train_val": 0,
+      "train_test": 0,
+      "val_test": 0
+    },
+    {
+      "family": "Buchwald-HartwigCross-Coupling",
+      "train_val": 0,
+      "train_test": 0,
+      "val_test": 0
+    },
+    {
+      "family": "Chan_LamCoupling",
+      "train_val": 0,
+      "train_test": 0,
+      "val_test": 0
+    },
+    {
+      "family": "DielsAlder",
+      "train_val": 0,
+      "train_test": 0,
+      "val_test": 0
+    },
+    {
+      "family": "Friedel-CraftsAcylation",
+      "train_val": 0,
+      "train_test": 0,
+      "val_test": 0
+    },
+    {
+      "family": "Friedel-CraftsAlkylation",
+      "train_val": 0,
+      "train_test": 0,
+      "val_test": 0
+    }
+  ],
+  "counts": [
+    {
+      "family": "Beckmann",
+      "split": "train",
+      "condition_rows": 4189,
+      "complete_reaction_keys": 1876
+    },
+    {
+      "family": "Beckmann",
+      "split": "val",
+      "condition_rows": 515,
+      "complete_reaction_keys": 234
+    },
+    {
+      "family": "Beckmann",
+      "split": "test",
+      "condition_rows": 468,
+      "complete_reaction_keys": 235
+    },
+    {
+      "family": "Buchwald-HartwigCross-Coupling",
+      "split": "train",
+      "condition_rows": 15469,
+      "complete_reaction_keys": 8777
+    },
+    {
+      "family": "Buchwald-HartwigCross-Coupling",
+      "split": "val",
+      "condition_rows": 1722,
+      "complete_reaction_keys": 1097
+    },
+    {
+      "family": "Buchwald-HartwigCross-Coupling",
+      "split": "test",
+      "condition_rows": 1777,
+      "complete_reaction_keys": 1098
+    },
+    {
+      "family": "Chan_LamCoupling",
+      "split": "train",
+      "condition_rows": 4184,
+      "complete_reaction_keys": 3112
+    },
+    {
+      "family": "Chan_LamCoupling",
+      "split": "val",
+      "condition_rows": 571,
+      "complete_reaction_keys": 389
+    },
+    {
+      "family": "Chan_LamCoupling",
+      "split": "test",
+      "condition_rows": 473,
+      "complete_reaction_keys": 390
+    },
+    {
+      "family": "DielsAlder",
+      "split": "train",
+      "condition_rows": 6648,
+      "complete_reaction_keys": 6078
+    },
+    {
+      "family": "DielsAlder",
+      "split": "val",
+      "condition_rows": 813,
+      "complete_reaction_keys": 760
+    },
+    {
+      "family": "DielsAlder",
+      "split": "test",
+      "condition_rows": 838,
+      "complete_reaction_keys": 760
+    },
+    {
+      "family": "Friedel-CraftsAcylation",
+      "split": "train",
+      "condition_rows": 5024,
+      "complete_reaction_keys": 3797
+    },
+    {
+      "family": "Friedel-CraftsAcylation",
+      "split": "val",
+      "condition_rows": 648,
+      "complete_reaction_keys": 475
+    },
+    {
+      "family": "Friedel-CraftsAcylation",
+      "split": "test",
+      "condition_rows": 587,
+      "complete_reaction_keys": 475
+    },
+    {
+      "family": "Friedel-CraftsAlkylation",
+      "split": "train",
+      "condition_rows": 11293,
+      "complete_reaction_keys": 7145
+    },
+    {
+      "family": "Friedel-CraftsAlkylation",
+      "split": "val",
+      "condition_rows": 1594,
+      "complete_reaction_keys": 893
+    },
+    {
+      "family": "Friedel-CraftsAlkylation",
+      "split": "test",
+      "condition_rows": 1350,
+      "complete_reaction_keys": 894
+    }
+  ],
+  "data_or_models_modified": false
+}

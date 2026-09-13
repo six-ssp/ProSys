@@ -1,0 +1,24 @@
+{
+  "dataset": "REAXYS_Friedel-CraftsAlkylation_SINGLE_CATMERGE",
+  "split": "test",
+  "rows": 9210,
+  "empty_pair_indices": [
+    8770,
+    8771,
+    8772,
+    8773,
+    8774,
+    8775,
+    8776,
+    8777,
+    8778,
+    8779
+  ],
+  "empty_pairs": 10,
+  "empty_sides": {
+    "src": 0,
+    "tgt": 10
+  },
+  "remaining_rows": 9200,
+  "empty_side_binary_eos_verified": true
+}

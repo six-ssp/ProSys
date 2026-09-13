@@ -1,0 +1,7 @@
+# Keep aggregate results and provenance, not licensed candidate rows or scratch.
+**/*.csv.gz
+**/*.pt
+**/*.log
+**/scratch/
+**/bundle/
+parallel_shards/

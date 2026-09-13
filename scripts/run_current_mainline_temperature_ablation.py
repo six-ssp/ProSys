@@ -296,9 +296,12 @@ def _validate_matched_pair(
         "seed": seed,
         "stage1_route_recall_exact": True,
         "stage2_protocol_exact": True,
-        "candidate_pool_exact": True,
+        "candidate_pool_exact": None,
+        "candidate_accounting_exact": True,
         "ranking_metrics_exact": True,
-        "temperature_support_exact": True,
+        "temperature_support_exact": None,
+        "temperature_support_count_exact": True,
+        "identity_audit_status": "not_verified_from_compact_aggregate_records",
         "full_temperature_feature_count": len(_feature_columns(full)),
         "full_route_gnn_feature_count": sum(
             column.startswith("route_gnn_feat_") for column in _feature_columns(full)
@@ -608,7 +611,7 @@ def _write_report(
             "",
             "## Audit Contract",
             "",
-            f"- {len(audit_rows)} matched family/seed pairs passed exact Stage 1 route, Stage 2 protocol/pool, XGB-LTR ranking-metric, and conditional-temperature-support checks.",
+            f"- {len(audit_rows)} family/seed pairs passed Stage 1 recall, Stage 2 protocol, aggregate candidate accounting, ranking-metric and temperature-support-count checks. Candidate/support identity equality is not independently established by compact aggregates.",
             f"- Every full temperature regressor used exactly {FULL_TEMPERATURE_FEATURE_COUNT} features, including {R_GNN_TEMPERATURE_FEATURE_COUNT} route_gnn_feat_* dimensions.",
             f"- Every no-R-GNN temperature regressor used exactly {TABULAR_TEMPERATURE_FEATURE_COUNT} tabular features and zero route_gnn_feat_* dimensions.",
             "- Raw candidate tables, scored tables, and binary checkpoints were removed after compact retention to respect disk limits.",
@@ -621,7 +624,7 @@ def _write_report(
         "",
         "Each row below is a paired current-mainline R-GNN versus rerun no-R-GNN comparison.",
         "",
-        "| Family | Seed | Stage 1 | Stage 2 pool | Ranking metrics | Temperature support | Full features | Full route-GNN | No-R-GNN features | No-R-GNN route-GNN |",
+        "| Family | Seed | Stage 1 recall | Stage 2 protocol/counts | Ranking metrics | Temperature support count | Full features | Full route-GNN | No-R-GNN features | No-R-GNN route-GNN |",
         "| --- | ---: | --- | --- | --- | --- | ---: | ---: | ---: | --- |",
     ]
     for row in sorted(audit_rows, key=lambda row: (int(row["seed"]), _family_sort_key(str(row["family"])))):

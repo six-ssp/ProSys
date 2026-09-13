@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import json
+import os
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from functools import lru_cache
+from functools import lru_cache, wraps
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+# Set before the maintained runner creates CUDA handles for any neural branch.
+os.environ.setdefault('CUBLAS_WORKSPACE_CONFIG', ':4096:8')
 import torch
 import torch.nn as nn
 from rdkit import Chem
@@ -40,6 +44,9 @@ class ReactionGNNConfig:
     patience: int = 5
     device: str = 'cpu'
     random_state: int = 0
+    # False keeps old model payloads backward-compatible. The maintained CLI
+    # explicitly enables this for newly versioned temperature fits.
+    deterministic: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -50,6 +57,43 @@ def _set_seed(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+@contextmanager
+def deterministic_graph_runtime(enabled: bool):
+    if not enabled:
+        yield
+        return
+    previous = torch.are_deterministic_algorithms_enabled()
+    warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+    benchmark = torch.backends.cudnn.benchmark
+    cudnn_deterministic = torch.backends.cudnn.deterministic
+    try:
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        yield
+    finally:
+        torch.use_deterministic_algorithms(previous, warn_only=warn_only)
+        torch.backends.cudnn.benchmark = benchmark
+        torch.backends.cudnn.deterministic = cudnn_deterministic
+
+
+def _deterministic_fit(function):
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        config = kwargs.get('config') or ReactionGNNConfig()
+        with deterministic_graph_runtime(config.deterministic):
+            return function(*args, **kwargs)
+    return wrapped
+
+
+def _deterministic_predict(function):
+    @wraps(function)
+    def wrapped(self, *args, **kwargs):
+        with deterministic_graph_runtime(self.config.deterministic):
+            return function(self, *args, **kwargs)
+    return wrapped
 
 
 def _one_hot(value: int, choices: list[int]) -> list[float]:
@@ -229,6 +273,7 @@ def _pos_weight(targets: np.ndarray) -> np.ndarray:
     return np.clip(negative / positive, 1.0, 20.0).astype(np.float32)
 
 
+@_deterministic_fit
 def train_reaction_gnn_feature_model(
     train_split_file: str | Path,
     val_split_file: str | Path,
@@ -242,7 +287,11 @@ def train_reaction_gnn_feature_model(
     model_file = output_dir / MODEL_FILE_NAME
     metadata_file = output_dir / METADATA_FILE_NAME
     if model_file.exists() and metadata_file.exists() and not force_retrain:
-        return json.loads(metadata_file.read_text(encoding='utf-8'))
+        cached = json.loads(metadata_file.read_text(encoding='utf-8'))
+        cached_config = ReactionGNNConfig(**cached['config'])
+        if cached_config != config:
+            raise ValueError('R-GNN cached configuration differs; use a new cache or force_retrain')
+        return cached
 
     _set_seed(config.random_state)
     train_examples = aggregate_reaction_examples(load_condition_rows(train_split_file))
@@ -388,6 +437,7 @@ class ReactionGNNFeatureEncoder:
         self.reagent_to_index = {token: index for index, token in enumerate(self.reagent_vocab)}
         self.solvent_to_index = {token: index for index, token in enumerate(self.solvent_vocab)}
 
+    @_deterministic_predict
     @torch.no_grad()
     def predict_routes(self, routes: list[tuple[str, str]]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return route embeddings and the auxiliary condition-head logits.

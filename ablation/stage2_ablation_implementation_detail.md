@@ -3,6 +3,9 @@
 > This document describes the retired KNN-versus-Cluster setup. It is not used by the
 > maintained mainline. See [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md) for the
 > current tabular XGB-LTR configuration and
+> [the maintained three-way Stage 2 control](../Experiment/stage2_reafnn_only_multiseed_20260913/SUMMARY.md)
+> for KNN-only, ReaFNN-only and parallel post-fusion. The file below is archival.
+> See
 > [`ablation_reafnn_gnn_protocol.md`](ablation_reafnn_gnn_protocol.md) for the
 > separate historical direct-R-GNN-ranking control.
 
@@ -166,7 +169,7 @@ KNN 路线由：
 
 KNN 的详细算法见：
 
-- `stage2_KNN/stage2_KNN_detail.md`
+- `stage2_ReaFNN/stage2_ReaFNN_detail.md`
 
 这里简述一下最关键的点：
 

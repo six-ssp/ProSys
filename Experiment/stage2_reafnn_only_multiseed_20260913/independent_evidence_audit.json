@@ -1,0 +1,115 @@
+{
+  "completed_records_audited": 18,
+  "expected_records": 18,
+  "complete": true,
+  "rows": [
+    {
+      "family": "Beckmann",
+      "seed": 0,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Buchwald-HartwigCross-Coupling",
+      "seed": 0,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Chan_LamCoupling",
+      "seed": 0,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "DielsAlder",
+      "seed": 0,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Friedel-CraftsAcylation",
+      "seed": 0,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Friedel-CraftsAlkylation",
+      "seed": 0,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Beckmann",
+      "seed": 1,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Buchwald-HartwigCross-Coupling",
+      "seed": 1,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Chan_LamCoupling",
+      "seed": 1,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "DielsAlder",
+      "seed": 1,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Friedel-CraftsAcylation",
+      "seed": 1,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Friedel-CraftsAlkylation",
+      "seed": 1,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Beckmann",
+      "seed": 2,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Buchwald-HartwigCross-Coupling",
+      "seed": 2,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Chan_LamCoupling",
+      "seed": 2,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "DielsAlder",
+      "seed": 2,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Friedel-CraftsAcylation",
+      "seed": 2,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    },
+    {
+      "family": "Friedel-CraftsAlkylation",
+      "seed": 2,
+      "identity_hash_verified": true,
+      "metrics_replayed": true
+    }
+  ]
+}

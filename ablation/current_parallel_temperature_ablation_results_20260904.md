@@ -5,6 +5,10 @@
 > This document gives the paper-ready interpretation of the verified
 > three-seed result.
 
+> **Audit clarification, 2026-09-13:** retained records verify configuration and
+> aggregate metrics/support counts, not independently hashed candidate/support
+> identities. Numerical values below are unchanged.
+
 ## Question
 
 Does the Reaction-GNN route representation improve conditional temperature
@@ -36,7 +40,8 @@ head is trained only on strict exact-system candidate rows with a valid
 `temperature_gold` label.
 
 At test time, temperature is evaluated only for the highest-ranked exact
-full-system match with a valid recorded temperature. This makes it conditional
+full-system match with finite reference and predicted temperature, across the
+entire ranked slate without a Top-10 cutoff. This makes it conditional
 on exact route-and-complete-context recovery. It is not an all-product
 regression metric.
 
@@ -52,9 +57,11 @@ matches after combining the six family supports within each seed.
 | 52 tabular only | 1,792.33 +/- 6.43 | 13.93 +/- 0.38 | 35.30 +/- 0.81 | 55.56 +/- 1.23 | 78.09 +/- 1.22 |
 | Full minus tabular-only | 0.00 | -2.43 C | +6.11 pp | +7.53 pp | +5.65 pp |
 
-A negative MAE difference favors the R-GNN arm. Because the support is exactly
-matched in each family-seed pair, the MAE and tolerance differences cannot be
-explained by recovering an easier or different set of systems.
+A negative MAE difference favors the R-GNN arm. Support counts and aggregate
+ranking metrics match in each family-seed pair. This strengthens the controlled
+comparison but does not independently rule out different support identities;
+the compact record does not retain the per-query support lists required for
+that stronger assertion.
 
 ## Family-Resolved Results
 
@@ -77,12 +84,13 @@ The experiment writes a compact audit for all 18 family-seed pairs. It requires
 exact equality of:
 
 - Stage-1 route recall;
-- Stage-2 protocol and candidate-pool availability;
+- Stage-2 protocol and aggregate candidate-pool availability;
 - candidate recall, Sys@1/3/5/10, MRR, and nDCG@10;
-- conditional temperature support.
+- conditional temperature support counts.
 
 It also requires the no-R-GNN regressor to expose exactly 52 features and no
-`route_gnn_feat_*` feature. All 18 pairs pass. Accordingly, it is valid to
+`route_gnn_feat_*` feature. All 18 pairs pass these aggregate checks;
+identity-level equality is unverified. Accordingly, it is valid to
 state that the retained R-GNN route representation improves **conditional
 temperature prediction** under the maintained mainline. It is not valid to
 state that it improves Sys@k, because the system-ranking pipeline is fixed by

@@ -1,0 +1,33 @@
+{
+  "pid": 9766,
+  "cpu_threads": 2,
+  "thread_environment": {
+    "OMP_NUM_THREADS": "2",
+    "MKL_NUM_THREADS": "2",
+    "OPENBLAS_NUM_THREADS": "2"
+  },
+  "device": "NVIDIA GeForce RTX 3090",
+  "source_sha256": {
+    "prosys_shared/__init__.py": "2e7d9ceb27ff4a23c3eed2374b786f936242ef5a494686b283678371641fff10",
+    "prosys_shared/cache_integrity.py": "c4bd3647a9357ddd27da6856172dadca85cf9cae6293a2b1b9fe6adfbfaff843",
+    "prosys_shared/condition_modeling.py": "44fab9ba0a6b62a02306e6a6d7c15bfd0fce930f97ea74a7369e70d8ca682d95",
+    "prosys_shared/constants.py": "f8d2494e2fc053b61a50d6dd2c9bcbe2d5d01e0fc17e6257fb45282f28b88b3d",
+    "prosys_shared/evidence.py": "75d35c228c2c30ba4b94742f4aa7deee82dcd37a97da69a3e65650f85694d92f",
+    "prosys_shared/features.py": "90aaff344f8eaf8d5af2106ba4429880b357dd4291942e75693c51acc9ada81c",
+    "prosys_shared/mainline.py": "afe70595876f5096a949f9f83be4e706d86dbaf0647c274eeed6baa00c36bb3d",
+    "prosys_shared/nomenclature.py": "7657c1ff4155d45107fa1ba95d404e73e684117209788d6dd36cda728664833a",
+    "prosys_shared/product_memory.py": "8a3930face9dc7077e0b8369cdc53eee182e5abfb1fc889eea055ff49442757c",
+    "prosys_shared/route_cache.py": "69831f1d37ba0710768d1c10f1a7085c90f6ccd4429c2c3a554b02c76b46e437",
+    "scripts/run_mainline_evidence.py": "671db1c8106d4abb455464324acfb12b2139001c4f3c09ba51b4a9f942b0cac8",
+    "scripts/run_stage23_mainline_non_oracle.py": "b974c324a1bc2588a4d74e7521dfdad88ce662480df9f25284cf9e636c696c04",
+    "stage2_KNN/__init__.py": "c0b54e63a5a41fb97be454aea96f7dc971743567aea023031f869f8cf96f0113",
+    "stage2_KNN/knn_condition_selector.py": "e0a61e8647a4e9d728f711fe13665886f49b7526ec7c59b4b83f212044ffb06f",
+    "stage2_KNN/reafnn_selector.py": "1521e223fa5091715ec25bce9d72e9aced252e13d9315a0672d81bb2ae5e0f74",
+    "stage2_ReaFNN/__init__.py": "347a771e6161174b6a03ae93ce7dcc55f7645f33b12d4450a99ffa57eca4a816",
+    "stage2_ReaFNN/knn_condition_selector.py": "b18f05ff69cadc2ebf2a632a342c684c16729f6cc50d01b9fe7806151a45fe9f",
+    "stage2_ReaFNN/reafnn_selector.py": "61c079f7a489065b785f29f66b36a35f74d9d23e0afeb60019725aa706762dff",
+    "stage3_XGBoost/__init__.py": "85e19ef8dd16440dcddc814cf9e065ed6d305f1fda6df1366be2dbcd096e3da2",
+    "stage3_XGBoost/reaction_gnn_features.py": "622f712e9cb62f4addd0196f66ddbcc42b735046d5f0cece671065eb7b5a9d68",
+    "stage3_XGBoost/xgb_reranker.py": "2b81400469049f5092e5f6dee5b9d94594019f70ce7c8caee71cd11046862e5f"
+  }
+}

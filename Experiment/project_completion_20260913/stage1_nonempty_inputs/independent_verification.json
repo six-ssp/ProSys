@@ -1,0 +1,62 @@
+{
+  "pass": true,
+  "families": [
+    {
+      "dataset": "REAXYS_Beckmann_SINGLE_CATMERGE",
+      "verified_pairs": {
+        "train": 80660,
+        "val": 2410,
+        "test": 2590
+      },
+      "hashes_and_full_retained_tensor_lineage_pass": true
+    },
+    {
+      "dataset": "REAXYS_Buchwald-HartwigCross-Coupling_SINGLE_CATMERGE",
+      "verified_pairs": {
+        "train": 167620,
+        "val": 11010,
+        "test": 11130
+      },
+      "hashes_and_full_retained_tensor_lineage_pass": true
+    },
+    {
+      "dataset": "REAXYS_Chan_LamCoupling_SINGLE_CATMERGE",
+      "verified_pairs": {
+        "train": 63910,
+        "val": 3920,
+        "test": 3950
+      },
+      "hashes_and_full_retained_tensor_lineage_pass": true
+    },
+    {
+      "dataset": "REAXYS_DielsAlder_SINGLE_CATMERGE",
+      "verified_pairs": {
+        "train": 235760,
+        "val": 8260,
+        "test": 8040
+      },
+      "hashes_and_full_retained_tensor_lineage_pass": true
+    },
+    {
+      "dataset": "REAXYS_Friedel-CraftsAcylation_SINGLE_CATMERGE",
+      "verified_pairs": {
+        "train": 102740,
+        "val": 4870,
+        "test": 4830
+      },
+      "hashes_and_full_retained_tensor_lineage_pass": true
+    },
+    {
+      "dataset": "REAXYS_Friedel-CraftsAlkylation_SINGLE_CATMERGE",
+      "verified_pairs": {
+        "train": 200660,
+        "val": 9090,
+        "test": 9200
+      },
+      "hashes_and_full_retained_tensor_lineage_pass": true
+    }
+  ],
+  "summary_sha256": "36644691853f3cae5dd866f77fe35f9b6ee0be27b79af4cba1549ec3fdd000cc",
+  "creation_source_snapshot_verified": true,
+  "scope": "nonempty-copy correctness only; validation protocol not selected; no trained-model claim"
+}

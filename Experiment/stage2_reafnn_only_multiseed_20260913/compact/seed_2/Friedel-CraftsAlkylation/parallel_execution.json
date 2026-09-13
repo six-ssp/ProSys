@@ -1,0 +1,8 @@
+{
+  "seed": 2,
+  "family": "Friedel-CraftsAlkylation",
+  "elapsed_seconds": 307.05517387390137,
+  "source_hashes_match_frozen_study": true,
+  "cpu_threads": 2,
+  "batch_size_and_model_hyperparameters_changed": false
+}

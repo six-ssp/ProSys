@@ -1,0 +1,298 @@
+{
+  "rows": [
+    {
+      "base_split": "train",
+      "csv_line": 4922,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "406cbe5009ab24604cc87d4529b052c2cd32acfe13491989cc39f55a0914e785",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 24916,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "03eea6b587749093bf42831907b8eda45d9831e47f021c3d61f433e1e3158cd0",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 96076,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "1595800099ca2cea6fce6bda462f83bd9794f990e7647366d2042077c8ddc419",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 110890,
+      "id": "US06322950B1",
+      "raw_reaction_sha256": "7a11e32021e3a222c5ddc7980cd8cbce9e886b649e22989b7118ec03b4512958",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 166225,
+      "id": "US03979458",
+      "raw_reaction_sha256": "2b61df11c489505ecd812a229ecd51b1c1774bfa09c98114bd4eb653f5ece49e",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 202653,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "5d8ea25bf01a6de63d04f41233a276ecc519c905b1cd378fb501cbd56246b696",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 243803,
+      "id": "US04018802",
+      "raw_reaction_sha256": "4bb459d628317cc89e5e21f829a0d2100460f67a1c6898f5575d9f9d4de1dba1",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 252199,
+      "id": "US04840948",
+      "raw_reaction_sha256": "6560c1e70d03acda240262ce0bcfb76a9ba118c505ea459726cf9441bdb92dce",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 267580,
+      "id": "US07115640B2",
+      "raw_reaction_sha256": "a6efb24a145359740b36fd5afd06c124297ba7ac2b7da517f7b20f49ae77b2ab",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 271889,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "88f0a3545cd5c7cdbbd3b8edad63b212e45fe7133be41c5b1d0b0aa1536acd2f",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 278732,
+      "id": "US04855308",
+      "raw_reaction_sha256": "c794f79916969e75122367dcbf0a76e5d82cd2ad8ab9efd48949731c2a080316",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 321447,
+      "id": "US04925879",
+      "raw_reaction_sha256": "19876190b8d0b6af34f3a8ecb32f8c3908b06ea4686e18637e369a9dc328f63b",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 349277,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "1c8e61d79758e3cc04d01c6ab3f4646ad2fab6fe573d70ae0ae6e03d0c888b44",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 391912,
+      "id": "US06350758B1",
+      "raw_reaction_sha256": "b7af6a5f06493a766714933890ba404851519b252813b2a87ef33f62fb48ebb7",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 393000,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "42fd8e6cb5f50edf9ce7eea74c510263a45b9417d653d669f46e278819fbd610",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 393911,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "17e7747527c1a0c1ffe29a609669b72471054cc41ec14d689bcc8b9669c5392a",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 398231,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "869fcb96428d02fdeccceb079dc563d6caea9f1e4d7d0764fe3ac185776a8806",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 415424,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "92d9d845a1321703c3813b5d22ff43f868452ea0c4c84c05a1868e6f5e2de46f",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 524984,
+      "id": "US04840948",
+      "raw_reaction_sha256": "97c11514f244239f7b16808773513ccc6ca8557e14e99c1c7d95d9edba5d58c7",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 578885,
+      "id": "US03963767",
+      "raw_reaction_sha256": "0ce2a20920811cd9185f9e63eee017d09832b2fa148e4ca645d281ad5254e83f",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 579835,
+      "id": "US04983586",
+      "raw_reaction_sha256": "96963e644bfbce5472cca91895d36fe690b8b2e470bdb167ce7cd1ee47bacbfe",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 612569,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "a7e477e3452d28cd17d9f6654e8a02c3acdc31dd90dfa2e06d8c64bd0a4a9a22",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 614784,
+      "id": "US08101773B2",
+      "raw_reaction_sha256": "658e5ed8b27f5e57fb0c56a562a7b4d6e5101f42aa614d8e386cffa71a73b06e",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 623376,
+      "id": "US07115640B2",
+      "raw_reaction_sha256": "2b28401a6f3c24020f790827f41e06148366f328b1de37e33e409b3908802f9e",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 653359,
+      "id": "US08101773B2",
+      "raw_reaction_sha256": "79ed757e0859a3a3b0d9f93edc9bd8a3a5731bfc249e092b7f36473d83a5a6f4",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 662672,
+      "id": "US08101773B2",
+      "raw_reaction_sha256": "10ca863e911d3a16b4fe79bf8716485862550b76bfc52c1a0b4798d7901d33a1",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 674925,
+      "id": "US03933816",
+      "raw_reaction_sha256": "1cdd068642b0da00e3fd8c99fac0c22213ea49401f419c3048b411ff8d1285d7",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 683607,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "35b7fdd1cebf1d8dde7cdb431cd72354b045c8e9c7c50838604711a9e8d8b9f8",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 690138,
+      "id": "US06525055B1",
+      "raw_reaction_sha256": "24c751a2607e7c81e679d9e6ca5e6b63d485f5d12894ee0f52b72fa35031e581",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 725870,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "c04df89b75d6826c5e10d0ec775302298608f4c3ee28524018161c1d278c85e7",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 728679,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "4374b7642aee1097149abbea6a5ad95b25f1bddbd776358631ec9f38ebb200c4",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "train",
+      "csv_line": 746638,
+      "id": "US04840948",
+      "raw_reaction_sha256": "260d7feaa9c41d8deeed2c1db081ff27d90e402932b943e0f7101d49670d2586",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "val",
+      "csv_line": 20132,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "7e08c2058161cf4dffee9e4ae0e588aac15436112415d90b8abae4c936e0349b",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "val",
+      "csv_line": 32412,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "a5a3d4f4a6781b6b7b330df0131f6a0a329da038b3957130655a2731e4d6dfe4",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "val",
+      "csv_line": 36228,
+      "id": "US07115640B2",
+      "raw_reaction_sha256": "6496f76bd2415bba9ec789560781b1b62d8e4b266c3e6685e7c6f4659933754b",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "val",
+      "csv_line": 91329,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "27d977de08d94f0d0f51e9a1cbe1dd294ce63ef19f5771f25e70761eb0ff93a0",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "val",
+      "csv_line": 98994,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "fb9e020cdce67f2bc98b6b70efaa5d1821fc8629d4824d1eafd606f77e6ef07d",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "val",
+      "csv_line": 135392,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "3910f983fc4006d2c1be53831e165163f28cd8b809a9a3d32654af55b88a4901",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "val",
+      "csv_line": 138907,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "346c7c2f4d46dbe49128d32918f9af69cbd0e47d9b8e2f2be7e51e713a399021",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "val",
+      "csv_line": 146168,
+      "id": "US06696473B2",
+      "raw_reaction_sha256": "45f7ab9a55afb399d417c668f746c9de69e36681d9e4a8612b5ea1d601032af3",
+      "accepted_by_retained_preprocessing_guard": false
+    },
+    {
+      "base_split": "val",
+      "csv_line": 157491,
+      "id": "US06350758B1",
+      "raw_reaction_sha256": "a4b37f43b473be7a5fac2d6f4b3105f6939493c0dd9d010cfbdeda9214847ff1",
+      "accepted_by_retained_preprocessing_guard": false
+    }
+  ],
+  "count": 41,
+  "rejected_count": 41,
+  "preprocessor_sha256": "6a2df32c4bd02ff93cdb2255a655869e278215a9ecba0f29f2f60d915d32eff2",
+  "guard_source": "def is_parseable_reaction_sides(reaction: str) -> bool:\n    \"\"\"Require every reactant and product fragment to be RDKit-parseable.\"\"\"\n\n    parts = str(reaction).split('>')\n    if len(parts) < 3:\n        return False\n    reactants, product = parts[0].strip(), parts[2].split(' ')[0].strip()\n    if not reactants or not product:\n        return False\n    for side in (reactants, product):\n        fragments = [fragment.strip() for fragment in side.split('.') if fragment.strip()]\n        if not fragments or any(Chem.MolFromSmiles(fragment) is None for fragment in fragments):\n            return False\n    return True",
+  "scope": "Replay of the currently retained preprocessing input guard on exact original raw rows",
+  "historical_raw_to_bin_membership_proven": false,
+  "limitation": "No per-row historical augmentation manifest was retained. This proves current guard rejection, not retrospective membership in the July base-training tensors."
+}

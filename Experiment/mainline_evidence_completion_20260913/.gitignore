@@ -1,0 +1,9 @@
+# Local inference bundles and licensed row-level evidence are not Git payloads.
+compact/**/bundle/
+compact/**/*.csv.gz
+compact/**/queries.csv
+compact/**/cases.json
+queries_all.csv.gz
+examples/*.json.gz
+inference_smoke*/
+cold_inference/

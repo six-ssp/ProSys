@@ -5,6 +5,12 @@ complete reaction-system recommendation. Given a target product and a specified
 reaction family, it proposes retrosynthetic routes, selects feasible
 reagent-solvent contexts, ranks complete systems, and estimates temperature.
 
+**Verification in progress:** whole-side canonicalization and deterministic
+R-GNN runtime repairs are being checked against frozen results. A new USPTO
+audit also identifies a validation-overlap boundary; see
+[current findings](Experiment/project_completion_20260913/FINDINGS.md).
+Published result tables have not been silently replaced by unfinished runs.
+
 ## Maintained Mainline
 
 ```text
@@ -52,13 +58,12 @@ denotes sample standard deviation (`ddof=1`).
   within `+/-5/+/-10/+/-20 C` are `41.41 +/- 2.16% / 63.09 +/- 1.76% /
   83.74 +/- 0.69%`. A matched three-seed control that removes only the 128D
   R-GNN route representation gives `13.93 +/- 0.38 C` MAE and `55.56 +/-
-  1.23%` within `+/-10 C`, while all system-ranking metrics and temperature
-  support remain exactly matched.
+  1.23%` within `+/-10 C`. Retained records match aggregate system-ranking
+  metrics and temperature-support counts; see the audit boundary in
+  [CURRENT_RESULTS.md](CURRENT_RESULTS.md).
 - [Experiment/stage2_parallel_post_fusion_20260901.md](Experiment/stage2_parallel_post_fusion_20260901.md)
-  remains the detailed seed-0 development record. The earlier serial
-  three-seed result (`44.62 +/- 0.42%` Sys@10) remains historical only and is
-  not numerical evidence for the current parallel candidate distribution.
-- The paired current Stage-3 ablation holds the complete Stage-2 pool fixed and
+  remains the detailed seed-0 development record, not the three-seed headline.
+- The paired current Stage-3 ablation holds Stage-2 generation settings fixed and
   gives `36.03 +/- 0.16%` Sys@10 without XGB-LTR, a `7.74 pp` lower macro
   value than the current mainline.
 - The paired current Stage-2 ablation removes only ReaFNN, rebuilds its
@@ -85,6 +90,10 @@ bash scripts/run_stage23_non_oracle_suite.sh .
 The maintained launcher always trains Stage-3 tables from the family reference
 train/validation splits and evaluates only on persisted Stage-1 test routes.
 The validation route cache is used only to choose the Stage-2 fusion weight.
+The suite now checks content-bound cache manifests; use a new output root for
+legacy artifacts or explicitly rebuild rather than silently reusing them.
+Read-only product inference and the completed six-item evidence plan are
+documented in [the completion report](Experiment/mainline_evidence_completion_20260913/COMPLETION_REPORT.md).
 
 ## Repository Map
 
@@ -92,6 +101,7 @@ The validation route cache is used only to choose the Stage-2 fusion weight.
 | --- | --- |
 | `stage1_retrosynthesis/` | EditRetro training, fine-tuning, and route caches |
 | `stage2_ReaFNN/` | Parallel KNN/ReaFNN condition-pool construction |
+| `stage2_KNN/` | Backward-compatible import shim; not a second implementation |
 | `stage3_XGBoost/` | XGB-LTR reranking and R-GNN-assisted temperature regression |
 | `baseline/` | Reproducible comparison methods |
 | `ablation/` | Controlled component analyses and historical controls |
@@ -106,8 +116,19 @@ The validation route cache is used only to choose the Stage-2 fusion weight.
 - [Matched Stage 2 ReaFNN three-seed ablation](Experiment/stage2_parallel_post_fusion_ablation_multiseed_20260904/README.md)
 - [Matched Stage 3 three-seed ablation](Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/README.md)
 - [Matched R-GNN temperature three-seed ablation](Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/README.md)
-- [Stage 2 details](stage2_ReaFNN/stage2_KNN_detail.md)
+- [Stage 2 details](stage2_ReaFNN/stage2_ReaFNN_detail.md)
 - [Stage 3 details](stage3_XGBoost/stage3_XGBoost_detail.md)
 - [Baseline and ablation scope](baseline&ablation.md)
 - [Metric nomenclature](NOMENCLATURE.md)
 - [Script map](scripts/README.md)
+
+## Storage Policy
+
+Version-controlled files contain source code, configuration, documentation, and
+compact audited result records. `outputs/` is intentionally excluded from Git:
+it contains regenerable checkpoints, route caches, candidate tables, and
+per-sample predictions. The fixed `outputs/stage1_routes/` and
+`outputs/stage1_routes_validation/` caches are useful accelerators for a
+Stage-2/3-only rerun, but they are not the paper record and can be recreated
+from the retained Stage-1 checkpoints. Reportable results must be promoted to a
+named `Experiment/` record before a run root is removed.

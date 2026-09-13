@@ -1,0 +1,8 @@
+{
+  "seed": 2,
+  "family": "Friedel-CraftsAcylation",
+  "elapsed_seconds": 127.84363627433777,
+  "source_hashes_match_frozen_study": true,
+  "cpu_threads": 2,
+  "batch_size_and_model_hyperparameters_changed": false
+}

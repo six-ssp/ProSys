@@ -1,0 +1,8 @@
+{
+  "workers": 4,
+  "threads_per_child": 2,
+  "pid": 8526,
+  "minimum_free_disk_gib": 8,
+  "training_hyperparameters_changed": false,
+  "scope": "independent family/seed processes; not distributed model training"
+}

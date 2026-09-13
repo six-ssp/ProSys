@@ -75,6 +75,7 @@ def _reaction_gnn_cache_name(config: ReactionGNNConfig) -> str:
     return (
         f'_shared_reaction_gnn_h{config.hidden_dim}_e{config.embedding_dim}'
         f'_mp{config.message_passing_steps}_d{dropout}_s{config.random_state}'
+        f'_cfg{hashlib.sha256(json.dumps(config.to_dict(), sort_keys=True).encode()).hexdigest()[:12]}'
     )
 
 
@@ -930,6 +931,8 @@ def main() -> None:
     )
     parser.add_argument('--gnn_device', type=str, default='cpu')
     parser.add_argument('--gnn_force_retrain', action='store_true')
+    parser.add_argument('--gnn_nondeterministic', action='store_true',
+                        help='Historical-protocol probe only; new R-GNN fits are deterministic by default.')
     parser.add_argument('--skip_temperature', action='store_true', help='For Sys@k-only ablations; leaves the full mainline unchanged.')
     parser.add_argument(
         '--temperature_feature_mode',
@@ -1013,6 +1016,7 @@ def main() -> None:
     gnn_config = ReactionGNNConfig(
         device=args.gnn_device,
         random_state=args.seed,
+        deterministic=not args.gnn_nondeterministic,
     )
 
     summary_rows: list[dict] = []

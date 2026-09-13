@@ -1,0 +1,31 @@
+{
+  "arm": "reafnn_only",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "families": [
+    "Beckmann",
+    "Buchwald-HartwigCross-Coupling",
+    "Chan_LamCoupling",
+    "DielsAlder",
+    "Friedel-CraftsAcylation",
+    "Friedel-CraftsAlkylation"
+  ],
+  "intervention": "remove KNN proposals and all KNN evidence; retrain XGB-LTR",
+  "fixed_w": 0.0,
+  "contexts_per_route": 20,
+  "neural_prefilter": 64,
+  "temperature": "skipped; cannot affect system ranking",
+  "source_sha256": {
+    "ablation/reafnn_only_experiment.py": "40f1c1300432337a817163bf67421558adb729aa950da0612e104d78cd13bf8e",
+    "scripts/run_reafnn_only_ablation.py": "88a2ec46dc8528d9fa2a537e5f5f6f5b7634d8364c84fcd57689b448f94b027d",
+    "scripts/run_stage23_mainline_non_oracle.py": "b974c324a1bc2588a4d74e7521dfdad88ce662480df9f25284cf9e636c696c04",
+    "stage2_ReaFNN/knn_condition_selector.py": "b18f05ff69cadc2ebf2a632a342c684c16729f6cc50d01b9fe7806151a45fe9f",
+    "stage2_ReaFNN/reafnn_selector.py": "61c079f7a489065b785f29f66b36a35f74d9d23e0afeb60019725aa706762dff",
+    "stage3_XGBoost/xgb_reranker.py": "2b81400469049f5092e5f6dee5b9d94594019f70ce7c8caee71cd11046862e5f",
+    "prosys_shared/mainline.py": "afe70595876f5096a949f9f83be4e706d86dbaf0647c274eeed6baa00c36bb3d",
+    "prosys_shared/features.py": "90aaff344f8eaf8d5af2106ba4429880b357dd4291942e75693c51acc9ada81c"
+  }
+}

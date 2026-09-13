@@ -1,0 +1,8 @@
+{
+  "seed": 2,
+  "family": "DielsAlder",
+  "elapsed_seconds": 223.47482132911682,
+  "source_hashes_match_frozen_study": true,
+  "cpu_threads": 2,
+  "batch_size_and_model_hyperparameters_changed": false
+}

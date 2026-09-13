@@ -1,11 +1,9 @@
 # ProSys Baseline Experiments
 
-Updated: `2026-09-04`
+Updated: `2026-09-13`
 
 The current citable comparison is maintained in
 [`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md).
-[`current_baseline_results_20260727.md`](current_baseline_results_20260727.md)
-is retained as an archived single-seed point snapshot only.
 The direct Product-to-Condition implementation is specified in
 [`product_condition_baselines_detail.md`](product_condition_baselines_detail.md).
 
@@ -25,7 +23,9 @@ Stage 1 route proposals and ranked using a validation-selected route/condition
 score fusion. This makes their final `full-system Top-k accuracy` directly comparable with the
 mainline without leaking reference reactants into the condition model.
 
-For every method, the product is the only molecular condition-model input.
+For every method, the product is the only external molecular query. B1 and B2
+use only the product in their condition models; B3 and B4 also receive the
+predicted precursor route from Stage 1.
 Family-specific training and evaluation select the relevant expert artifacts
 outside the model; no reaction-family or reaction-type label is concatenated
 to a fingerprint, graph embedding, or ranking feature vector.
@@ -74,18 +74,6 @@ The full protocol, family-resolved System@10 results, conditional temperature
 metrics, and compact artifact inventory are in
 [`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md).
 
-## Archived Point Comparison
-
-The baseline table below is a fixed historical point comparison. Its ProSys row is retained only because all rows share that archived evaluation run; current three-seed mainline results are defined by [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md) and must not be numerically mixed with this table.
-
-| ID | Method | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy | MRR | nDCG@10 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Baseline 1 | Product-Bernoulli Naive Bayes | 31.68 | 9.10 | 14.87 | 17.45 | 21.48 | 13.15 | 14.56 |
-| Baseline 2 | Product-GNN | 38.03 | 6.55 | 12.90 | 16.77 | 23.05 | 11.63 | 13.52 |
-| Baseline 3 | EditRetro + Sequential FNN | 45.99 | 17.06 | 24.64 | 27.98 | 31.67 | 22.27 | 23.84 |
-| Baseline 4 | EditRetro + Reaction-GCNN | 38.01 | 7.93 | 13.16 | 16.36 | 21.03 | 12.18 | 13.50 |
-| Mainline | Archived ProSys point snapshot | 49.18 | 30.11 | 38.04 | 41.13 | 43.91 | 35.03 | 36.33 |
-
 Product-Bernoulli Naive Bayes is the low-capacity conventional-ML control: it uses no neighbor
 lookup, route input, learned graph encoder, or route-aware feature. Product-GNN
 is the direct product-graph neural comparison. Baselines 3 and 4 are
@@ -97,21 +85,11 @@ route cache.
 - Current multi-seed baseline result record:
   [`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md)
 - Current compact multi-seed artifacts:
-  `outputs/baselines/multiseed_20260810/`
-- Direct Product-to-Condition results:
-  `outputs/baselines/direct_product_condition_nb_20260727/RESULTS.md`
-- Product-Bernoulli Naive Bayes per-family predictions, selected fusion weights, model
-  artifacts, and compressed Top-10 audit candidates:
-  `outputs/baselines/direct_product_condition_nb_20260727/`
-- Product-GNN artifacts:
-  `outputs/baselines/direct_product_condition_20260727/`
-- External downstream baselines:
-  `outputs/baselines/non_oracle_external_b23_20260726/`
+  [`results/multiseed_20260810/`](results/multiseed_20260810/)
 - Direct-baseline data-flow and split audit:
   [`direct_product_condition_audit_20260727.md`](direct_product_condition_audit_20260727.md)
 
-## Unreported Direct Transformer
-
-The Product-to-System Transformer remains excluded from numerical tables. No
-compatible, validated checkpoint has been obtained, and an unavailable model
-must never be represented as a zero-valued baseline.
+Large historical output directories were cleaned for storage. Use retained
+compact records and result documents, not removed output paths, for evidence.
+Older point snapshots are historical records and do not define the current
+mainline comparison.

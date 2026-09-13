@@ -1,0 +1,44 @@
+{
+  "family": "Beckmann",
+  "condition_val_rows": 515,
+  "condition_val_unique_reactions": 234,
+  "excluded_unique_reactions": 1,
+  "remaining_unique_reactions": 233,
+  "condition_remove_indices": [
+    207
+  ],
+  "condition_remove_rows": 1,
+  "condition_remaining_rows": 514,
+  "stage1_raw_val_rows": 234,
+  "stage1_raw_remove_indices": [
+    33
+  ],
+  "stage1_raw_invalid_indices": [],
+  "augmented_validation": {
+    "rows": 2410,
+    "remove_indices": [
+      330,
+      331,
+      332,
+      333,
+      334,
+      335,
+      336,
+      337,
+      338,
+      339
+    ],
+    "remove_rows": 10,
+    "remaining_rows": 2400,
+    "unparseable_text_rows": [],
+    "unknown_token_rows": {
+      "src": 0,
+      "tgt": 20
+    },
+    "text_equals_bin_all_rows": true,
+    "unique_reaction_keys": 239,
+    "present_excluded_keys": [
+      "b05e29798b7893fe682a096254bdab6b7aa64b023617776e7f78189ce0747340"
+    ]
+  }
+}

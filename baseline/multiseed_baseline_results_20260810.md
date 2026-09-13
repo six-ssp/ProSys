@@ -27,9 +27,9 @@ three-seed ProSys results in [`CURRENT_RESULTS.md`](../CURRENT_RESULTS.md).
 - Percentages below are unweighted six-family macro averages. `+/-` is the
   sample standard deviation across the three independent seeds (`ddof=1`).
 
-The exact fixed-cache hashes, hyperparameters, and compact per-seed metadata
-are stored in `outputs/baselines/multiseed_20260810/experiment_config.json`
-and `seed_<n>/external_compact/`.
+The exact fixed-cache hashes, hyperparameters, aggregate metrics, and compact
+per-seed metadata are tracked in [`results/multiseed_20260810/`](results/multiseed_20260810/),
+including `experiment_config.json` and `seed_<n>/external_compact/`.
 
 ## Macro-Average System Results
 

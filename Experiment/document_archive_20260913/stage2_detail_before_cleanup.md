@@ -1,4 +1,8 @@
-# Stage 2 KNN + ReaFNN: 可行条件筛选
+# Archived mixed-version Stage 2 details
+
+Archived on 2026-09-13. Historical serial, fixed-core and combination experiments
+below do not define the maintained parallel mainline. Original text is retained
+for traceability; consult stage2_ReaFNN/stage2_ReaFNN_detail.md for current use.
 
 更新日期：`2026-09-01`
 

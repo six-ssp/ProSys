@@ -1,0 +1,31 @@
+{
+  "candidate_identity_sha256": "b261202e7b4faa98a07b609113ad389e67482965e959e05926fcea423c8620fc",
+  "candidate_identity_columns": [
+    "sample_index",
+    "reaction_id",
+    "product",
+    "reactants",
+    "reagent_norm",
+    "solvent_norm"
+  ],
+  "tables": {
+    "train": {
+      "rows": 175660,
+      "sha256": "71ce23df3a2c6ea9f411df6d03424b218e07c7f1ec3d750a83da4756cc95f756",
+      "knn_fields_zero": true
+    },
+    "val": {
+      "rows": 21940,
+      "sha256": "fdec591f5bec52831ceb7354814feb9c103f6fbe3b67e50e42dec92a5d733d73",
+      "knn_fields_zero": true
+    },
+    "test": {
+      "rows": 206340,
+      "sha256": "a00905438f018c5c11dca5e1db2af45df76d4ddc93217cada0457e9a840f32a2",
+      "knn_fields_zero": true
+    }
+  },
+  "scored_file_sha256": "63ba272d20f990483e38015dd710d4e014072c09b47c59150cb16bfc0cb74302",
+  "retained_rows": 206340,
+  "no_novel_contexts": true
+}

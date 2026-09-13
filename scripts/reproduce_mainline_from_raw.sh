@@ -35,6 +35,11 @@ BASE_DATASET="${BASE_DATASET:-USPTO_STAGE2_FILTERED}"
 BASE_ALIAS_NAME="${BASE_ALIAS_NAME:-checkpoint_UPSTO_full_best.pt}"
 BASE_RESTORE_CKPT="${BASE_RESTORE_CKPT:-}"
 
+if [[ "$SKIP_PREPROCESS" == "1" && "$RESET_PROCESSED" == "1" ]]; then
+  echo "[reproduce] SKIP_PREPROCESS=1 requires RESET_PROCESSED=0; refusing to delete reused data" >&2
+  exit 2
+fi
+
 echo "[reproduce] repo_root=$REPO_ROOT"
 echo "[reproduce] python=$PYTHON_BIN"
 echo "[reproduce] families=$FAMILIES"
@@ -53,6 +58,7 @@ if [[ "$RESET_PROCESSED" == "1" ]]; then
   rm -rf "$REPO_ROOT"/data/editretro/datasets/REAXYS_*_SINGLE_CATMERGE
   rm -rf "$REPO_ROOT/data/editretro/datasets/USPTO_STAGE2_FILTERED"
   rm -rf "$REPO_ROOT/outputs/stage1_routes"
+  rm -rf "$REPO_ROOT/outputs/stage1_routes_validation"
   rm -rf "$REPO_ROOT/outputs/stage1_routes_base"
   rm -rf "$REPO_ROOT/outputs/stage23_mainline"
   rm -rf "$REPO_ROOT/outputs/checklist_stats"
@@ -114,6 +120,8 @@ if [[ "$RUN_BASE_TRAIN" == "1" ]]; then
   ALIAS_NAME="$BASE_ALIAS_NAME" \
   bash "$REPO_ROOT/stage1_retrosynthesis/scripts/run_base_train.sh" "$REPO_ROOT" "$BASE_DATASET"
   family_base_ckpt="$REPO_ROOT/stage1_retrosynthesis/checkpoints/$BASE_ALIAS_NAME"
+else
+  echo "[reproduce] reuse base checkpoint: $family_base_ckpt (set RUN_BASE_TRAIN=1 to retrain)"
 fi
 
 IFS=', ' read -r -a FAMILY_ARRAY <<< "$FAMILIES"
@@ -165,6 +173,31 @@ for fam in "${FAMILY_ARRAY[@]}"; do
   "$PYTHON_BIN" stage1_retrosynthesis/build_route_cache.py \
     --repo_root "$REPO_ROOT" \
     --family "$fam" \
+    --aug "$AUG" \
+    --topk "$TOPK" \
+    --repos_beam "$REPOS_BEAM" \
+    --token_beam "$TOKEN_BEAM" \
+    --mask_beam "$MASK_BEAM" \
+    --n_best "$N_BEST" \
+    --device "$GEN_DEVICE"
+done
+
+# Parallel Stage 2 selects fusion weights on predicted validation routes.
+# Rebuilding only test caches leaves a fresh reproduction incomplete, and
+# reusing validation caches after a split reset risks cross-version inputs.
+echo "[reproduce] Stage1 tuned validation route caches for Stage2 fusion"
+for fam in "${FAMILY_ARRAY[@]}"; do
+  validation_output="$REPO_ROOT/outputs/stage1_routes_validation/$fam"
+  validation_gold="$REPO_ROOT/data/reaction_processed_${fam}_catmerge/For_second_part_model/Splitted_second_validate_labels_processed.txt"
+  if [[ "$FORCE_ROUTE_REBUILD" != "1" && -f "$validation_output/route_cache.json" ]]; then
+    echo "[reproduce] skip existing tuned validation route cache: $fam"
+    continue
+  fi
+  "$PYTHON_BIN" stage1_retrosynthesis/build_route_cache.py \
+    --repo_root "$REPO_ROOT" \
+    --family "$fam" \
+    --gold_split "$validation_gold" \
+    --output "$validation_output" \
     --aug "$AUG" \
     --topk "$TOPK" \
     --repos_beam "$REPOS_BEAM" \

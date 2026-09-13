@@ -1,0 +1,26 @@
+{
+  "mode": "deterministic",
+  "repeat": 0,
+  "state_tensor_sha256": "5c72e1f9a0678ea6fc1ac89887835416427aa61ba2ed652f10a1105f426400bd",
+  "best_val_loss": 0.8738905787467957,
+  "train_sha256": "ac582483f925b5275b08df50c4cf8fad2a11065937dd62b05c6a93655aa1d587",
+  "val_sha256": "96352315b50fed86752fe31f6c889b888cbe5b86e777c7dc504aecc7fcc54414",
+  "config": {
+    "hidden_dim": 128,
+    "embedding_dim": 128,
+    "message_passing_steps": 4,
+    "dropout": 0.1,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "batch_size": 48,
+    "max_epochs": 20,
+    "patience": 5,
+    "device": "cuda:0",
+    "random_state": 0
+  },
+  "torch_version": "2.7.1+cu118",
+  "device": "NVIDIA GeForce RTX 3090",
+  "threads": 2,
+  "cublas_workspace_config": ":4096:8",
+  "source_sha256": "622f712e9cb62f4addd0196f66ddbcc42b735046d5f0cece671065eb7b5a9d68"
+}

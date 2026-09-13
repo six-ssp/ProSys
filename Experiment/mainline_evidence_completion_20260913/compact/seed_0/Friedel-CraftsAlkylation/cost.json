@@ -1,0 +1,24 @@
+{
+  "wall_seconds": 737.072499781847,
+  "stages": {
+    "_ensure_knn_tables": [
+      478.6418395116925
+    ],
+    "train_xgb_ranker_and_temperature": [
+      20.631603565067053
+    ],
+    "_ensure_gnn_augmented_tables": [
+      137.01239005103707
+    ],
+    "train_xgb_temperature_regressor": [
+      9.862058848142624
+    ],
+    "score_table_with_xgb": [
+      6.125197436660528
+    ]
+  },
+  "controls_seconds": 13.469336904585361,
+  "peak_process_rss_mb": 4103.02734375,
+  "peak_torch_allocated_mb": 390.62255859375,
+  "scope": "concurrent Stage 2/3 reconstruction; no Stage 1 decoding; timings are not isolated inference latency"
+}

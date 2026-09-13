@@ -1,0 +1,30 @@
+{
+  "six_item_plan_verified": true,
+  "stage2_control_records": 18,
+  "identity_control_records": 18,
+  "fixed_queries_per_seed": 3860,
+  "case_count": 18,
+  "cold_inference_families": 6,
+  "test_process_exit_code": 0,
+  "artifact_sha256": {
+    "PLAN.md": "05a88ac9f7e47e4bbab134d1114aa8f7b5ede5b3e5a6d9f1f21195b4f392fd4d",
+    "SUMMARY.md": "51315c2ac57078bac0aaa594a6289ec0c6530dfcda9d8853e4431d3354a98851",
+    "COMPLETION_REPORT.md": "5f92454316811c890dc3b519265bd1adee7a3452c953b211e23d7471130f849e",
+    "replay_audit.json": "39661711e56953feced5c9940d096ee8ceb5dfab43fc8e564ae0ec8cc02e90c1",
+    "per_family_seed_controls.csv": "747797a04d24f467e1434e2e265a8277cc04eda06768282b4bb37b741195446c",
+    "subgroups_per_family_seed.csv": "a48a2cefad1dd0b8f9f961875740186699dd4bc7b5e5d976ea423adcf52ed69c",
+    "failures_per_family_seed.csv": "8fc03c877adf873ac5873cac9d59d1053baa05a6fc8da62704063ec44bab1e50",
+    "cold_inference_cost.csv": "147d5f30ed8ff0bf620dc750e37bcc5561528a7cde852a85594fea8e41c47f52",
+    "cost_per_family_seed.csv": "b1cbbf736b2196085b13422adc59b7e49eedf31cd3c721988d7b8b2b21cbfd79",
+    "inference_cache_audit.json": "bb1259da1393c38405a9c5276a67efc897a0a13bcaf0c7afda7de20665e1f139",
+    "canonical_fragment_audit.json": "ffc2ee5291b13f79b7566275fa0664ad2c8ce60522ccf6d32bdadd67b44149b4",
+    "examples/index.json": "41de0d381652600beb628130527d80bc9a89d76a4085388c3c7da89bda25abea"
+  },
+  "scope_limits": [
+    "Not an independent external dataset",
+    "Stage 1 is fixed, not retrained in this study",
+    "One known training-only dot-splitting edge case remains in frozen models",
+    "Pilot runtime source manifest was not captured",
+    "Cold latency has one query per family, not a throughput estimate"
+  ]
+}

@@ -1,0 +1,11 @@
+**/*.pt
+**/*.csv.gz
+**/*.log
+**/scratch/
+**/bundle/
+**/cases.json
+**/candidates.csv
+**/prediction.json
+stage1_nonempty_inputs/artifacts/
+**/queries.csv
+**/routes.json

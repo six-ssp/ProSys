@@ -1,0 +1,23 @@
+{
+  "model_file": "reaction_gcnn.pt",
+  "best_val_loss": 0.44072569985138743,
+  "last_epoch": 50,
+  "num_train_routes": 7193,
+  "num_val_routes": 896,
+  "num_reagent_tokens": 693,
+  "num_solvent_tokens": 55,
+  "temperature_head": false,
+  "config": {
+    "hidden_dim": 64,
+    "embedding_dim": 64,
+    "message_passing_steps": 3,
+    "dropout": 0.1,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "batch_size": 48,
+    "max_epochs": 50,
+    "patience": 7,
+    "device": "cuda",
+    "random_state": 1
+  }
+}

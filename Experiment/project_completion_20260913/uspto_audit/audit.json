@@ -1,0 +1,1548 @@
+{
+  "scope": "retained filtered USPTO raw train/val versus six condition val/test splits",
+  "canonicalization": "RDKit whole-side parse; clear atom maps; sorted connected components; retain stereochemistry",
+  "base_splits": {
+    "train": {
+      "rows": 747660,
+      "unique_reactions": 747628,
+      "duplicates": 0,
+      "invalid_ids": [
+        "US06696473B2",
+        "US06696473B2",
+        "US06696473B2",
+        "US06322950B1",
+        "US03979458",
+        "US06696473B2",
+        "US04018802",
+        "US04840948",
+        "US07115640B2",
+        "US06696473B2",
+        "US04855308",
+        "US04925879",
+        "US06696473B2",
+        "US06350758B1",
+        "US06696473B2",
+        "US06696473B2",
+        "US06696473B2",
+        "US06696473B2",
+        "US04840948",
+        "US03963767",
+        "US04983586",
+        "US06696473B2",
+        "US08101773B2",
+        "US07115640B2",
+        "US08101773B2",
+        "US08101773B2",
+        "US03933816",
+        "US06696473B2",
+        "US06525055B1",
+        "US06696473B2",
+        "US06696473B2",
+        "US04840948"
+      ],
+      "unique_products": 710184,
+      "heldout_overlap": [
+        {
+          "family": "Beckmann",
+          "condition_split": "val",
+          "exact_reactions": 1,
+          "products": 51,
+          "target_unique_reactions": 234,
+          "target_unique_products": 222
+        },
+        {
+          "family": "Beckmann",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 43,
+          "target_unique_reactions": 235,
+          "target_unique_products": 231
+        },
+        {
+          "family": "Buchwald-HartwigCross-Coupling",
+          "condition_split": "val",
+          "exact_reactions": 35,
+          "products": 75,
+          "target_unique_reactions": 1097,
+          "target_unique_products": 1089
+        },
+        {
+          "family": "Buchwald-HartwigCross-Coupling",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 52,
+          "target_unique_reactions": 1098,
+          "target_unique_products": 1085
+        },
+        {
+          "family": "Chan_LamCoupling",
+          "condition_split": "val",
+          "exact_reactions": 11,
+          "products": 47,
+          "target_unique_reactions": 389,
+          "target_unique_products": 380
+        },
+        {
+          "family": "Chan_LamCoupling",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 33,
+          "target_unique_reactions": 390,
+          "target_unique_products": 387
+        },
+        {
+          "family": "DielsAlder",
+          "condition_split": "val",
+          "exact_reactions": 9,
+          "products": 16,
+          "target_unique_reactions": 760,
+          "target_unique_products": 758
+        },
+        {
+          "family": "DielsAlder",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 11,
+          "target_unique_reactions": 760,
+          "target_unique_products": 757
+        },
+        {
+          "family": "Friedel-CraftsAcylation",
+          "condition_split": "val",
+          "exact_reactions": 22,
+          "products": 52,
+          "target_unique_reactions": 475,
+          "target_unique_products": 469
+        },
+        {
+          "family": "Friedel-CraftsAcylation",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 32,
+          "target_unique_reactions": 475,
+          "target_unique_products": 473
+        },
+        {
+          "family": "Friedel-CraftsAlkylation",
+          "condition_split": "val",
+          "exact_reactions": 4,
+          "products": 12,
+          "target_unique_reactions": 893,
+          "target_unique_products": 892
+        },
+        {
+          "family": "Friedel-CraftsAlkylation",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 8,
+          "target_unique_reactions": 894,
+          "target_unique_products": 888
+        }
+      ]
+    },
+    "val": {
+      "rows": 186915,
+      "unique_reactions": 186906,
+      "duplicates": 0,
+      "invalid_ids": [
+        "US06696473B2",
+        "US06696473B2",
+        "US07115640B2",
+        "US06696473B2",
+        "US06696473B2",
+        "US06696473B2",
+        "US06696473B2",
+        "US06696473B2",
+        "US06350758B1"
+      ],
+      "unique_products": 182991,
+      "heldout_overlap": [
+        {
+          "family": "Beckmann",
+          "condition_split": "val",
+          "exact_reactions": 0,
+          "products": 24,
+          "target_unique_reactions": 234,
+          "target_unique_products": 222
+        },
+        {
+          "family": "Beckmann",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 21,
+          "target_unique_reactions": 235,
+          "target_unique_products": 231
+        },
+        {
+          "family": "Buchwald-HartwigCross-Coupling",
+          "condition_split": "val",
+          "exact_reactions": 11,
+          "products": 25,
+          "target_unique_reactions": 1097,
+          "target_unique_products": 1089
+        },
+        {
+          "family": "Buchwald-HartwigCross-Coupling",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 19,
+          "target_unique_reactions": 1098,
+          "target_unique_products": 1085
+        },
+        {
+          "family": "Chan_LamCoupling",
+          "condition_split": "val",
+          "exact_reactions": 1,
+          "products": 10,
+          "target_unique_reactions": 389,
+          "target_unique_products": 380
+        },
+        {
+          "family": "Chan_LamCoupling",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 8,
+          "target_unique_reactions": 390,
+          "target_unique_products": 387
+        },
+        {
+          "family": "DielsAlder",
+          "condition_split": "val",
+          "exact_reactions": 1,
+          "products": 2,
+          "target_unique_reactions": 760,
+          "target_unique_products": 758
+        },
+        {
+          "family": "DielsAlder",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 6,
+          "target_unique_reactions": 760,
+          "target_unique_products": 757
+        },
+        {
+          "family": "Friedel-CraftsAcylation",
+          "condition_split": "val",
+          "exact_reactions": 3,
+          "products": 15,
+          "target_unique_reactions": 475,
+          "target_unique_products": 469
+        },
+        {
+          "family": "Friedel-CraftsAcylation",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 7,
+          "target_unique_reactions": 475,
+          "target_unique_products": 473
+        },
+        {
+          "family": "Friedel-CraftsAlkylation",
+          "condition_split": "val",
+          "exact_reactions": 0,
+          "products": 3,
+          "target_unique_reactions": 893,
+          "target_unique_products": 892
+        },
+        {
+          "family": "Friedel-CraftsAlkylation",
+          "condition_split": "test",
+          "exact_reactions": 0,
+          "products": 3,
+          "target_unique_reactions": 894,
+          "target_unique_products": 888
+        }
+      ]
+    }
+  },
+  "base_train_val_reaction_overlap": 0,
+  "exact_overlap_records": [
+    {
+      "base_split": "train",
+      "id": "US08569308B2",
+      "reaction_sha256": "56057cb2583e38184cb1d4bc48b96ae67ecf17c8eae782c5ed37f4336abecb9f",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07094368B2",
+      "reaction_sha256": "09d0b08c0d2263f6d0d03e35f1e9a960b5e8e681525cd6a9399060142e12c135",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US05106878",
+      "reaction_sha256": "99b68291d7465e16391423ddf7c9ac7c19129820e22301c67dd3834b530890f9",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08097623B2",
+      "reaction_sha256": "6c1e6f37e187c97e58ff7aded5bf808bc2788681b7dbf871bffc7ac03a5e74e4",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08153634B2",
+      "reaction_sha256": "57c0a6405bb2512ade160ce2d320f3eda2f4c31a18fcfe8e0a20179ed229b075",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US09303232B2",
+      "reaction_sha256": "489f0fbc2f86bb2bb2ae5d21bf5f98f089c8135522a1e22558af1da708315165",
+      "heldout_sets": [
+        [
+          "DielsAlder",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07803940B2",
+      "reaction_sha256": "a543747b2b1dc608cfa16c98ccdeb79292ae83b6705d39af67e450c160780d6b",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US04777298",
+      "reaction_sha256": "9cdb96c5cde9c8372404ee6fa645e45b78fedfeeb5d6b65bb6995d65305a31d2",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US09266832B2",
+      "reaction_sha256": "174289c123cca4922df1aa229173f482e4ee5aa88887f254a29ddce23a9e0645",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07465744B2",
+      "reaction_sha256": "4d6ffbbcd2c252ab1f7399b9473c2513ec5f67ec9e00ea5c0044ab37c004f611",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08633312B2",
+      "reaction_sha256": "1641d3bc76afa24bff9559f8dae066bf3b8a39d19ebf391c156782b5b7f74df7",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07598240B2",
+      "reaction_sha256": "92128bd8c1331ee37280875c98dc0e4fb755961871014a58469fa10b3fff37e7",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06265575B1",
+      "reaction_sha256": "dcc44b8397e7a4222842093e1262eb42e3f2137f2053e6ab6995be3d9e726dcc",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07223766B2",
+      "reaction_sha256": "0f9460d0b28060f003eaaaf8a3fcd666de02fcee309bd957ecf85f8deb256588",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06143789",
+      "reaction_sha256": "62817b9960df10db20ebce27422109a829c1285e480e32e18fc77d024889241c",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08501763B2",
+      "reaction_sha256": "251a686aaa5970cc0b29eb81ddfd61e65585434af78a8fd6026e21eb291df3fb",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08673890B2",
+      "reaction_sha256": "773ccc3e622111202c22e7301291bbbca0156f60d13f11ad4bc6757d5c7a6378",
+      "heldout_sets": [
+        [
+          "DielsAlder",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US09114138B2",
+      "reaction_sha256": "6192e8520eaf6248fbc9c3669349e8583adcfec42579d697f4d4833d62790b3f",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08067447B2",
+      "reaction_sha256": "619c6a7e780010fa5e9b3d548a78685a2a6641966c2ba68473f71746f4f4da83",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US05023341",
+      "reaction_sha256": "51300c5a631dc5fb2ecc9812e51a50d55a578be6e9e1ddf91ad0477dc8a7f84d",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAlkylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US09351974B2",
+      "reaction_sha256": "eea258d12ab89c533e3efccafb57febe89f16564f72213f97823c2453bfd6faf",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07153875B2",
+      "reaction_sha256": "9dca994104847b87d2f79b1e4634d67e6899b43a34797fce0230151a5869b184",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAlkylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08680095B2",
+      "reaction_sha256": "aa2354ea842c3b8581be00caa24c96ac4d99819b4bef10b67179ec603b3f88a7",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06809105B2",
+      "reaction_sha256": "9d55b7205bb8a050486e81cd2c21d0c14c42bdd68a6c0b0f5883984260b08e2e",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06562989B2",
+      "reaction_sha256": "c7ec2d3c3e536967f0d1f296b3f79585bb6de240ec6de6ef5116ffea0ca75c82",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06562989B2",
+      "reaction_sha256": "5b6f21d23c616b724eae77d068ef2823413820b4ef857a8b8aa829a413c967f0",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US09388161B2",
+      "reaction_sha256": "ff3ea9fe6c845291309985efa33e6a4da06bec2687597af2ed74fdb985dbd900",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07259266B2",
+      "reaction_sha256": "f24627bbf797ab7edb89cebe9c5be0fb4890712cad3aaaba932579e48c707839",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08906633B2",
+      "reaction_sha256": "08758d87b680eb47333d7344b3756808d21a73ded5ffe491fc6e78cca0841955",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08530470B2",
+      "reaction_sha256": "143cef82f94fc92d7b409087bc25bfddf288aed5d9c744c9a8669b0dfa28dcea",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US09359367B2",
+      "reaction_sha256": "d9b952ba99fbadb6b908b47152ffc0d5b7f8c29e9a6303a1f29a1e6f1869bb8c",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07312209B2",
+      "reaction_sha256": "fe5a36eef0b2d210ec1210dea003ec02c26f8b8054abd3e9b3e01686100f7e6b",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07223766B2",
+      "reaction_sha256": "efd64f35b2b3a4a84bcb3ab8f7ed40d00b93102aa1022a591a64023b8cd2ebf1",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06613917B1",
+      "reaction_sha256": "b4b8ed5248caa0dcdeca74295da71ff3017b6599f837619a662fd27b380be6ee",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08962660B2",
+      "reaction_sha256": "238c76969e64762341b6ed123db018e652f21547be0fb64fac3e375d99df8d5e",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06562989B2",
+      "reaction_sha256": "dc2b9717f287159f9152c9bc791faa4a03c1038701d49b788898b317106622c8",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07829584B2",
+      "reaction_sha256": "c8a97f8b182d7f5dd80d919836d1e6b15dff4225ffe0349438bf619c441e81cb",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08268859B2",
+      "reaction_sha256": "91d9201070f88da5219884c7780a1473d799f05bd32ae27f1cc94fd98831e2f2",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAlkylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06177474B1",
+      "reaction_sha256": "48708546d7ab1660d20b4e0f6a2e5209d5436e2f738864a76e19db3b90d1ea1c",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08324252B2",
+      "reaction_sha256": "9d02ac6af114f5564c3da60fe0e8f1c69102788367200ce1d4337bda76bfca67",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07858825B2",
+      "reaction_sha256": "feff23bf3ed8faba1615b0c574ace296959d3b17c3f7948265a6ae23272c30dd",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US04185023",
+      "reaction_sha256": "4d3a45b519080eac9e5f7cf1b6a87830d33d16bd8e9d28f165c72c00bfedb170",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08349880B2",
+      "reaction_sha256": "aebf6b1355a229c45bf2d6cc085f9919487a01aad1d065449cb228f0692915ad",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08222424B2",
+      "reaction_sha256": "a7441f1ba6f6f93e2dc60b7abed3167f78f811593871f2d2eba188b91ea6e9d5",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06184242B2",
+      "reaction_sha256": "6c9bc3936b17d4d93d5dd3d7c2c83e0a822f2fe6e70f843d8fda2a84479f3df8",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07960369B2",
+      "reaction_sha256": "399bdd61c260271eb7b7d72249069b332a99aa9bb76c649cc9e42359b3cf63f4",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08541448B2",
+      "reaction_sha256": "d636eb803502b0b155596322ad03bab9257de28eb10f5183ff21410f87f42aec",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08633312B2",
+      "reaction_sha256": "3a7c01f085dcbb366391650c945058d5782a3f9de8867ad01099d2ac1fa104a2",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US05451343",
+      "reaction_sha256": "46e2f0df567b30e9e702be97bfb410b709d7cef891f10f87b6047f93bc21ad6f",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06878850B2",
+      "reaction_sha256": "3a576649f8ca1abd4480a85549fced19f100a3bda00762e8af1d588a5e0e9d58",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07615568B2",
+      "reaction_sha256": "f26e8541eb5ef6dc2445607bb61c9b1fc77779dde43bcfbb2de6da1f5ce4a80b",
+      "heldout_sets": [
+        [
+          "DielsAlder",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06541521B1",
+      "reaction_sha256": "5f4831eabbab74df4ed30def6b3b2937cef3ee96300f4b915f49add163b49ad6",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US05334716",
+      "reaction_sha256": "59aa65d9e13f42cd141d3f274942755be7e510cb9791c0655186e4c9437142a2",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07517889B2",
+      "reaction_sha256": "b05e29798b7893fe682a096254bdab6b7aa64b023617776e7f78189ce0747340",
+      "heldout_sets": [
+        [
+          "Beckmann",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08344137B2",
+      "reaction_sha256": "dc2c05923916968d4b16ebe1f428dbdba602bfb90dd0fc22135d4708c62fa74a",
+      "heldout_sets": [
+        [
+          "DielsAlder",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08344137B2",
+      "reaction_sha256": "6a91f637c87011ea9a0e7466b45644953c8213007c900b016a16396ef76aedf3",
+      "heldout_sets": [
+        [
+          "DielsAlder",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08633312B2",
+      "reaction_sha256": "4b89cf621820e7a7d9dc153813304c89565c6f86d78a23c6664b4f6d8f35c7ef",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08148408B2",
+      "reaction_sha256": "7c9f44bb93d7f6054e156d8bc9107ecb360f39a4e799bf85428f2bd72e75b38c",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06888029B2",
+      "reaction_sha256": "231bc1c0aeda2d57dfa5ec401298f4d46b17f2afa425be3c86b192701d71116e",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08680123B1",
+      "reaction_sha256": "98d59770663672b1cc116889402bee6e6325648ab48af3435fb0ce3ed48e7946",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08653092B2",
+      "reaction_sha256": "885c76adee37d0b59c5051f1e7292d14a866b3dba112e4202898db56647d1b36",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US05055468",
+      "reaction_sha256": "1d630acee549d3eb6e358ae2fdb74dc082bee0bd15361f075db67c9fcb3d7fa6",
+      "heldout_sets": [
+        [
+          "DielsAlder",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07456176B2",
+      "reaction_sha256": "f63db79e7de56ea8921146fd77b913940999a820379f60128d9d51710c69a39b",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US09266832B2",
+      "reaction_sha256": "6fb2358a745e974fd4e582230d62e5e951ccaef736957266a93ab9d07edf5843",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08530687B2",
+      "reaction_sha256": "c00e634a3f1cde94674a33e395d5dd403b033643e9f366d7cd091e96b758a35b",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06423870B1",
+      "reaction_sha256": "d1254e9a82b7c8c0418908b527d511b58c76d7247070fc76efe936449e9b87d0",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08802673B2",
+      "reaction_sha256": "bc5f90c4aad84f7a76f057ed0aa68d0aa4e786044e53f1390b626ac16727b014",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08231942B2",
+      "reaction_sha256": "34e869ddad319e032022326b54e76aed3469149c8c6b10bb71e68d0d94505114",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08653092B2",
+      "reaction_sha256": "10208f80456a0e7f6c178d3e27a3f1242151ecdd41ca27c7e40ca5379ab57ccc",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US09422271B2",
+      "reaction_sha256": "4465067a24eb783744805e3dd1be12ac4751f26b1ed5471636e3e7bfa9b2912d",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAlkylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08633312B2",
+      "reaction_sha256": "9a7302999c14910d791ad05c655dfecb0d7fd739dd637e299e790fcf908a3afe",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US09249123B2",
+      "reaction_sha256": "3de9b445cad1b91eae94393eaa5edcb77cfde7715ac768951e79a3013fbb6d88",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07538123B2",
+      "reaction_sha256": "44043a607e0a78288fbf2852a45053d0a450d635ce7e9fa76af2e89e865a7ceb",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US09422307B2",
+      "reaction_sha256": "adb84e7229e7edb5f2196656c78efc46140fbe64557c92b710d535335a695e65",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08501658B2",
+      "reaction_sha256": "5140afce4b344459338f7d3a0520c170e1300344e0da4882a68465f53da57614",
+      "heldout_sets": [
+        [
+          "DielsAlder",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08729219B2",
+      "reaction_sha256": "e059d645fcaca88d1be6acc7a03ea277b19afe080ddf04cb12862dee3a7b23ed",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06713474B2",
+      "reaction_sha256": "d5b20a2c9746bd216b7c7a50336fd59b02d8a9709bc30b6c584577b641fefd0b",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07705023B2",
+      "reaction_sha256": "5fb4aabfd203ed96c15ff2682243e5dce725cb0c7692ea7fdbc58ced6769947d",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08344137B2",
+      "reaction_sha256": "c80be969bc4b4959d55714bba31ac89e39fe13aacf7979c3b1294d210776c8dd",
+      "heldout_sets": [
+        [
+          "DielsAlder",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US07880025B2",
+      "reaction_sha256": "ab986016c7073a82f0fd7c1f8de3acc484739714bfec95af440f1293e80258f0",
+      "heldout_sets": [
+        [
+          "DielsAlder",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US08901120B2",
+      "reaction_sha256": "43bf8601d1731d4ef17d4b1437218d31db0b9b088110f45046320fc875e78672",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "train",
+      "id": "US06727264B1",
+      "reaction_sha256": "87c9ca3fc8bf60c7b898008d183c6c541ccd5b069a382896b5975e6507810ef8",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US08999957B2",
+      "reaction_sha256": "9375bd26c6497d5e2a7876241ad3b0beb0ec13905a179b36308f4fdf191114e1",
+      "heldout_sets": [
+        [
+          "Chan_LamCoupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US06562989B2",
+      "reaction_sha256": "a856f5f9b35fd47bc74768cf3bd9bb14e1cc093175372809625942c7fd4035ae",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US06251926B1",
+      "reaction_sha256": "7b18c3e30c6f3ea2c696582eefff22386c495cc7c8db8f53a248d9c5df64cb4d",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US07115784B2",
+      "reaction_sha256": "200741bd291cd19377dd25dbe9b673f44ed65f1fd756a11de042be6f494a5812",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US07858784B2",
+      "reaction_sha256": "f5c831b66f3893908b4f998d07ce7cdb257af3051767b0e003cbff0eb486bf3d",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US08901120B2",
+      "reaction_sha256": "8daf0e2ee28eac56b7abab3aa0bdc24b308d51e28fac73ede6ffbdc04b92262c",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US07632838B2",
+      "reaction_sha256": "5bc106cc142d8259e59d3f24d96b35ea7b4aa99a63148b0caab64d6d01018a31",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US08362023B2",
+      "reaction_sha256": "da6896318383072ec64548fcda0b996d39694b56395528eaa5a1a6f33744c4c7",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US09190623B2",
+      "reaction_sha256": "f1a0c8b181be6e0d3e77f0f7a18a5735fdba45090724ddf463a337575c5c68ad",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US06100398",
+      "reaction_sha256": "7b66e7cf54c4737b1c17c51472bf97d49030a8c12a532c2506d362551be176c3",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US07262212B2",
+      "reaction_sha256": "6912b65d0979a44a6fd83ae7e8654f4d575f48c30b400fe1ac32ba81e9889a41",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US03975537",
+      "reaction_sha256": "bbfa68d34a1d3b9405f91004caf441543dff0388335fd0eeb505bc4576fe41a6",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US08901120B2",
+      "reaction_sha256": "d7c9eb9ed8c710e7968e47f7408fdd55059f4949ab2ca6b230b227c1635a3267",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US08263635B2",
+      "reaction_sha256": "2ad9596d26c10c973a9d913db1f914a92691dc0bbeb616e66ac3cc1fbc453d56",
+      "heldout_sets": [
+        [
+          "Buchwald-HartwigCross-Coupling",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US04569967",
+      "reaction_sha256": "2baa86d407d8732599cf7edc86363619dd7d03e78fd524a14ee005f1977f02e1",
+      "heldout_sets": [
+        [
+          "Friedel-CraftsAcylation",
+          "val"
+        ]
+      ]
+    },
+    {
+      "base_split": "val",
+      "id": "US06436866B1",
+      "reaction_sha256": "97f9a8878bfde37570b0f71c4f511fc1655bcef1c9642de1ec0cb0f67b735dff",
+      "heldout_sets": [
+        [
+          "DielsAlder",
+          "val"
+        ]
+      ]
+    }
+  ],
+  "base_training_config": {
+    "no_progress_bar": false,
+    "log_interval": 200,
+    "log_format": "simple",
+    "tensorboard_logdir": "",
+    "seed": 1,
+    "cpu": false,
+    "fp16": true,
+    "memory_efficient_fp16": false,
+    "fp16_no_flatten_grads": false,
+    "fp16_init_scale": 128,
+    "fp16_scale_window": null,
+    "fp16_scale_tolerance": 0.0,
+    "min_loss_scale": 0.0001,
+    "threshold_loss_scale": null,
+    "user_dir": "/root/autodl-tmp/ProSys/stage1_retrosynthesis/editretro",
+    "empty_cache_freq": 0,
+    "all_gather_list_size": 16384,
+    "criterion": "nat_loss",
+    "tokenizer": null,
+    "bpe": null,
+    "optimizer": "adam",
+    "lr_scheduler": "inverse_sqrt",
+    "task": "translation_retro",
+    "num_workers": 16,
+    "skip_invalid_size_inputs_valid_test": false,
+    "max_tokens": 16384,
+    "max_sentences": null,
+    "required_batch_size_multiple": 8,
+    "dataset_impl": null,
+    "train_subset": "train",
+    "valid_subset": "valid",
+    "validate_interval": 1,
+    "fixed_validation_seed": 7,
+    "disable_validation": false,
+    "max_tokens_valid": 4000,
+    "max_sentences_valid": null,
+    "curriculum": 0,
+    "distributed_world_size": 1,
+    "distributed_rank": 0,
+    "distributed_backend": "nccl",
+    "distributed_init_method": null,
+    "distributed_port": -1,
+    "device_id": 0,
+    "distributed_no_spawn": false,
+    "ddp_backend": "no_c10d",
+    "bucket_cap_mb": 25,
+    "fix_batches_to_gpus": false,
+    "find_unused_parameters": false,
+    "fast_stat_sync": false,
+    "broadcast_buffers": false,
+    "arch": "editretro_nat",
+    "max_epoch": 50,
+    "max_update": 200000,
+    "clip_norm": 25,
+    "sentence_avg": false,
+    "update_freq": [
+      1
+    ],
+    "lr": [
+      0.0003
+    ],
+    "min_lr": 1e-09,
+    "use_bmuf": false,
+    "save_dir": "/root/autodl-tmp/ProSys/stage1_retrosynthesis/results/base_train/USPTO_STAGE2_FILTERED/20260709_140045/checkpoints",
+    "restore_file": "checkpoint_last.pt",
+    "reset_dataloader": false,
+    "reset_lr_scheduler": false,
+    "reset_meters": false,
+    "reset_optimizer": false,
+    "optimizer_overrides": "{}",
+    "save_interval": 1,
+    "save_interval_updates": 5000,
+    "keep_interval_updates": -1,
+    "keep_last_epochs": 2,
+    "keep_best_checkpoints": -1,
+    "no_save": false,
+    "no_epoch_checkpoints": false,
+    "no_last_checkpoints": false,
+    "no_save_optimizer_state": false,
+    "best_checkpoint_metric": "loss",
+    "maximize_best_checkpoint_metric": false,
+    "patience": 10,
+    "raw_src_valid": null,
+    "raw_ref_valid": null,
+    "buffer_size": 0,
+    "input": "-",
+    "has_target": false,
+    "path": null,
+    "remove_bpe": null,
+    "quiet": false,
+    "model_overrides": "{}",
+    "results_path": null,
+    "no_token_positional_embeddings": false,
+    "no_cross_attention": false,
+    "cross_self_attention": false,
+    "encoder_layerdrop": 0,
+    "decoder_layerdrop": 0,
+    "encoder_layers_to_keep": null,
+    "decoder_layers_to_keep": null,
+    "quant_noise_pq": 0,
+    "quant_noise_pq_block_size": 8,
+    "quant_noise_scalar": 0,
+    "early_exit": "6,6,6",
+    "label_smoothing": 0.1,
+    "adam_betas": "(0.9,0.98)",
+    "adam_eps": 1e-08,
+    "weight_decay": 0.01,
+    "use_old_adam": false,
+    "warmup_updates": 10000,
+    "warmup_init_lr": 1e-07,
+    "data": "/root/autodl-tmp/ProSys/data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/data-bin",
+    "source_lang": "src",
+    "target_lang": "tgt",
+    "load_alignments": false,
+    "left_pad_source": "True",
+    "left_pad_target": "False",
+    "max_source_positions": 1024,
+    "max_target_positions": 1024,
+    "upsample_primary": 1,
+    "truncate_source": false,
+    "eval_bleu": false,
+    "eval_bleu_detok": "space",
+    "eval_bleu_detok_args": null,
+    "eval_tokenized_bleu": false,
+    "eval_bleu_remove_bpe": null,
+    "eval_bleu_args": null,
+    "eval_bleu_print_samples": false,
+    "noise": "random_delete_shuffle",
+    "random_seed": 1,
+    "init_src": false,
+    "oracle_repos": false,
+    "oracle_mask": false,
+    "oracle_token": false,
+    "TOPK": 10,
+    "repos_beam": 5,
+    "token_beam": 2,
+    "mask_beam": 1,
+    "inference_with_augmentation": false,
+    "aug": 20,
+    "dropout": 0.2,
+    "attention_dropout": 0.2,
+    "share_all_embeddings": true,
+    "decoder_learned_pos": true,
+    "encoder_learned_pos": true,
+    "alpha_ratio": 0.5,
+    "dae_ratio": 0.5,
+    "encoder_embed_path": null,
+    "encoder_embed_dim": 512,
+    "encoder_ffn_embed_dim": 2048,
+    "encoder_layers": 6,
+    "encoder_attention_heads": 8,
+    "encoder_normalize_before": false,
+    "decoder_embed_path": null,
+    "decoder_embed_dim": 512,
+    "decoder_ffn_embed_dim": 2048,
+    "decoder_layers": 6,
+    "decoder_attention_heads": 8,
+    "decoder_normalize_before": false,
+    "activation_dropout": 0.0,
+    "activation_fn": "relu",
+    "adaptive_softmax_cutoff": null,
+    "adaptive_softmax_dropout": 0,
+    "share_decoder_input_output_embed": false,
+    "adaptive_input": false,
+    "apply_bert_init": false,
+    "decoder_output_dim": 512,
+    "decoder_input_dim": 512,
+    "no_share_discriminator": false,
+    "no_share_maskpredictor": false,
+    "share_discriminator_maskpredictor": false,
+    "no_share_last_layer": false
+  },
+  "current_artifact_sha256": {
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/data-bin/dict.src.txt": "a229ad5177e4b77d21130994dca840c7cd11b48954afd8ebbbc3d88eebde835e",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/data-bin/dict.tgt.txt": "a229ad5177e4b77d21130994dca840c7cd11b48954afd8ebbbc3d88eebde835e",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/data-bin/train.src-tgt.src.bin": "d271285e98557d381f347fe4037f41d4d6d2e611d2d2491cee2fa4f58e644f1d",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/data-bin/train.src-tgt.src.idx": "5e5b5744bc123f415b5ccd69d46186f89fe5e2846aa6a63abeeda9decea1e1f3",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/data-bin/train.src-tgt.tgt.bin": "8e3ee5ff4a8194c7b977bb1387363ada0bcfea4fa0ff2aeef371abe60e177251",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/data-bin/train.src-tgt.tgt.idx": "187fb32d2c8df71c61612a0eda7cb4649885bec6d389398ef98528d7319c1c42",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/data-bin/valid.src-tgt.src.bin": "7dc55f803d154bd65f46a8518c858f207e1ff4ade7ec1ae71d6175c20c7739c4",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/data-bin/valid.src-tgt.src.idx": "68940da0fedba277a996519bbd916b724a5126939a1b222826a415a93ab03d78",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/data-bin/valid.src-tgt.tgt.bin": "0a43f2dd781402b196bc8939b7855e57292b90b84343cc26d5e58e44855fe0b1",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/data-bin/valid.src-tgt.tgt.idx": "ac8c789ccdc375ac9d69a555d468e99c1cb524031d7cbdbcbd3eb11227578aaa",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/train.src": "9ad0b51011027b6df322da8e1408b2523e78b7047b47eb657f93955c995d4fc0",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/train.tgt": "5e251b3718667ba06002f59102400b4bfae6c25cebdd1c93b1dcab8cb8499e29",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/val.src": "e784b00610ba97df96589198686c3007de3644be420f99d4bbaf431d11e4e98d",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/aug10/val.tgt": "2cb485bff99c1b0917e352751cb37932aaff81853731a6e309d10d7fcb905a95",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/raw/raw_train.csv": "b3bdb9d2be380816ce4b7be2e7be27a396e5c8c680e253f937cfcce9177450bb",
+    "data/editretro/datasets/USPTO_STAGE2_FILTERED/raw/raw_val.csv": "d428858f3b84daa0cd80ba18963e5ea4bdba691af82730d90f413bd4f5b5068a",
+    "data/reaction_processed_Beckmann_catmerge/For_second_part_model/Splitted_second_test_labels_processed.txt": "719dcd6e8af7f9c2bbbd0f7fc7bb04c8b5438bdf142413f223e00e25c69a2068",
+    "data/reaction_processed_Beckmann_catmerge/For_second_part_model/Splitted_second_validate_labels_processed.txt": "96352315b50fed86752fe31f6c889b888cbe5b86e777c7dc504aecc7fcc54414",
+    "data/reaction_processed_Buchwald-HartwigCross-Coupling_catmerge/For_second_part_model/Splitted_second_test_labels_processed.txt": "7425d084a7d55c8f752f999559e0ea1308e1693417a9822097a866888d43f656",
+    "data/reaction_processed_Buchwald-HartwigCross-Coupling_catmerge/For_second_part_model/Splitted_second_validate_labels_processed.txt": "b52177b1e62fd7035349429f352100921895d2233ed3476d4702bc69cd9871f1",
+    "data/reaction_processed_Chan_LamCoupling_catmerge/For_second_part_model/Splitted_second_test_labels_processed.txt": "6ec1491b04009aee9889dc310a1dc7dbf4f5bc325740e3b81c12e9b79a4277b0",
+    "data/reaction_processed_Chan_LamCoupling_catmerge/For_second_part_model/Splitted_second_validate_labels_processed.txt": "70cfa5ef58c3692d6a0c0450ec4ff167f4e1739143b9c1e03ab313e15f565ab7",
+    "data/reaction_processed_DielsAlder_catmerge/For_second_part_model/Splitted_second_test_labels_processed.txt": "806836bc38543d85abbdef5c0af7eab823b2148cc8d371485b9985040329b3f4",
+    "data/reaction_processed_DielsAlder_catmerge/For_second_part_model/Splitted_second_validate_labels_processed.txt": "30c6455c4cc7b231848fe30f71673e04eb160d3ccd66dcfc2f574ebc6c647a40",
+    "data/reaction_processed_Friedel-CraftsAcylation_catmerge/For_second_part_model/Splitted_second_test_labels_processed.txt": "155a05bd439fde94957548b649ee9eb00304aef148985a5a8304b644e8830806",
+    "data/reaction_processed_Friedel-CraftsAcylation_catmerge/For_second_part_model/Splitted_second_validate_labels_processed.txt": "00ed98c3ab8ef1249445a83321fd646016d783ccf56225c7dceeb495ab2c2417",
+    "data/reaction_processed_Friedel-CraftsAlkylation_catmerge/For_second_part_model/Splitted_second_test_labels_processed.txt": "abc86a7ef2017b9977d157589d096cbb55734e633ab007321f0552e94ca85b1a",
+    "data/reaction_processed_Friedel-CraftsAlkylation_catmerge/For_second_part_model/Splitted_second_validate_labels_processed.txt": "6474d5036c5e1702ad6ef3fef3a07d037da8996df8b92d3afc31f6aa0c65d5e0",
+    "stage1_retrosynthesis/checkpoints/checkpoint_USPTO_STAGE2_FILTERED_best.pt": "a6afbe713e2dbdf06211a6169c1ad982b0ddaa4f6c0fc992713738ff1884914a",
+    "stage1_retrosynthesis/results/base_train/USPTO_STAGE2_FILTERED/20260709_140045/train.log": "c5aab0e35865cf167cd7af488c936e593cd15254f3ab81301b462c908c667ab2"
+  },
+  "historical_linkage_limit": "Training log identifies retained data-bin. Current hashes do not reconstruct missing historical raw-to-bin hashes.",
+  "wall_seconds": 234.91347408294678,
+  "data_modified": false
+}

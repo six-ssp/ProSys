@@ -1,0 +1,29 @@
+{
+  "condition_weight": 1.0,
+  "device": "cuda",
+  "families": [
+    "Beckmann",
+    "Buchwald-HartwigCross-Coupling",
+    "Chan_LamCoupling",
+    "DielsAlder",
+    "Friedel-CraftsAcylation",
+    "Friedel-CraftsAlkylation"
+  ],
+  "max_epochs": 50,
+  "methods": [
+    "sequential_fnn",
+    "reaction_gcnn"
+  ],
+  "patience": 7,
+  "protocol": "validation-only fusion selection; untouched fixed-manifest test evaluation",
+  "route_weights": [
+    0.0,
+    0.25,
+    0.5,
+    1.0,
+    1.5,
+    2.0
+  ],
+  "seed": 1,
+  "top_contexts": 20
+}

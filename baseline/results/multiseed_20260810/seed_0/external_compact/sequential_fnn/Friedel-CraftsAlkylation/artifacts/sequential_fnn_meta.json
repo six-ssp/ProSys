@@ -1,0 +1,24 @@
+{
+  "model_file": "sequential_fnn.pt",
+  "best_val_loss": 2.09767746925354,
+  "last_epoch": 20,
+  "num_train_routes": 7193,
+  "num_val_routes": 896,
+  "num_reagent_tokens": 693,
+  "num_solvent_tokens": 55,
+  "config": {
+    "fp_size": 4096,
+    "radius": 2,
+    "hidden_dim": 512,
+    "bottleneck_dim": 256,
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "weight_decay": 1e-05,
+    "batch_size": 128,
+    "max_epochs": 50,
+    "patience": 7,
+    "temperature_loss_weight": 0.2,
+    "device": "cuda",
+    "random_state": 0
+  }
+}

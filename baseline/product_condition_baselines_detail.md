@@ -201,7 +201,7 @@ The archived Product-GNN `Condition@1=15.25` and `Condition@10=48.76` values
 are seed-0 auxiliary diagnostics, not a multi-seed aggregate. The formal
 multi-seed comparison is maintained in
 [`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md).
-Family-level compact artifacts are in `outputs/baselines/multiseed_20260810/`.
+Family-level compact artifacts are in [`results/multiseed_20260810/`](results/multiseed_20260810/).
 
 
 ## Interpretation and Limits

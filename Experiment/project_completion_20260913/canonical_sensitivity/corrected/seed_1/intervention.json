@@ -1,0 +1,8 @@
+{
+  "mode": "corrected",
+  "seed": 1,
+  "active_canonicalizer_source": "def canonicalize_reaction_side(smiles: str) -> str:\n    # Ring closures may cross a dot in the SMILES notation. Split connected\n    # components only after parsing the whole side; never salvage invalid sides.\n    mol = Chem.MolFromSmiles(str(smiles).strip())\n    if mol is None:\n        return ''\n    return '.'.join(sorted(\n        Chem.MolToSmiles(fragment, canonical=True)\n        for fragment in Chem.GetMolFrags(mol, asMols=True)\n    ))\n",
+  "runner_sha256": "1be5e4c9bf6dc97a8dad54ba2deedce543dddd93d913ef48d82d33bd810ab917",
+  "rgnn_protocol": "deterministic training and embedding inference in both arms",
+  "not_a_historical_reproduction": true
+}

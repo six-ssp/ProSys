@@ -1,0 +1,362 @@
+[
+  {
+    "family": "Beckmann",
+    "seed": 0,
+    "candidate_sha256": "fbc270a8b64dc30c6578d6b5df6a0b82211283fce620a704f741fa44e2b0a5ed",
+    "full_file_sha256": "e77010931eeff754e0514c8f01cc641635e6dc85c4cf4019153515605a147e78",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 67,
+      "identity_sha256": "4408b9ca6400a58097616cef9d0e6fecf9e0c444c5a72c7a3ecb6e7ead4d85cd",
+      "reference_temperature_sha256": "b53edaa6f71d0353996203047f58fe4e2a1dc5245fc3b0e30a13fbd47a4f5bd7"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": false
+  },
+  {
+    "family": "Buchwald-HartwigCross-Coupling",
+    "seed": 0,
+    "candidate_sha256": "a6e63a17642c3a95a4e46b86d093f2ca5b58d4b32f3d45b72331c15c647760d6",
+    "full_file_sha256": "dcc30e144cf530236a6a49612e3aad9815a752535b56118d329bcdc6ce18d66e",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 537,
+      "identity_sha256": "70ae4233262e70d245d2993f22634a5379f6154883b749cd11773e0fe34368b2",
+      "reference_temperature_sha256": "354b5e7dd4c003b33ac76098fb49c99df3eb4b6600eb9750d91381d90a7983b1"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Chan_LamCoupling",
+    "seed": 0,
+    "candidate_sha256": "fa494603defc20ab987a8975c587dac31421246777eeb7ac07c50e93af1f9308",
+    "full_file_sha256": "138162d8319de4cf56095072c94cdb11e709a616a6db0d6a247d1ca2531222ab",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 267,
+      "identity_sha256": "b9bbbc0b9ff08e26ffa2a4f75b4a67f14e35a2cfbb2845c926722bc381350a8e",
+      "reference_temperature_sha256": "f25ed1d3948ce60280eedd55e95d082862d7651de3bbbc597003b2abd4b19f8a"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "DielsAlder",
+    "seed": 0,
+    "candidate_sha256": "c4c6d489675c77a6c29e915741b3b433c55193f689853cf54003e7774c4f84c5",
+    "full_file_sha256": "53ad6c72912725697a1ff1622698b353014d0b2bf30dcd74e95e2722e939aa34",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 208,
+      "identity_sha256": "3780f975f2f1e0078c1aa5b8d996cc0e8e1b7a73ba6cbc6f32171f81bc5ceb0e",
+      "reference_temperature_sha256": "d2ee90dc68abda60d2beacf856a5d98bd2f8e4b2a6514a4fe2f39ef6b972583b"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Friedel-CraftsAcylation",
+    "seed": 0,
+    "candidate_sha256": "8b1e847c92656f7a1e6801eb68d86388dc2bfe941f57d1166f6aa456268440c2",
+    "full_file_sha256": "5a2aa9ab39b115b7eea9a1357e5dd104f92289dcf5eace4becdb32672d84326f",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 270,
+      "identity_sha256": "9f3f41e238eab762cb6e7acd9122292210a2d7596f4c66866a42cd9948c6bf3f",
+      "reference_temperature_sha256": "6fb9449c95a2f7a0c27abbf71dc2751144d21b8dba56853bcbfde9833ecb5e9a"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Friedel-CraftsAlkylation",
+    "seed": 0,
+    "candidate_sha256": "5918a8d65c597b78b9d24b684aa69e77bbfc128d2f3a64f7d8175bb120990eb0",
+    "full_file_sha256": "939458cb246db4fdf4b5b4c404c4791a2dab0c0c3ee83255936e7e2377bf1fc2",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 436,
+      "identity_sha256": "2b5676703bca9819b0e04f459ee8d05ba624a4f91d39eb949818ee4654b13131",
+      "reference_temperature_sha256": "a7e006557eff110eedd1fcd754b0fc5b109f059ea02067348852227cfa329222"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Beckmann",
+    "seed": 1,
+    "candidate_sha256": "048a1254964e1e0b7bfc4d3739141d575801dd46c8eae2e0f9205ca0037fd20c",
+    "full_file_sha256": "b564e1262855dfade35ab51e1789e4870dd08c4bdabaafd2e492e5f9207a9fbd",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 71,
+      "identity_sha256": "cadf2869f9f673dc97e971ccb6220943ffa4c837b0999a4362e03e7c4df62b35",
+      "reference_temperature_sha256": "4cb47da7a5cc29f5201cd1cc1ba2fee7e260a8146acb3fcc09cc1e832c313858"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Buchwald-HartwigCross-Coupling",
+    "seed": 1,
+    "candidate_sha256": "a22e9678faa4b04bf69e9b5a53cdd8aa4756f4e8c04663bc37107c6422268ec6",
+    "full_file_sha256": "c9aa0f45f92e81f95745bc32ebb10351fa641098f7c2fc88e4608e2a589cadf9",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 538,
+      "identity_sha256": "e8c372b47c90ea4f5eae961b9a0fd19d0d93507dcb52726f972f85029e0baea4",
+      "reference_temperature_sha256": "5cfd3f98e4c9a414c7b47e06d5fd94ac2f616944ae1cce4f5d4f951bf2432f36"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Chan_LamCoupling",
+    "seed": 1,
+    "candidate_sha256": "b83d62ecbb34120970617524af594288dab0bdb7cd51e5abfc257417b3e40cbb",
+    "full_file_sha256": "a1f8e7f8a9a2535146f3deeaf354f8d493660642699c0e43dc7ea55e39b25ff2",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 268,
+      "identity_sha256": "b6183ea36b3a8ab5f7d115c21aca4bc95b0a31a687074f7087a9e51aec1b249d",
+      "reference_temperature_sha256": "b9113bf3f26a4ab859d0d863ba8e53321a25f9201daf94084c7e7f41f75a8fea"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "DielsAlder",
+    "seed": 1,
+    "candidate_sha256": "93251fa63d605ed33bc118ab3ffc3d2bbad056ba9228bbd69d7dbe025d875ec6",
+    "full_file_sha256": "fc04927950c97d8f36ae23fb90ea36b422e31e75f9061f4c8dca531e2fdf208e",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 208,
+      "identity_sha256": "0a4831ea98c42c43f58c148e79993749831eed5a5f91a041bcb672cfe7961c0f",
+      "reference_temperature_sha256": "1ef9ad210cf4a29d0c0edb745d040c0e562b18d24dc3f5c2acf6cb06fd3c50d3"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Friedel-CraftsAcylation",
+    "seed": 1,
+    "candidate_sha256": "859e944986f28ef7316462147421adcf5e2696bce71d14464b84638161190f05",
+    "full_file_sha256": "576ee680589043d56a81f44b1ae8a07ee9c4b831dc292968b8abf5855c68de50",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 270,
+      "identity_sha256": "cc496072a5ed30a6980fb42a1902a65331b56c341d993cc989ee26e1c07ab341",
+      "reference_temperature_sha256": "d86285461e3dabb1beb26d06ba44b4c8beab65c85b92bc949549930882d3d7e8"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Friedel-CraftsAlkylation",
+    "seed": 1,
+    "candidate_sha256": "1d5314e8493d8ac32a2b889b4bb3d693fe782decc5ed1bd7d42bc50d2763d23a",
+    "full_file_sha256": "5220cb37058ba16fb274940cfaf7e9e00837a12b19ab25e5078cdbbd60a0894e",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 440,
+      "identity_sha256": "03c7ffcc099cbf48a8cd635edb1586566e318f6d2cbf021035fce93e0311b637",
+      "reference_temperature_sha256": "9a1f08e69454a7d8d7622815c87cb58fa1c812b93ff8760fe948b59731a2cf5b"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Beckmann",
+    "seed": 2,
+    "candidate_sha256": "53656d3a9f967cae63c08b32cdadb754da986b3441b3c4e486192cfff1e05148",
+    "full_file_sha256": "623462e81ab3804b813d5c4512eeba2ff87209cdaefcee793ee840f848b3ad84",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 71,
+      "identity_sha256": "7485bb7eefa1db8494855ba4fb72dd8a91acfe14d40a34f729b0138835d56e9b",
+      "reference_temperature_sha256": "4b8cc82b037e2e3e236de716c4c4362a0b0a147de3a0f9dc724d68fd26b10d67"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Buchwald-HartwigCross-Coupling",
+    "seed": 2,
+    "candidate_sha256": "cb1960e04854c37803ed288e7d428dbc151d3dcf3246ae1e886de7640714ef06",
+    "full_file_sha256": "174d61379ad6b102559e2b4a9270395cfc12953707815206961cdc093cfc32e1",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 542,
+      "identity_sha256": "f9b69f2d16737e163f926a5a884fac4916397f8b4c7099c16633741cfd44772d",
+      "reference_temperature_sha256": "b4bde134b58e874fd3768e082cd0eab1aeb1009a99a8ace6af1baf803266012c"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Chan_LamCoupling",
+    "seed": 2,
+    "candidate_sha256": "3c3be53ba1dc5e2b2e5b533cce1b9cbe1fcfa2ecb97b71f6a4ebf92b6ec7c73a",
+    "full_file_sha256": "a10d04d8816091be33379a71128c91c19f5ecb1dfa4adbd771f8d65e08480192",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 267,
+      "identity_sha256": "033b2464dbde3c121f62c2aa0de5749e2fe479df46b20f24a218b4d7b9d1668a",
+      "reference_temperature_sha256": "e7abac9d286bff3311fea0a36dd88418b21b39a5f6f2db49bedc01092791d26f"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "DielsAlder",
+    "seed": 2,
+    "candidate_sha256": "5b1c0e335f0f677b02ba2da164ea7d44d8659197b375345da783990d83185d4e",
+    "full_file_sha256": "30be9dcaef50eb2bb7c642d070553e6eed0235f8fa68a9a393c50c025330ed3a",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 208,
+      "identity_sha256": "188c1d6bbdd12ba8db04a8cf3eea6f353cc4dfa39475a39597d988d3b22f9d30",
+      "reference_temperature_sha256": "9b81fd56cdef4cfb481f27946760763cd94b3cedaffd3015c2cded20d557f1d5"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Friedel-CraftsAcylation",
+    "seed": 2,
+    "candidate_sha256": "04496353deea5daff959a42bcdf9f4afb2206c62365f3ea722c4a7c3a8221355",
+    "full_file_sha256": "430db494bc42593bcb7bd0c7aa2446dea1a64aefc4fa0050df1a6cf7e898b976",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 270,
+      "identity_sha256": "9e431c44d619320ac36ab621457beaafe6b95128f7f860d2e433dae6a10aa679",
+      "reference_temperature_sha256": "e80acbe4ca43a56cb984f7e9d9098e7c870598684e52397bea782369e755dbda"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  },
+  {
+    "family": "Friedel-CraftsAlkylation",
+    "seed": 2,
+    "candidate_sha256": "556be097b1d6a0db4087a6025c790e8ff9ba9217d9a5887db6cada92d45e6766",
+    "full_file_sha256": "8645f0efd4b7044113bec6108c5b379f999bf36dfd856346827d821bff49f9b6",
+    "metric_replay": true,
+    "same_pool_no_ltr": true,
+    "same_temperature_support": {
+      "count": 439,
+      "identity_sha256": "a22f647b634d16f122a1ae34264ba901d5f83b7340548ae6a3e459d2a3747f3b",
+      "reference_temperature_sha256": "f8181f8d06308e9e6bcf5e43988a55224e471b66d1713e29b169f5a205bdc43f"
+    },
+    "promoted_protocol_matches": {
+      "temperature_protocol": true,
+      "feature_columns": true,
+      "stage2_fixed_protocol": true
+    },
+    "fitted_stage2_calibration_equal": true,
+    "runtime_source_manifest_available": true
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "family": "Chan_LamCoupling",
+  "seed": 0,
+  "splits": {
+    "train": "5ea666af33b097fba3336de740cf2c66dea2b17a0094e4b9cd7659b17b0ac963",
+    "val": "70cfa5ef58c3692d6a0c0450ec4ff167f4e1739143b9c1e03ab313e15f565ab7",
+    "test": "6ec1491b04009aee9889dc310a1dc7dbf4f5bc325740e3b81c12e9b79a4277b0"
+  },
+  "route_test": "6f8bc3c6b7695d3503d06b08cdb9ca26527a5fded9bb281bec464345f52a4bed",
+  "route_validation": "63db9c3cc7d64b580627c18efcb7b9f68509c1c7bf7deafe4a2139b6a05ba8de",
+  "models": {
+    "reafnn/reafnn_model.pt": "9b72e94986a4c3325b5740cd2b574b5cc945209420c168571a29c8a154131439",
+    "reafnn/reafnn_meta.json": "ed816db535d84ce2732a7719b170e94c33b4456b4231ec4cb2feb3fc52bcbfd1",
+    "reafnn/post_fusion_calibration.json": "d82671514d845a47c40c56725b862ff294958e9cdd50e8dbbee8077c1dd48255",
+    "rgnn/reaction_gnn.pt": "554554b7c61313c6c5125586041137888d698aaee5f07b66221617a652646506",
+    "rgnn/reaction_gnn_meta.json": "272c6c943c84385fd291d92d9e70770440c9d2a5f4b791ee2e02a7328f25993a",
+    "ranker/xgb_ranker.json": "ca4edb9111778a2f9d78ffa5ace300efce0b10e03369ed44d376479470f83e9a",
+    "ranker/xgb_ranker_meta.json": "44f59af343cbdeb803f9a04bdfe3236d93b4b9dda5639c847521808a81d9a51b",
+    "temperature/xgb_temperature.json": "dd82fe793f96d88179de7861c1dd005f53a315955140847ca5b1c9d80b44c16e",
+    "temperature/xgb_temperature_meta.json": "5d9110322e016dee1c3fbc40835db2e3794e1efcc272239437beddc30cb177b7"
+  }
+}

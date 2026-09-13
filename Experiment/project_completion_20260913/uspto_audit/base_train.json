@@ -1,0 +1,138 @@
+{
+  "rows": 747660,
+  "unique_reactions": 747628,
+  "duplicates": 0,
+  "invalid_ids": [
+    "US06696473B2",
+    "US06696473B2",
+    "US06696473B2",
+    "US06322950B1",
+    "US03979458",
+    "US06696473B2",
+    "US04018802",
+    "US04840948",
+    "US07115640B2",
+    "US06696473B2",
+    "US04855308",
+    "US04925879",
+    "US06696473B2",
+    "US06350758B1",
+    "US06696473B2",
+    "US06696473B2",
+    "US06696473B2",
+    "US06696473B2",
+    "US04840948",
+    "US03963767",
+    "US04983586",
+    "US06696473B2",
+    "US08101773B2",
+    "US07115640B2",
+    "US08101773B2",
+    "US08101773B2",
+    "US03933816",
+    "US06696473B2",
+    "US06525055B1",
+    "US06696473B2",
+    "US06696473B2",
+    "US04840948"
+  ],
+  "unique_products": 710184,
+  "heldout_overlap": [
+    {
+      "family": "Beckmann",
+      "condition_split": "val",
+      "exact_reactions": 1,
+      "products": 51,
+      "target_unique_reactions": 234,
+      "target_unique_products": 222
+    },
+    {
+      "family": "Beckmann",
+      "condition_split": "test",
+      "exact_reactions": 0,
+      "products": 43,
+      "target_unique_reactions": 235,
+      "target_unique_products": 231
+    },
+    {
+      "family": "Buchwald-HartwigCross-Coupling",
+      "condition_split": "val",
+      "exact_reactions": 35,
+      "products": 75,
+      "target_unique_reactions": 1097,
+      "target_unique_products": 1089
+    },
+    {
+      "family": "Buchwald-HartwigCross-Coupling",
+      "condition_split": "test",
+      "exact_reactions": 0,
+      "products": 52,
+      "target_unique_reactions": 1098,
+      "target_unique_products": 1085
+    },
+    {
+      "family": "Chan_LamCoupling",
+      "condition_split": "val",
+      "exact_reactions": 11,
+      "products": 47,
+      "target_unique_reactions": 389,
+      "target_unique_products": 380
+    },
+    {
+      "family": "Chan_LamCoupling",
+      "condition_split": "test",
+      "exact_reactions": 0,
+      "products": 33,
+      "target_unique_reactions": 390,
+      "target_unique_products": 387
+    },
+    {
+      "family": "DielsAlder",
+      "condition_split": "val",
+      "exact_reactions": 9,
+      "products": 16,
+      "target_unique_reactions": 760,
+      "target_unique_products": 758
+    },
+    {
+      "family": "DielsAlder",
+      "condition_split": "test",
+      "exact_reactions": 0,
+      "products": 11,
+      "target_unique_reactions": 760,
+      "target_unique_products": 757
+    },
+    {
+      "family": "Friedel-CraftsAcylation",
+      "condition_split": "val",
+      "exact_reactions": 22,
+      "products": 52,
+      "target_unique_reactions": 475,
+      "target_unique_products": 469
+    },
+    {
+      "family": "Friedel-CraftsAcylation",
+      "condition_split": "test",
+      "exact_reactions": 0,
+      "products": 32,
+      "target_unique_reactions": 475,
+      "target_unique_products": 473
+    },
+    {
+      "family": "Friedel-CraftsAlkylation",
+      "condition_split": "val",
+      "exact_reactions": 4,
+      "products": 12,
+      "target_unique_reactions": 893,
+      "target_unique_products": 892
+    },
+    {
+      "family": "Friedel-CraftsAlkylation",
+      "condition_split": "test",
+      "exact_reactions": 0,
+      "products": 8,
+      "target_unique_reactions": 894,
+      "target_unique_products": 888
+    }
+  ]
+}

@@ -1,0 +1,196 @@
+{
+  "preparatory_copy_complete": true,
+  "protocol_selection_pending": true,
+  "families": [
+    {
+      "dataset": "REAXYS_Beckmann_SINGLE_CATMERGE",
+      "path": "/root/autodl-tmp/ProSys/Experiment/project_completion_20260913/stage1_nonempty_inputs/artifacts/REAXYS_Beckmann_SINGLE_CATMERGE",
+      "splits": [
+        {
+          "split": "train",
+          "original_pairs": 83050,
+          "removed_empty_pairs": 2390,
+          "retained_pairs": 80660,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "val",
+          "original_pairs": 2410,
+          "removed_empty_pairs": 0,
+          "retained_pairs": 2410,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "test",
+          "original_pairs": 2620,
+          "removed_empty_pairs": 30,
+          "retained_pairs": 2590,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        }
+      ],
+      "manifest_sha256": "89d8431dd31f5ace43cf1dab1b849f65792cbcd1ab9aa32af018d1499dd668e9"
+    },
+    {
+      "dataset": "REAXYS_Buchwald-HartwigCross-Coupling_SINGLE_CATMERGE",
+      "path": "/root/autodl-tmp/ProSys/Experiment/project_completion_20260913/stage1_nonempty_inputs/artifacts/REAXYS_Buchwald-HartwigCross-Coupling_SINGLE_CATMERGE",
+      "splits": [
+        {
+          "split": "train",
+          "original_pairs": 167970,
+          "removed_empty_pairs": 350,
+          "retained_pairs": 167620,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "val",
+          "original_pairs": 11010,
+          "removed_empty_pairs": 0,
+          "retained_pairs": 11010,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "test",
+          "original_pairs": 11150,
+          "removed_empty_pairs": 20,
+          "retained_pairs": 11130,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        }
+      ],
+      "manifest_sha256": "0f1c81d2810271d901c077e30affb08a2fa5e1bc52875e212b24104a012fd3b0"
+    },
+    {
+      "dataset": "REAXYS_Chan_LamCoupling_SINGLE_CATMERGE",
+      "path": "/root/autodl-tmp/ProSys/Experiment/project_completion_20260913/stage1_nonempty_inputs/artifacts/REAXYS_Chan_LamCoupling_SINGLE_CATMERGE",
+      "splits": [
+        {
+          "split": "train",
+          "original_pairs": 64120,
+          "removed_empty_pairs": 210,
+          "retained_pairs": 63910,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "val",
+          "original_pairs": 3930,
+          "removed_empty_pairs": 10,
+          "retained_pairs": 3920,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "test",
+          "original_pairs": 3990,
+          "removed_empty_pairs": 40,
+          "retained_pairs": 3950,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        }
+      ],
+      "manifest_sha256": "6c0b23f4a07ffb7bf39f5a9f3b531bac4d7d51c64e1691ec91078291214c2dd1"
+    },
+    {
+      "dataset": "REAXYS_DielsAlder_SINGLE_CATMERGE",
+      "path": "/root/autodl-tmp/ProSys/Experiment/project_completion_20260913/stage1_nonempty_inputs/artifacts/REAXYS_DielsAlder_SINGLE_CATMERGE",
+      "splits": [
+        {
+          "split": "train",
+          "original_pairs": 242060,
+          "removed_empty_pairs": 6300,
+          "retained_pairs": 235760,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "val",
+          "original_pairs": 8320,
+          "removed_empty_pairs": 60,
+          "retained_pairs": 8260,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "test",
+          "original_pairs": 8080,
+          "removed_empty_pairs": 40,
+          "retained_pairs": 8040,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        }
+      ],
+      "manifest_sha256": "e58d55eec891629af72226781b9691bf636be4ba35e8d0761a79007e8ddd58cd"
+    },
+    {
+      "dataset": "REAXYS_Friedel-CraftsAcylation_SINGLE_CATMERGE",
+      "path": "/root/autodl-tmp/ProSys/Experiment/project_completion_20260913/stage1_nonempty_inputs/artifacts/REAXYS_Friedel-CraftsAcylation_SINGLE_CATMERGE",
+      "splits": [
+        {
+          "split": "train",
+          "original_pairs": 103670,
+          "removed_empty_pairs": 930,
+          "retained_pairs": 102740,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "val",
+          "original_pairs": 4870,
+          "removed_empty_pairs": 0,
+          "retained_pairs": 4870,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "test",
+          "original_pairs": 4840,
+          "removed_empty_pairs": 10,
+          "retained_pairs": 4830,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        }
+      ],
+      "manifest_sha256": "9e6519211a0233a63ddd6dd786999dff3da3548f0c14fd72dd76a98227553183"
+    },
+    {
+      "dataset": "REAXYS_Friedel-CraftsAlkylation_SINGLE_CATMERGE",
+      "path": "/root/autodl-tmp/ProSys/Experiment/project_completion_20260913/stage1_nonempty_inputs/artifacts/REAXYS_Friedel-CraftsAlkylation_SINGLE_CATMERGE",
+      "splits": [
+        {
+          "split": "train",
+          "original_pairs": 205090,
+          "removed_empty_pairs": 4430,
+          "retained_pairs": 200660,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "val",
+          "original_pairs": 9100,
+          "removed_empty_pairs": 10,
+          "retained_pairs": 9090,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        },
+        {
+          "split": "test",
+          "original_pairs": 9210,
+          "removed_empty_pairs": 10,
+          "retained_pairs": 9200,
+          "all_input_text_bin_pairs_equal": true,
+          "all_retained_token_tensors_unchanged": true
+        }
+      ],
+      "manifest_sha256": "1e823a6008671f33e243d0489660e6cfde5fcbf7f81ee9441c006671d0873dbc"
+    }
+  ],
+  "independent_source_audit_sha256": "1d7a1d132f363d3654023d3908aa3fe074a8805d5ba16e724cb3a75bca3634e0",
+  "workers": 3,
+  "training_launched": false,
+  "original_inputs_modified": false
+}

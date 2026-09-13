@@ -1,0 +1,36 @@
+START full evidence seed=0 family=Beckmann
+DONE full evidence seed=0 family=Beckmann
+START full evidence seed=0 family=Buchwald-HartwigCross-CouplingSTART full evidence seed=0 family=Chan_LamCoupling
+START full evidence seed=0 family=DielsAlder
+
+START full evidence seed=0 family=Friedel-CraftsAcylation
+DONE full evidence seed=0 family=Chan_LamCoupling
+START full evidence seed=0 family=Friedel-CraftsAlkylation
+DONE full evidence seed=0 family=Friedel-CraftsAcylation
+START full evidence seed=1 family=Beckmann
+DONE full evidence seed=1 family=Beckmann
+START full evidence seed=1 family=Buchwald-HartwigCross-Coupling
+DONE full evidence seed=0 family=DielsAlder
+START full evidence seed=1 family=Chan_LamCoupling
+DONE full evidence seed=1 family=Chan_LamCoupling
+START full evidence seed=1 family=DielsAlder
+DONE full evidence seed=0 family=Friedel-CraftsAlkylation
+START full evidence seed=1 family=Friedel-CraftsAcylation
+DONE full evidence seed=0 family=Buchwald-HartwigCross-Coupling
+START full evidence seed=1 family=Friedel-CraftsAlkylation
+DONE full evidence seed=1 family=DielsAlder
+START full evidence seed=2 family=Beckmann
+DONE full evidence seed=1 family=Friedel-CraftsAcylation
+START full evidence seed=2 family=Buchwald-HartwigCross-Coupling
+DONE full evidence seed=2 family=Beckmann
+START full evidence seed=2 family=Chan_LamCoupling
+DONE full evidence seed=1 family=Buchwald-HartwigCross-Coupling
+START full evidence seed=2 family=DielsAlder
+DONE full evidence seed=2 family=Chan_LamCoupling
+START full evidence seed=2 family=Friedel-CraftsAcylation
+DONE full evidence seed=1 family=Friedel-CraftsAlkylation
+START full evidence seed=2 family=Friedel-CraftsAlkylation
+DONE full evidence seed=2 family=Friedel-CraftsAcylation
+DONE full evidence seed=2 family=DielsAlder
+DONE full evidence seed=2 family=Buchwald-HartwigCross-Coupling
+DONE full evidence seed=2 family=Friedel-CraftsAlkylation

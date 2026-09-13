@@ -1,0 +1,17 @@
+{
+  "_ensure_knn_tables": [
+    170.2841511592269
+  ],
+  "train_xgb_ranker_and_temperature": [
+    8.236682623624802
+  ],
+  "_ensure_gnn_augmented_tables": [
+    68.53905460610986
+  ],
+  "train_xgb_temperature_regressor": [
+    6.567518450319767
+  ],
+  "score_table_with_xgb": [
+    3.1408477388322353
+  ]
+}

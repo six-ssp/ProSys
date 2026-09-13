@@ -24,9 +24,11 @@ Two safeguards were applied before this run:
 
 The independent audit passed for all six families and all six model variants: fixed manifest, candidate partition, 20-context cap, XGB-LTR target exclusion, GNN feature dimensions, and equality between the reported historical full reference and the rebuilt configuration.
 
-- Candidate stability audit: [`loo_test_candidate_stability_20260727.md`](../outputs/stage23_mainline_reafnn_gnn_fused_20260723/loo_test_candidate_stability_20260727.md)
-- Independent audit: [`audit.md`](../outputs/ablation_reafnn_gnn_20260726/audit.md)
-- Detailed generated tables: [`Stage 1`](../outputs/ablation_reafnn_gnn_20260726/stage1_route_ablation.md), [`Stage 2`](../outputs/ablation_reafnn_gnn_20260726/stage2_pool_ablation.md), [`Stage 3`](../outputs/ablation_reafnn_gnn_20260726/stage3_reranking_ablation.md), and [`interaction control`](../outputs/ablation_reafnn_gnn_20260726/stage23_interaction_ablation.md).
+The raw generated tables and audit files for this historical direct-GNN-ranking
+snapshot are local-only, regenerable `outputs/` material. They are not current
+paper evidence. Use the current parallel Stage-2 and Stage-3 records in
+[`Experiment/`](../Experiment/) and the paired result reports
+[`current_parallel_stage2_ablation_results_20260905.md`](current_parallel_stage2_ablation_results_20260905.md)
 
 ## A1: Family-Specific Stage 1 Fine-Tuning
 

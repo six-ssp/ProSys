@@ -519,10 +519,11 @@ def _write_report(
     arm_labels = {
         "full_mainline": "Full current mainline",
         "knn_only": "KNN-only + XGB-LTR",
+        "reafnn_only": "ReaFNN-only + XGB-LTR (no KNN evidence)",
         "no_xgb_ltr": "Full Stage 2 + deterministic no-XGB-LTR",
     }
     selected_arms = [
-        arm for arm in ("knn_only", "no_xgb_ltr")
+        arm for arm in ("knn_only", "reafnn_only", "no_xgb_ltr")
         if arm in {str(row["arm"]) for row in per_family_mean_std}
     ]
     mainline_per_family_sys10 = (
@@ -550,6 +551,10 @@ def _write_report(
     if "knn_only" in selected_arms:
         lines.append(
             "- **KNN-only + XGB-LTR:** removes ReaFNN but retrains a tabular 52-feature XGB-LTR on its changed candidate distribution."
+        )
+    if "reafnn_only" in selected_arms:
+        lines.append(
+            "- **ReaFNN-only + XGB-LTR:** removes KNN proposals and all KNN-derived feature values, fixes w=0, and retrains the 52-column ranker on neural historical proposals. The KNN configuration slots are inactive, not retrieval performed with a zero fusion weight."
         )
     if "no_xgb_ltr" in selected_arms:
         lines.append(
@@ -607,7 +612,7 @@ def _write_report(
         lines.append("| " + " | ".join([display_family_name(family)] + values) + " |")
 
     audit_lines = [
-        "- Every compact result is checked for the expected family, seed, fixed Stage 1 manifest, product-Morgan retrieval, K=64, 64-context pools, 20-context cap, and reference-split training/validation tables.",
+        "- Compact results use fixed Stage 1 manifests, 64-context proposal prefilters, a 20-context cap and reference-split training/validation tables. Active branches follow the intervention specified above; no KNN retrieval is performed in the ReaFNN-only arm.",
     ]
     if "knn_only" in selected_arms:
         audit_lines.append(

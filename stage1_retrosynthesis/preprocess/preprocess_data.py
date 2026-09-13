@@ -7,7 +7,12 @@ import random
 import math
 import textdistance
 import multiprocessing
+import json
 from pathlib import Path
+try:
+    from .pair_validation import filter_nonempty_pairs, reaction_side_fragments
+except ImportError:
+    from pair_validation import filter_nonempty_pairs, reaction_side_fragments
 
 from rdkit import Chem
 from tqdm import tqdm
@@ -38,7 +43,7 @@ def smi_tokenizer(smi, spe=False, self=False, dropout=0): # dropout:  bpe dropou
 
 
 def is_parseable_reaction_sides(reaction: str) -> bool:
-    """Require every reactant and product fragment to be RDKit-parseable."""
+    """Require complete reaction sides, including cross-dot ring closures."""
 
     parts = str(reaction).split('>')
     if len(parts) < 3:
@@ -47,8 +52,8 @@ def is_parseable_reaction_sides(reaction: str) -> bool:
     if not reactants or not product:
         return False
     for side in (reactants, product):
-        fragments = [fragment.strip() for fragment in side.split('.') if fragment.strip()]
-        if not fragments or any(Chem.MolFromSmiles(fragment) is None for fragment in fragments):
+        mol = Chem.MolFromSmiles(side)
+        if mol is None or mol.GetNumAtoms() == 0:
             return False
     return True
 
@@ -155,6 +160,14 @@ def preprocess(save_dir,
         edit_distances.append(result['edit_distance'])
         src_data.extend(result['src_data'])
         tgt_data.extend(result['tgt_data'])
+    before_pair_filter = len(src_data)
+    src_data, tgt_data, rejected_pairs = filter_nonempty_pairs(src_data, tgt_data)
+    with open(os.path.join(save_dir, '{}.pair_filter.json'.format(set_name)), 'w') as handle:
+        json.dump({'input_augmented_pairs': before_pair_filter,
+                   'kept_augmented_pairs': len(src_data),
+                   'empty_pair_indices_before_filter': rejected_pairs,
+                   'policy': 'reject empty source or target after root alignment'}, handle, indent=2)
+    print('empty_augmented_pairs:', len(rejected_pairs))
     print("Avg. edit distance:", np.mean(edit_distances))
     print('size', len(src_data))
     for key, value in skip_dict.items():
@@ -217,7 +230,7 @@ def multi_process(data):
 
     if return_status['status'] == 0:
         pro_atom_map_numbers = list(map(int, re.findall(r"(?<=:)\d+", product)))
-        reactant = reactant.split(".")
+        reactant = reaction_side_fragments(reactant)
 
         if data['root_aligned']:
             reversable = False   # no shuffle # TODO:
@@ -559,11 +572,12 @@ if __name__ == '__main__':
         # save_dir = os.path.join(savedir, data_set)
         save_dir = savedir
         # duplicate multiple product reactions into multiple ones with one product each
-        multiple_product_indices = [
-            i for i in range(len(sub_prod_list)) if "." in sub_prod_list[i]
-        ]
+        product_components = {i: reaction_side_fragments(product)
+                              for i, product in enumerate(sub_prod_list) if '.' in product}
+        multiple_product_indices = [i for i, fragments in product_components.items()
+                                    if len(fragments) > 1]
         for index in multiple_product_indices:
-            products = sub_prod_list[index].split(".")
+            products = product_components[index]
             for product in products:
                 sub_react_list.append(sub_react_list[index])
                 sub_prod_list.append(product)

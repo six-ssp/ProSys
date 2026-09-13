@@ -1,0 +1,10 @@
+{
+  "completed_families": [
+    "REAXYS_Chan_LamCoupling_SINGLE_CATMERGE",
+    "REAXYS_Beckmann_SINGLE_CATMERGE",
+    "REAXYS_Friedel-CraftsAcylation_SINGLE_CATMERGE",
+    "REAXYS_Buchwald-HartwigCross-Coupling_SINGLE_CATMERGE",
+    "REAXYS_DielsAlder_SINGLE_CATMERGE",
+    "REAXYS_Friedel-CraftsAlkylation_SINGLE_CATMERGE"
+  ]
+}

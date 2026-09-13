@@ -1,0 +1,8 @@
+{
+  "scope": "one cold query per family; no reconstruction workers; model loads included, Python imports excluded",
+  "stage1_gpu_peak": "included in sampled whole-device peak; not allocator-exact. Do not sum self/child RSS peaks",
+  "nvidia_smi": "name, memory.total [MiB], driver_version\nNVIDIA GeForce RTX 3090, 24576 MiB, 580.105.08\n",
+  "cpu_quota": "1400000 100000",
+  "memory_limit": "96636764160",
+  "cpu_threads_per_query": 2
+}

@@ -1,0 +1,8 @@
+{
+  "mode": "legacy",
+  "seed": 1,
+  "active_canonicalizer_source": "def legacy_side(smiles):\n    from prosys_shared.features import canonicalize_smiles\n    fragments = []\n    for fragment in str(smiles).split('.'):\n        fragment = fragment.strip()\n        if not fragment:\n            continue\n        canonical = canonicalize_smiles(fragment)\n        if canonical:\n            fragments.append(canonical)\n    return '.'.join(sorted(fragments))\n",
+  "runner_sha256": "1be5e4c9bf6dc97a8dad54ba2deedce543dddd93d913ef48d82d33bd810ab917",
+  "rgnn_protocol": "deterministic training and embedding inference in both arms",
+  "not_a_historical_reproduction": true
+}

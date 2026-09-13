@@ -1,0 +1,22 @@
+{
+  "family": "DielsAlder",
+  "seed": 2,
+  "splits": {
+    "train": "10491e5df041d4071d15f1affd8a5bd9879af588919bf8d134bc434c44ed33d9",
+    "val": "30c6455c4cc7b231848fe30f71673e04eb160d3ccd66dcfc2f574ebc6c647a40",
+    "test": "806836bc38543d85abbdef5c0af7eab823b2148cc8d371485b9985040329b3f4"
+  },
+  "route_test": "b953575edd3972a82a1bcc232add407e3a05f0774a8c5ba659f244e161f799fb",
+  "route_validation": "6305976fb983446e2e9a39ae97dbf3bf40494b40acd673a235d00770e36d6a4a",
+  "models": {
+    "reafnn/reafnn_model.pt": "8668ee811d863717e23260f95b57e8e09e178e123ba8649ecd8ff0e934488a27",
+    "reafnn/reafnn_meta.json": "4eaf33b996867370c250c1cd9cb332851ca358e90cfe4143717a19b928cb6904",
+    "reafnn/post_fusion_calibration.json": "9c506c863e0d999616518e293ab7e44f24be6fd97c8e10fb6fee418392ca2fb0",
+    "rgnn/reaction_gnn.pt": "8a845897093d673822bd5f102a8c4e41f2c8259bf8210dc5e82326730ccb9adb",
+    "rgnn/reaction_gnn_meta.json": "eef181ebf1dc840eae1ae80599f6c1684ee798a5f4560ed113f5a3f00a9bc8d6",
+    "ranker/xgb_ranker.json": "fc2b56d44507fff7c03e5a126354e10c3d197d2b444599dd12943a6bf8f2ce9e",
+    "ranker/xgb_ranker_meta.json": "c1866a5bbe004bd71aaaa05e323f074968d1b231633c83ffea05980c47766610",
+    "temperature/xgb_temperature.json": "d9bcbd985b46e2614f936f88b6833434800534b79503244635e2c2fb0d3346c8",
+    "temperature/xgb_temperature_meta.json": "94ab794d06f0df995f35bc5281e3d5b90580e57793f3551d224cb62e9cd55d76"
+  }
+}
