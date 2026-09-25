@@ -1,13 +1,165 @@
 # ProSys TODO
 
-Updated: `2026-09-13`
+Updated: `2026-09-25`
 
-User-directed freeze: no further experiments or split changes are scheduled.
-The unfinished items below are deferred, not an active training queue. Completed
-code repairs and aggregate evidence are retained; existing results are not replaced.
+## Accepted Release
 
-## Active
+The user has accepted the corrected 50K mainline and complete baseline/ablation
+suite. No additional trick search or FULL retraining is queued. Publish source,
+tests and aggregate evidence to GitHub; keep papers, raw data, per-query outputs
+and model weights local. Current release index:
+`Experiment/release_50k_20260925/README.md`.
+The no-push statements below describe the earlier audit phase only; the user
+has now explicitly requested GitHub publication.
 
+## Current Base Decision
+
+- User selected filtered USPTO-50K from scratch, with no FULL checkpoint restore.
+  `scripts/run_stage1_50k_from_scratch.py --train` performs source verification,
+  raw/transformed-identity filtering, augmentation, full binary/membership audit,
+  then fresh base training in `Experiment/stage1_50k_from_scratch_20260924/`.
+- The 50K base completed at epoch 50 / 16,500 updates; best is epoch 49,
+  validation loss 3.573. Best/last provenance and new expert admission passed.
+  The initially admitted expert queue has since been stopped on a new
+  augmentation-fidelity finding. The audit/repair/admission and all-query guard
+  preflight now pass. The restarted
+  `stage1_50k_fidelity_v2_expert_multiseed_20260924` six-family three-seed study
+  is now certified, including one explicitly admitted same-weight decode recovery.
+  Historical FULL tables/checkpoints remain unpromoted diagnostic records.
+- The earlier request to choose FULL retraining versus fixed FULL is superseded.
+  No FULL retraining is requested. The completed FULL input audits remain evidence
+  of the original issue, not scientific admission of the new 50K model.
+
+## Historical Repair Context
+The user reopened Stage 1 expert-seed training on 2026-09-15. Its 18-job queue
+was terminated after confirmed post-augmentation train/test overlap.
+Strict-option input membership audits have passed; model retraining is pending.
+Existing results are retained for diagnosis, not certified as leakage-free.
+
+## Final Verification Status
+
+- All-18 expert certification and independent mean/sample-SD checks are complete.
+  The final Diels-Alder decoder recovery is explicit in its separate admission;
+  original failure logs are retained. Macro Route@10 is 55.42 +/- 0.39%, distinct
+  from fixed-expert-seed-1 55.86%. Do not restart either historical controller.
+- The isolated six-family cold-query cost measurement and independent audit
+  are complete. One query per family is a deployment smoke, not throughput or
+  population latency; report the load-inclusive wall time and sampled memory.
+- The root main text and SI are published locally with verified original backups.
+  Updated evidence includes 455 numeric cells, 56 paragraphs, 13 method cells,
+  four quantitative figures and new expert/cost Tables S29/S30. Final PDFs have
+  18/24 pages; all 12 SI contents entries match. Main Figures 1 and 2 remain fixed.
+- Post-publication regression passed 252 project tests and eight decoder tests.
+  Final source-binding and requirement checks are documented in
+  `Experiment/final_release_50k_20260925/FINAL_CHECK.md`.
+  No GitHub push is part of this final audit.
+- Preserve all valid best/last checkpoints and fixed 3,860 test identities.
+  Keep existing disk guards. No invalid-checkpoint deletion has been authorized.
+
+The full downstream comparison, six-family query diagnostics, 18 fresh cases,
+six-family deployment checks and auxiliary paper-field replay are complete.
+Use `CURRENT_RESULTS.md` and their versioned evidence receipts, not the older
+progress snapshots below, to decide whether a new experiment is needed.
+
+## Earlier Progress Snapshots (Superseded)
+
+The following entries retain the sequence of repairs and former pending work.
+They are not instructions to rerun already completed experiments.
+
+- Complete `scripts/audit_50k_query_diagnostics.py` on the final six-family
+  grid. It rebuilds exact-system labels and route/pool/ranking-failure counts
+  from fresh retained rows, checks saved query annotations, and exports
+  condition-memory seen/unseen and context-availability subgroups. Do not reuse
+  the historical diagnostic tables as scratch-50K results.
+- Complete the fresh auxiliary paper-field replay for all six families:
+  `scripts/audit_50k_paper_auxiliary.py` independently recounts direct
+  Condition@k and replays the validation fusion grid without fitting. These
+  fields are not included in the system-metric comparison CSV. The private
+  manuscript replacement map also flags fixed-seed versus expert-seed scope,
+  new case provenance, dependent figures, and removal of the obsolete separate
+  headline/reconstructed temperature versions once final fresh evidence passes.
+- The combined fresh-result collector has verified 25 model/seed records each
+  for Beckmann, Chan-Lam, acylation, alkylation and Buchwald-Hartwig.
+  After the remaining Diels-Alder family
+  studies finish, run it without a partial
+  `--families` selection using explicit 50K roots. Its output covers downstream
+  comparisons only; Stage 1 three-seed uncertainty and manuscript completion
+  still need their separate final checks.
+- Storage was relieved by native two-week-expiry Git garbage pruning:
+  8.36 GiB expired unreachable payload removed; about 14 GiB remains free
+  immediately after Buchwald-Hartwig training (now about 13 GiB after the next
+  checkpoint pair). Seventeen experts are complete; the final Diels-Alder
+  seed-2 job is running. Keep space for its best/last and downstream outputs,
+  plus working space. Preserve all checkpoints/data and the unchanged admission
+  guards. No invalid-checkpoint deletion was performed. Receipt:
+  `Experiment/storage_cleanup_20260925/receipt.json`.
+- Same-seed full Stage 2/3 repeat is complete on new Beckmann routes, with exact
+  candidate/model/temperature reproduction. Do not repeat this merely to select
+  a better score; the pending work is the remaining families and final reports.
+- New case exporter has passed a real three-case Beckmann run. Once all bundles
+  are ready, export six families to a new directory, check links and intermediate
+  parity, then replace root `example.md`; it currently labels its FULL cases as
+  historical and links the new Beckmann subset.
+- Product-only deployment now uses completed 50K bundles and guarded decoding;
+  Beckmann fixed-query parity and fresh end-to-end smoke both pass. Extend this
+  parity check to each remaining family after its retained bundle is available.
+  Do not treat one passed query as a family-wide performance estimate.
+  The cost entrypoint now requires explicit fresh artifact/output roots and an
+  idle-training/GPU preflight. Real isolated cost collection remains deferred
+  until the current queues finish; the live-queue rejection was tested.
+- The live fixed-seed-1 route handoff waits for fully verified expert jobs and
+  then generates guarded validation routes with the same selected checkpoint.
+  New root: `Experiment/stage1_50k_downstream_routes_20260924/`. Its waiting state
+  is not published route evidence. Downstream reruns must use paired test/val
+  routes from this root, never historical defaults.
+- Local main/SI drafts now visibly distinguish historical FULL scores from the
+  ongoing scratch-50K study; tables and main Figure 1 are unchanged. Replace
+  numerical results only after new experiments pass full replay and provenance
+  checks; remove the temporary draft notice only at that point.
+- September 24 augmentation fidelity: preserve failed receipts in
+  `Experiment/stage1_augmentation_identity_20260924/`; distinguish stereochemical
+  serialization drift from split overlap. Do not resume the interrupted expert
+  checkpoints as clean models. Base train/validation full identity scan passes.
+  New copies remove 35 train/five validation augmentations and pass independent
+  copy verification. Stock test decoding is diagnostic; an identity-preserving
+  augmentation guard is being applied equally to base and expert inference.
+- Post-augmentation fault tracing is complete for all observed expert/condition
+  held-out collisions; six independent binary witnesses are confirmed.
+  The full base augmented audit and standalone strict expert-copy/chemical
+  audits are complete. The strict base copy and independent retained-text/tensor
+  checks are complete. The rebuilt base full chemical audit and all six combined
+  expert/base checks pass with zero protected held-out overlaps. The September 24
+  decision replaces the FULL option with a scratch-50K base. Bind its completed
+  checkpoint, new combined audit and unchanged condition validation protocol
+  before admitting expert training. See
+  `Experiment/stage1_split_repair_20260915/README.md`.
+- The original base full scan found zero exact original condition-test matches and zero
+  base train/validation overlap, but three transformed expert-test reactions
+  in base validation. Strict refiltering has removed 85 train and 19 validation
+  reactions (850/190 augmented pairs) from new copies; their full audit passes,
+  but no base checkpoint is thereby repaired.
+  Do not train these historical FULL copies; continue the selected scratch-50K
+  study and re-evaluate dependent models instead.
+- Corrected baseline repeats must rebuild B3/B4 export packages with content
+  manifests and use new output roots. The repeat entrypoint now rejects stale
+  completed outputs/configurations and evaluates B1 on this study's routes.
+  These safeguards are tested, but corrected scientific baseline runs still
+  depend on the admitted Stage 1 models and regenerated route caches.
+- Blocking update, 2026-09-15: actual augmented expert-training reactions
+  overlap condition validation and test reactions in all six families.
+  The expert-seed queue has been terminated; preserve its checkpoints as diagnostic
+  artifacts, not valid independent-test results. See
+  `Experiment/final_release_audit_20260915/augmented_split_audit.json`.
+  Clean post-augmentation memberships and reevaluate affected experiments;
+  excluding only the 98 USPTO/validation overlaps is insufficient.
+- After clean-input admission, restart the six-family seeds 0/1/2 study in
+  a new versioned study directory; do not resume the contaminated queue.
+  Verify each best-checkpoint
+  decode against the original evaluation manifest, and aggregate Route@1/3/5/10
+  with sample SD. Update the SI only after complete results are verified.
+- Final manuscript/code checks and their boundaries are recorded in
+  `Experiment/final_release_audit_20260915/REPORT.md`: 61 source tests, 18 full
+  plus 36 paired replays, 375 numeric document cells and DOCX render checks.
 - New project-completion work is in progress under
   `Experiment/project_completion_20260913/PLAN.md`. Whole-side canonicalization
   is fixed in shared features and preprocessing; corrected condition-split
@@ -17,7 +169,8 @@ code repairs and aggregate evidence are retained; existing results are not repla
 - Prepared Stage-1 text/bin audit found 14610 empty family training pairs and
   80 validation pairs. Export now rejects empty pairs and records indices;
   versioned nonempty copies and independent full-tensor verification are done.
-  Applying the chosen validation policy is still required before training.
+  The now-invalidated expert-seed study used these earlier copies with original
+  validation membership and retained the known pretraining/validation overlap.
   USPTO augmented inputs have none.
   All 39640 family validation pairs match their binary tensors exactly.
 - Repeated same-seed R-GNN fits differed under default CUDA algorithms but

@@ -1,0 +1,2 @@
+route_recall_top1_mean,route_recall_top1_std,route_recall_top3_mean,route_recall_top3_std,route_recall_top5_mean,route_recall_top5_std,route_recall_top10_mean,route_recall_top10_std
+0.3657168722994055,0.004179294742096337,0.4852759048701543,0.0008737051279579263,0.5181291258149496,0.0008809440960819815,0.5542201174008649,0.003927357339676672

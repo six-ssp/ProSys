@@ -1,5 +1,11 @@
 # Matched R-GNN Temperature Ablation
 
+> **Historical aggregate comparison, superseded for paired claims.** The
+> [later identity-matched reconstruction](../mainline_evidence_completion_20260913/COMPLETION_REPORT.md)
+> gives `11.82 +/- 0.33 C` versus `13.93 +/- 0.38 C`, a `2.11 C` paired MAE
+> improvement and `6.02 pp` within-10 C gain. The original `11.49 C` full arm
+> below is retained for traceability, not substituted into the new comparison.
+
 ## Scope
 
 This is a three-seed, six-family temperature-only ablation matched to the maintained parallel mainline. The R-GNN arm is read from the official current mainline compact records. The new no-R-GNN arm reruns the same fixed Stage 1 routes, product-Morgan KNN (radius 2, 4,096 bits, K=64), independent ReaFNN top-64 post-fusion pool, route-local top-20 cap, and 52-feature XGB-LTR.

@@ -1,0 +1,20 @@
+{
+  "DATA_BIN": "/root/autodl-tmp/ProSys/data/editretro/datasets/USPTO_50K_FILTERED/aug10/data-bin",
+  "RESULTS_ROOT": "/root/autodl-tmp/ProSys/Experiment/stage1_50k_from_scratch_20260924/training",
+  "RUN_NAME": "run",
+  "RESTORE_CKPT": "",
+  "UPDATE_ALIAS": "0",
+  "SEED": "1",
+  "MAX_EPOCH": "50",
+  "MAX_UPDATE": "200000",
+  "LR": "0.0003",
+  "WARMUP": "10000",
+  "MAX_TOKENS": "16384",
+  "UPDATE_FREQ": "1",
+  "USE_FP16": "1",
+  "NUM_WORKERS": "4",
+  "PATIENCE": "10",
+  "NO_EPOCH_CHECKPOINTS": "1",
+  "SAVE_INTERVAL_UPDATES": "0",
+  "KEEP_LAST_EPOCHS": "1"
+}

@@ -1,5 +1,10 @@
 # Completion audit: project goal still in progress
 
+> Historical September-13 phase snapshot. Its pending protocol decision and
+> experiment list have been superseded by the user-selected scratch-50K study.
+> Current closure: `../final_release_50k_20260925/FINAL_CHECK.md`. Do not restart
+> old queues or treat this snapshot as the current project status.
+
 ## User-directed freeze (2026-09-13)
 
 The user requested no further protocol changes or training, and publication

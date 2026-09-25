@@ -31,12 +31,17 @@ LABEL_FREQ_SCOPE="${LABEL_FREQ_SCOPE:-family}"
 MIN_YIELD="${MIN_YIELD:-25}"
 RUN_BASE_TRAIN="${RUN_BASE_TRAIN:-0}"
 RESET_BASE_RESULTS="${RESET_BASE_RESULTS:-0}"
-BASE_DATASET="${BASE_DATASET:-USPTO_STAGE2_FILTERED}"
-BASE_ALIAS_NAME="${BASE_ALIAS_NAME:-checkpoint_UPSTO_full_best.pt}"
+BASE_DATASET="${BASE_DATASET:-USPTO_50K_FILTERED}"
+BASE_ALIAS_NAME="${BASE_ALIAS_NAME:-checkpoint_${BASE_DATASET}_best.pt}"
 BASE_RESTORE_CKPT="${BASE_RESTORE_CKPT:-}"
 
 if [[ "$SKIP_PREPROCESS" == "1" && "$RESET_PROCESSED" == "1" ]]; then
   echo "[reproduce] SKIP_PREPROCESS=1 requires RESET_PROCESSED=0; refusing to delete reused data" >&2
+  exit 2
+fi
+
+if [[ "$BASE_DATASET" == "USPTO_50K_FILTERED" ]]; then
+  echo "[reproduce] use scripts/run_stage1_50k_from_scratch.py for the audited 50K workflow; this historical raw-reset wrapper is not admitted" >&2
   exit 2
 fi
 

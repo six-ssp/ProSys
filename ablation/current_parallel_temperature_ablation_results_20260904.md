@@ -1,5 +1,12 @@
 # Current Parallel Temperature-Representation Ablation
 
+> **Superseded interpretation, 2026-09-15:** The numbers below are the original
+> aggregate-only comparison, not the final identity-matched evidence. Use the
+> [reconstruction report](../Experiment/mainline_evidence_completion_20260913/COMPLETION_REPORT.md)
+> for manuscript claims: graph MAE `11.82 +/- 0.33 C`, no-graph `13.93 +/- 0.38 C`,
+> paired improvement `2.11 C`; within-10 C gain `6.02 pp`. Do not pair the old
+> `11.49 C` headline with the new control. Original records below stay unchanged.
+
 > **Reportable paired control, 2026-09-04.** The compact artifact is
 > [`Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/`](../Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/README.md).
 > This document gives the paper-ready interpretation of the verified

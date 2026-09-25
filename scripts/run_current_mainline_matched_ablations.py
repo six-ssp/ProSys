@@ -209,8 +209,8 @@ def _load_mainline_reference(macro_file: Path) -> dict[str, Any] | None:
     row = rows[0]
     return {
         "arm": "full_mainline",
-        "route_at_10_mean": 0.6320,
-        "route_at_10_std": 0.0,
+        "route_at_10_mean": float(row["route_at_10_mean"]) if row.get("route_at_10_mean") else None,
+        "route_at_10_std": float(row["route_at_10_std"]) if row.get("route_at_10_std") else None,
         "candidate_recall_mean": float(row["cover_mean"]),
         "candidate_recall_std": float(row["cover_std"]),
         "sys_at_1_mean": float(row["sys1_mean"]),

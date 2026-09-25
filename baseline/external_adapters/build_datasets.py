@@ -19,6 +19,8 @@ from prosys_shared.mainline import (
     split_file_for_family,
 )
 from prosys_shared.product_memory import normalize_condition_labels
+from baseline.experiment_integrity import artifact_files, export_binding
+from prosys_shared.cache_integrity import save_manifest
 
 from .contracts import (
     build_label_vocabulary,
@@ -288,6 +290,8 @@ def _build_indirect_fnn_and_gcnn(
     family: str,
     requested_models: list[str],
 ) -> dict[str, dict[str, Any]]:
+    bindings = {method: export_binding(repo_root, route_root, validation_route_root, family, method)
+                for method in requested_models if method in ('sequential_fnn', 'reaction_gcnn')}
     train_rows = normalize_split_rows(split_file_for_family(repo_root, family, 'train'))
     vocabulary = build_label_vocabulary(train_rows)
     train_entries, _ = _labeled_route_entries(repo_root, family, 'train', vocabulary)
@@ -395,6 +399,11 @@ def _build_indirect_fnn_and_gcnn(
         write_json(gcnn_dir / 'metadata.json', metadata)
         results['reaction_gcnn'] = metadata
 
+    for method, binding in bindings.items():
+        if export_binding(repo_root, route_root, validation_route_root, family, method) != binding:
+            raise RuntimeError('Baseline source inputs changed during export')
+        directory = output_root / method / family
+        save_manifest(directory / 'content_manifest.json', binding, artifact_files(directory))
     return results
 
 

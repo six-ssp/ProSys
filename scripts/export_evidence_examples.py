@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Export three first-hit-correct cases per family from reconstructed slates."""
+"""Export three traceable cases per family from verified 50K evidence slates."""
 
 from __future__ import annotations
 
+import argparse
 import gzip
 import json
 from pathlib import Path
-import shutil
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-STUDY = ROOT / "Experiment/mainline_evidence_completion_20260913"
 
 
 def escaped(value):
@@ -27,14 +26,27 @@ def main():
     from prosys_shared.route_cache import RouteRecord
     from scripts.extract_current_case_examples import select_cases
     from scripts.predict_product import readonly_builder
-    if not (STUDY / "replay_audit.json").exists():
-        raise RuntimeError("Run the complete retained-row replay before publishing examples")
-    output = STUDY / "examples"
-    output.mkdir(exist_ok=True)
-    lines = ["# Current Parallel ProSys: Detailed Cases", "",
-        "Source: the 2026-09-13 evidence reconstruction, seed 0, fixed Stage 1 caches. "
-        "Ranking metrics are checked against promoted results in the study report. Temperature predictions "
-        "belong to the reconstructed regressors and must not be substituted for historical predictions.", "",
+    from scripts.summarize_50k_downstream_evidence import verify_run
+    from prosys_shared.cache_integrity import file_sha256 as sha
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--study-root", type=Path, required=True)
+    parser.add_argument("--route-study", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True, help="New directory, separate from retained models")
+    parser.add_argument("--seed", type=int, choices=(0, 1, 2), default=1)
+    parser.add_argument("--families", nargs="+", choices=FAMILY_ORDER, default=FAMILY_ORDER)
+    args = parser.parse_args()
+    study, route_study, output = (p.resolve() for p in (args.study_root, args.route_study, args.output_dir))
+    if output.exists() or any(output == p or p in output.parents or output in p.parents for p in (study, route_study)):
+        raise ValueError("Use a new case-output directory separate from input evidence")
+    if len(args.families) != len(set(args.families)):
+        raise ValueError("Duplicate requested family")
+    receipts = [verify_run(study, route_study, family, args.seed)[1] for family in args.families]
+    output.mkdir(parents=True)
+    lines = ["# Fresh 50K Parallel ProSys: Detailed Cases", "",
+        f"Source: `{study}`; downstream seed {args.seed}; fixed family expert seed 1. "
+        "Each requested family passed original-query retained-candidate replay before export. "
+        "These are fresh filtered-50K results, not the historical FULL examples.", "",
+        "Scope: " + ", ".join(args.families) + ". This is a descriptive subset, not the six-family metric table.", "",
         "Each family has three deterministically selected queries. Top-k labels refer to the FIRST exact "
         "system hit, not any later positive row. These are descriptive cases, not evidence of prospective "
         "chemical feasibility. Full candidate slates, neural token probabilities, sparse fingerprint inputs "
@@ -47,8 +59,9 @@ def main():
         "contexts per route enter 52-feature XGB-LTR and a Stage 1/2 score prior. A separate 52+128-feature "
         "regressor predicts temperature. Gold fields are evaluation-only.", ""]
     index = []
-    for fi, family in enumerate(FAMILY_ORDER):
-        folder = STUDY / "compact/seed_0" / family
+    for family in args.families:
+        fi = FAMILY_ORDER.index(family)
+        folder = study / "compact" / f"seed_{args.seed}" / family
         frame = ranked_frame(pd.read_csv(folder / "full_candidates.csv.gz"))
         embeddings = pd.read_csv(folder / "route_embeddings.csv.gz")
         graph_cols = [f"route_gnn_feat_{i}" for i in range(128)]
@@ -56,7 +69,7 @@ def main():
         assert frame[graph_cols].notna().all().all()
         metadata = json.loads((folder / "bundle/ranker/xgb_ranker_meta.json").read_text())
         features = metadata["feature_columns"]
-        cache = json.loads((ROOT / "outputs/stage1_routes" / family / "route_cache.json").read_text())
+        cache = json.loads((route_study / "test" / family / "route_cache.json").read_text())
         routes = {r["sample_index"]: r for r in cache["reactions"]}
         builder = readonly_builder(ROOT, family, folder, "cpu")
         selector = builder.reaffn_selector
@@ -86,7 +99,7 @@ def main():
                 "cosine_similarity": float(similarities[i]), "training_conditions": builder.route_contexts[i]}
                 for i in neighbor_indices]
             union = builder._independent_post_fusion_state(route, leave_one_reaction_out=False)
-            case = {"family": family, "seed": 0, "sample_index": sample,
+            case = {"family": family, "seed": args.seed, "sample_index": sample,
                 "selection": title, "first_exact_rank": first, "stage1": routes[sample],
                 "selected": json.loads(chosen.to_json()),
                 "stage2_fusion_calibration": builder.post_fusion_calibration,
@@ -109,15 +122,14 @@ def main():
             filename = f"{family}_case_{ci}.json.gz"
             with gzip.open(output / filename, "wt") as handle:
                 json.dump(case, handle, allow_nan=False)
-            rel = (output / filename).relative_to(ROOT)
-            index.append({"family": family, "case": ci, "sample_index": sample, "first_exact_rank": first, "file": str(rel)})
+            index.append({"family": family, "case": ci, "sample_index": sample, "first_exact_rank": first, "file": filename})
             lines += [f"### Case {ci}: {title}", "",
                 f"Query identity: sample_index={sample}, reaction_id={chosen.reaction_id}. These IDs are not model features.", "",
                 f"Product: `{product}`", "",
                 f"Reference reactants (evaluation only): `{routes[sample].get('gold_reactants', '')}`", "",
                 f"First exact hit rank: **{first if first is not None else 'absent'}**; candidate count: {len(group)}. "
                 f"Selected candidate: rank {int(chosen.final_rank)}, Stage 1 route rank {int(chosen.retro_rank)}.", "",
-                f"[Complete machine-readable intermediate values]({rel})", "",
+                f"[Complete machine-readable intermediate values]({filename})", "",
                 "#### Stage 1 Routes", "", "| Route rank | Reactants | Score | Normalized score |",
                 "| ---: | --- | ---: | ---: |"]
             for route in routes[sample]["routes"]:
@@ -142,13 +154,16 @@ def main():
                 f"Reference temperature for this exact system: {chosen.temperature_gold} C. "
                 "Official temperature support selects the first exact row with finite reference and prediction over "
                 "the ENTIRE slate, not necessarily this illustrative row and not restricted to Top-10.", ""]
-    old = ROOT / "example.md"
-    archive = ROOT / "Experiment/document_archive_20260913/example_before_first_hit_fix.md"
-    if old.exists() and not archive.exists():
-        shutil.copy2(old, archive)
-    old.write_text("\n".join(lines) + "\n")
+    (output / "example.md").write_text("\n".join(lines) + "\n")
     (output / "index.json").write_text(json.dumps(index, indent=2) + "\n")
-    print(f"Wrote {len(index)} fully traced cases to example.md; archived previous text")
+    source_files = [Path(__file__), ROOT / "scripts/predict_product.py", ROOT / "scripts/extract_current_case_examples.py"]
+    manifest = {"family_receipts": receipts, "downstream_seed": args.seed,
+        "families": args.families, "requested_scope_complete": True,
+        "six_family_scope": set(args.families) == set(FAMILY_ORDER),
+        "source_sha256": {str(p.relative_to(ROOT)): sha(p) for p in source_files},
+        "output_sha256": {p.name: sha(p) for p in output.iterdir() if p.is_file()}}
+    (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    print(f"Wrote {len(index)} fully traced cases to {output}; root example.md was not overwritten")
 
 
 if __name__ == "__main__":

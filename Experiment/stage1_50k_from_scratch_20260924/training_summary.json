@@ -1,0 +1,27 @@
+{
+  "dataset": "USPTO_50K_FILTERED",
+  "initialization": "random",
+  "training_seed": 1,
+  "train_wall_seconds": 8112.3,
+  "stop_reason": "max_epoch_reached",
+  "checkpoints": {
+    "checkpoint_best.pt": {
+      "sha256": "72e84de84251968c5454ed284604a804b52efd52df65643c2c2a1d39de05e524",
+      "epoch": 49,
+      "num_updates": 16170,
+      "validation_loss": 3.573,
+      "best_validation_loss": 3.573,
+      "size_bytes": 470674731
+    },
+    "checkpoint_last.pt": {
+      "sha256": "59075e8b792e714f03aef33c524d612a265759caeeae70ea6b0b5a765ef20488",
+      "epoch": 50,
+      "num_updates": 16500,
+      "validation_loss": 3.701,
+      "best_validation_loss": 3.573,
+      "size_bytes": 470674731
+    }
+  },
+  "completion_sha256": "acc697329817f7761edc4b858245bb1e9be850e77a4b36179ee87995c698f56b",
+  "scope": "completed base training, not route evaluation or downstream system performance"
+}

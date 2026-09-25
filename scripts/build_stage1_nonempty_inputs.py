@@ -41,15 +41,16 @@ def check_databin(path):
     return rows
 
 
-def build_one(source, destination, expected_hashes=None, expected_empty=None):
+def build_one(source, destination, expected_hashes=None, expected_empty=None, excluded_indices=None):
     with ExitStack() as stack:
-        return _build_one(source, destination, expected_hashes, expected_empty, stack)
+        return _build_one(source, destination, expected_hashes, expected_empty, stack, excluded_indices)
 
 
-def _build_one(source, destination, expected_hashes, expected_empty, stack):
+def _build_one(source, destination, expected_hashes, expected_empty, stack, excluded_indices=None):
     import torch
     Dictionary, indexed = fairseq_data()
     source, destination = Path(source), Path(destination)
+    dataset_name = source.name if source.name.startswith(('REAXYS_', 'USPTO_')) else source.parent.name
     if destination.exists():
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -58,6 +59,8 @@ def _build_one(source, destination, expected_hashes, expected_empty, stack):
     output_bin = working / 'data-bin'
     output_bin.mkdir()
     splits = [s for s in ('train', 'val', 'test') if (source / f'{s}.src').exists()]
+    if excluded_indices is not None and set(excluded_indices) != set(splits):
+        raise ValueError('Exclusion plan must explicitly cover every source split')
     files = [source / f'{s}.{side}' for s in splits for side in ('src', 'tgt')]
     files += sorted(p for p in (source / 'data-bin').iterdir() if p.is_file())
     original = {str(p.relative_to(source)): sha(p) for p in files}
@@ -82,7 +85,10 @@ def _build_one(source, destination, expected_hashes, expected_empty, stack):
         # Close without finalizing/publishing a partial dataset if a check fails.
         for builder in builders.values():
             stack.callback(builder._data_file.close)
-        retained, removed, n = [], [], 0
+        retained, removed, excluded, n = [], [], [], 0
+        requested = set(excluded_indices[split]) if excluded_indices is not None else set()
+        if any(type(i) is not int or i < 0 for i in requested):
+            raise ValueError('Exclusion indices must be nonnegative integers')
         with (source / f'{split}.src').open() as src, (source / f'{split}.tgt').open() as tgt, \
              (working / f'{split}.src').open('w') as out_src, (working / f'{split}.tgt').open('w') as out_tgt:
             for index, pair in enumerate(zip_longest(src, tgt)):
@@ -92,7 +98,9 @@ def _build_one(source, destination, expected_hashes, expected_empty, stack):
                     encoded = dictionaries[side].encode_line(line, add_if_not_exist=False)
                     if index >= len(inputs[side]) or not torch.equal(encoded.long(), inputs[side][index].long()):
                         raise ValueError(f'Input text/bin mismatch: {split}/{side}/{index}')
-                if all(line.strip() for line in pair):
+                if index in requested:
+                    excluded.append(index)
+                elif all(line.strip() for line in pair):
                     retained.append(index)
                     out_src.write(pair[0])
                     out_tgt.write(pair[1])
@@ -105,6 +113,8 @@ def _build_one(source, destination, expected_hashes, expected_empty, stack):
                     write(working / 'progress.json', {'split': split, 'input_rows_checked': n})
         if any(len(value) != n for value in inputs.values()):
             raise ValueError('Input binary contains extra rows')
+        if requested != set(excluded):
+            raise ValueError('Exclusion index lies outside source dataset')
         if expected_empty is not None and removed != expected_empty[split]:
             raise ValueError('Exclusion indices differ from independent audit')
         if not retained:
@@ -119,8 +129,10 @@ def _build_one(source, destination, expected_hashes, expected_empty, stack):
                     raise ValueError('A retained token tensor changed')
         with gzip.open(working / f'{split}.lineage.json.gz', 'wt') as handle:
             json.dump({'source_index_by_output_row': retained, 'removed_empty_pair_indices': removed,
+                       'excluded_by_external_plan_indices': excluded,
                        'index_space': 'retained augmented text/bin rows, not original raw reactions'}, handle)
         statistics.append({'split': split, 'original_pairs': n, 'removed_empty_pairs': len(removed),
+                           'excluded_by_external_plan_pairs': len(excluded),
                            'retained_pairs': len(retained), 'all_input_text_bin_pairs_equal': True,
                            'all_retained_token_tensors_unchanged': True})
     check_databin(output_bin)
@@ -129,14 +141,16 @@ def _build_one(source, destination, expected_hashes, expected_empty, stack):
             raise ValueError('Source changed while building: ' + name)
     outputs = {str(p.relative_to(working)): sha(p) for p in working.rglob('*')
                if p.is_file() and p.name != 'progress.json'}
-    manifest = {'source': str(source), 'dataset': source.parent.name, 'splits': statistics,
+    manifest = {'source': str(source), 'dataset': dataset_name, 'splits': statistics,
                 'source_sha256': original, 'output_sha256': outputs,
-                'validation_policy': 'original reaction membership, empty augmented pairs removed only',
+                'validation_policy': ('external exclusion indices and empty-pair filtering; requires separate scientific admission'
+                                      if excluded_indices is not None else
+                                      'original reaction membership, empty augmented pairs removed only'),
                 'protocol_selection_pending': True, 'ready_for_formal_three_seed_training': False,
                 'raw_splits_and_test_query_manifest_modified': False, 'builder_sha256': sha(Path(__file__))}
     write(working / 'manifest.json', manifest)
     working.rename(destination)
-    return {'dataset': source.parent.name, 'path': str(destination), 'splits': statistics,
+    return {'dataset': dataset_name, 'path': str(destination), 'splits': statistics,
             'manifest_sha256': sha(destination / 'manifest.json')}
 
 

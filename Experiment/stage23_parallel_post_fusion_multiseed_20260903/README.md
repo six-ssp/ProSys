@@ -1,5 +1,9 @@
 # Fixed-Stage-1 Multi-Seed Robustness
 
+> Historical FULL-based record. This is not the accepted 50K mainline.
+> Use [current results](../../CURRENT_RESULTS.md) and the
+> [50K release](../release_50k_20260925/README.md) for reportable current values.
+
 ## Scope
 
 This is a conditional Stage-2/3 robustness experiment. The persisted fixed split, the six test manifests, and the Stage-1 route caches are held fixed across seeds. It does not claim variability from retraining EditRetro Stage 1.
@@ -8,9 +12,9 @@ Randomized learned components are ReaFNN, Reaction-GNN, and XGBoost (subsample a
 
 Values below are unweighted macro averages over the six families. Rates are percentages; standard deviations use the sample definition (`ddof=1`). Temperature MAE is the unweighted mean of family-level conditional MAEs, and its support can vary by seed.
 
-## Current Headline
+## Original Headline (Historical)
 
-This is the reportable robustness record for the maintained parallel mainline.
+This was the robustness record for the former FULL-based parallel mainline.
 The fixed test manifest contains 3,860 product identities. Every seed has
 3,833 candidate slates; the remaining 27 no-slate identities remain in all
 full-system metric denominators and therefore contribute zero.
@@ -31,14 +35,15 @@ seeds 0, 1, and 2 because ranked exact system matches can differ by seed.
 
 ## Matched Temperature-Representation Control
 
-The R-GNN temperature branch is tested by the paired three-seed control in
-[`../stage3_temperature_no_rgnn_ablation_multiseed_20260904/`](../stage3_temperature_no_rgnn_ablation_multiseed_20260904/README.md). It preserves
-this record's Stage 1 routes, Stage 2 post-fusion pool, XGB-LTR ranking,
-test-manifest denominator, and conditional support exactly. The sole change is
-from the full `52 + 128D R-GNN` temperature feature space to the same `52D`
-tabular feature space without graph features. MAE is `11.49 +/- 0.26 C` with
-R-GNN versus `13.93 +/- 0.38 C` without it; within-10 C accuracy is
-`63.09 +/- 1.76%` versus `55.56 +/- 1.23%`.
+The original compact control in
+[`../stage3_temperature_no_rgnn_ablation_multiseed_20260904/`](../stage3_temperature_no_rgnn_ablation_multiseed_20260904/README.md)
+established aggregate agreement only. The later
+[identity-matched reconstruction](../mainline_evidence_completion_20260913/COMPLETION_REPORT.md)
+compares the full `52 + 128D R-GNN` feature space with `52D` tabular features
+on exactly the same candidates, rankings and eligible reference temperatures.
+Its MAE is `11.82 +/- 0.33 C` with R-GNN versus `13.93 +/- 0.38 C` without it;
+within-10 C is `61.58 +/- 0.77%` versus `55.56 +/- 1.23%`. These paired values
+do not replace the historical headline or per-family results retained here.
 
 ## Per-Family Mean +/- Std
 

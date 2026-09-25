@@ -1,10 +1,10 @@
 # Stage 3: System Ranking and Independent Temperature Regression
 
-Updated: 2026-09-13. This is the current parallel-Stage-2 interface.
+Updated: 2026-09-25. This is the current parallel-Stage-2 interface.
 [Earlier mixed-version details](../Experiment/document_archive_20260913/stage3_detail_before_cleanup.md)
 are archived and do not define the current feature inputs or results.
 
-### Numerical reproducibility update (pending result promotion)
+### Numerical reproducibility update
 
 New maintained fits explicitly use `ReactionGNNConfig(deterministic=True)`.
 The fit and embedding-inference scopes enable deterministic PyTorch algorithms
@@ -15,18 +15,18 @@ Historical payloads without this field retain `deterministic=False`; loading
 them does not silently relabel old training. A four-fit same-seed probe found
 different tensors in two default CUDA runs and identical tensors in two
 deterministic runs. This is a current-environment result, not a cross-device
-guarantee or a complete attribution of historical MAE drift. Final numerical
-promotion awaits the new paired checks; see
+guarantee or a complete attribution of historical MAE drift. The fresh
+six-family 50K mainline and paired controls have now passed all 18 retained-row
+replays. Historical fault tracing is retained in
 `Experiment/project_completion_20260913/FINDINGS.md`.
 
-A subsequent full corrected Diels-Alder seed-0 repeat also matches all 125600
-retained candidate rows and their ranking/temperature predictions exactly,
-including R-GNN tensors and data/route hashes. A cached-product deployment
-smoke matches 100 candidate identities and all 52 ranking inputs with zero
-prediction difference. These are current-environment, single-family checks;
-they do not turn the unfinished expert study into a full-pipeline three-seed
-result. Inference rejects model bundles whose feature-source hashes no longer
-match the maintained code.
+The fresh Beckmann seed-0 repeat also matches all 40,520 retained candidates,
+2,013 route embeddings and both model predictions. Six-family fixed-query
+deployment parity and fresh decoding smokes pass. These are current-environment
+checks, not cross-device guarantees or independent full-pipeline repeats.
+Inference rejects model bundles whose feature-source hashes no longer match
+the maintained code. Evidence: `Experiment/stage23_50k_repeat_check_20260924/`
+and `Experiment/product_inference_50k_20260924/`.
 
 ## Two separate XGBoost models
 
@@ -75,7 +75,7 @@ explicit Stage 1 wrong-route negatives.
 
 The retained XGB-LTR settings include `rank:ndcg`, validation `ndcg@10`, up to
 300 trees, learning rate 0.05, depth 6, row/column subsampling 0.8, L2 penalty
-1.0 and histogram tree construction, with validation early stopping. Neural
+1.0 and histogram tree construction, with validation early-stopping patience 30. Neural
 models are fitted separately before producing features for XGBoost; this is
 not a jointly optimized differentiable Stage 2/3 network or out-of-fold stack.
 
@@ -89,8 +89,9 @@ score_final = z_query(score_XGB) + beta * prior_Stage1_Stage2
 ```
 
 The deterministic prior follows Stage 1 route ordering and Stage 2 condition
-ordering, with stable tie-breaking. `beta` is selected from validation data
-using full-system Top-10 accuracy, then Top-1 as a tie-breaker. The prior is an
+ordering, with stable tie-breaking. `beta` is selected from 0 to 2 in steps of
+0.05 on reference-route validation candidates, using full-system Top-10
+accuracy, then Top-1 as a tie-breaker. The prior is an
 ordering signal, not a calibrated success probability. The no-XGB-LTR control
 uses the deterministic Stage 1/2 order alone.
 
@@ -102,6 +103,7 @@ bond-feature message vector. Four message-passing steps are followed by graph
 pooling. Reactant, product and difference embeddings are projected into a
 128-dimensional route representation. Auxiliary reagent and solvent multilabel
 heads supervise graph training using the corresponding family training data.
+Training uses batch size 48, at most 20 epochs and validation patience 5.
 
 The representation is route-specific; all contexts on that route share the
 same graph embedding. Candidate-specific variation remains in the tabular
@@ -113,6 +115,8 @@ features. The auxiliary graph heads do not directly recommend temperature.
 `route_gnn_feat_0` through `route_gnn_feat_127`. A separate XGBoost regressor
 fits exact-match rows with finite reference temperatures. Temperature
 predictions neither change candidate membership nor enter the ranking score.
+The temperature regressor fits all 300 trees; validation MAE is monitored
+without early stopping. This differs from XGB-LTR's early-stopping procedure.
 
 Evaluation in `prosys_shared/mainline.py:evaluate_scored_frame` sorts the full
 slate and selects the first exact-system row with finite predicted and gold
@@ -124,38 +128,33 @@ candidates can receive predictions without knowledge of the correct system.
 
 ## Current controls and evidence
 
-Full-system Top-10 is `43.77 +/- 0.60%`, versus `36.03 +/- 0.16%` under the
+Full-system Top-10 is `37.87 +/- 0.27%`, versus `29.90 +/- 0.10%` under the
 Stage 1/2 deterministic order, with unchanged aggregate candidate recall of
-`54.26 +/- 0.15%`. The `+7.74 pp` effect supports system prioritization.
-The Top-1 mean gain is small and changes sign across seeds.
+`47.57 +/- 0.08%`. The `+7.96 pp` effect supports Top-10 recovery, not uniformly
+better ranking: mean Top-1 is 19.81% with LTR versus 20.22% without it.
+Beckmann, Chan-Lam and acylation also have mixed early-ranking effects.
 
-Conditional temperature MAE is `11.49 +/- 0.26 C` with R-GNN versus
-`13.93 +/- 0.38 C` without it. Within-10-C rates are `63.09 +/- 1.76%` versus
-`55.56 +/- 1.23%`. Pooled supports are 1,785/1,795/1,797 for seeds 0/1/2
-in both arms. Differences are computed before rounding.
+In the fresh matched temperature comparison, MAE is `11.32 +/- 0.33 C` with
+R-GNN versus `13.63 +/- 0.29 C` without it. Within-10-C rates are
+`62.27 +/- 0.13%` versus `55.62 +/- 1.27%`. Both arms use the same
+1,529/1,537/1,538 eligible queries at downstream seeds 0/1/2. Differences are
+computed before rounding: MAE improves by 2.31 C and within-10 by 6.65 pp.
+The graph-enabled arm is the exact mainline model, not a separate reconstruction.
+Not every family/tolerance improves; Buchwald-Hartwig's mean within-5 rate is
+slightly lower with R-GNN. These are descriptive results, not significance claims.
 
-Retained controls agree on configuration and aggregate candidate/support
-statistics; temperature pairs also agree on aggregate ranking metrics. The
-compact audit does not independently verify candidate or support identities
-with per-row hashes. Do not upgrade these checks to an identity-level claim.
-Full numbers and source links are in [CURRENT_RESULTS.md](../CURRENT_RESULTS.md).
-
-The [2026-09-13 reconstruction](../Experiment/mainline_evidence_completion_20260913/COMPLETION_REPORT.md)
-now supplies new identity-level evidence for all 18 family/seed pairs.
-Every Sys@k value reproduces the promoted result, including the same-pool
-no-LTR comparison. Reconstructed R-GNN temperature MAE is
-`11.82 +/- 0.33 C`, versus `13.93 +/- 0.38 C` on the exact same support without
-R-GNN; within-10-C values are `61.58 +/- 0.77%` and `55.56 +/- 1.23%`.
-These new paired gains (`2.11 C`, `6.02 pp`) must not be confused with the
-historical aggregate-only comparison above. The temperature drift is reported,
-not hidden or attributed to an experimentally isolated cause.
+All 18 family-seed pairs passed candidate, ranking, temperature-support and
+model binding checks. Full results are in
+[the fresh evidence table](../Experiment/stage23_50k_evidence_20260924/RESULTS.md)
+and [CURRENT_RESULTS.md](../CURRENT_RESULTS.md). Historical FULL temperature
+reconstructions do not define this new comparison.
 
 ## Artifacts
 
 - `xgb_ranker.json` and `xgb_ranker_meta.json`: learned system ranking model
   and feature/configuration metadata.
 - `xgb_temperature.json` and `xgb_temperature_meta.json`: separate regressor.
-- Current compact mainline and control records are under the dated parallel
-  experiment directories linked from `CURRENT_RESULTS.md`.
-- Temporary candidate tables and trained models may be cleaned for storage;
-  retained metrics do not imply those large per-row files are still present.
+- Current compact mainline/control records are in
+  `Experiment/stage23_50k_evidence_20260924/compact/seed_N/FAMILY/`.
+- Only redundant scratch outputs are pruned after certified compact evidence
+  exists. Preserve retained model/candidate files and valid Stage 1 best/last.

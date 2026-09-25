@@ -7,6 +7,32 @@ from scripts.build_stage1_nonempty_inputs import build_one, check_databin, fairs
 
 
 class NonemptyInputTests(unittest.TestCase):
+    def test_external_exclusions_are_paired_and_recorded(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            source = root / 'REAXYS_fixture'
+            self.fixture(source)
+            plan = {'train': [0], 'val': [], 'test': []}
+            row = build_one(source, root / 'copy', excluded_indices=plan)
+            self.assertEqual(row['dataset'], 'REAXYS_fixture')
+            self.assertEqual([r['retained_pairs'] for r in row['splits']], [1, 2, 2])
+            self.assertEqual((root / 'copy/train.src').read_text(), 'N\n')
+            self.assertEqual((root / 'copy/train.tgt').read_text(), 'C\n')
+            import gzip
+            with gzip.open(root / 'copy/train.lineage.json.gz', 'rt') as handle:
+                lineage = json.load(handle)
+            self.assertEqual(lineage['excluded_by_external_plan_indices'], [0])
+            self.assertEqual(lineage['source_index_by_output_row'], [2])
+
+    def test_out_of_bounds_external_exclusion_fails_closed(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            self.fixture(root / 'source')
+            with self.assertRaisesRegex(ValueError, 'outside source'):
+                build_one(root / 'source', root / 'copy',
+                          excluded_indices={'train': [100], 'val': [], 'test': []})
+            self.assertFalse((root / 'copy').exists())
+
     def fixture(self, source):
         Dictionary, indexed = fairseq_data()
         (source / 'data-bin').mkdir(parents=True)

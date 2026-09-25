@@ -61,6 +61,49 @@ outputs/
 # Bulk / generated datasets (reproducible from raw exports + preprocess; too large for git)
 data/reaction_processed_*_catmerge/
 data/editretro/datasets/
+data/uspto_50k_source/
+Experiment/stage1_50k_from_scratch_20260924/training/
+Experiment/stage1_50k_from_scratch_20260924/*.log
+Experiment/stage1_50k_from_scratch_20260924/raw_lineage.json
+Experiment/stage1_50k_from_scratch_20260924/base_audit/*.bin
+Experiment/stage1_50k_from_scratch_20260924/base_audit/*.jsonl
+Experiment/stage1_50k_from_scratch_20260924/admitted_expert_inputs/artifacts/
+Experiment/stage1_50k_expert_multiseed_20260924/seed_*/
+Experiment/stage1_50k_expert_multiseed_20260924/*.log
+Experiment/stage1_50k_expert_multiseed_20260924/*.lock
+Experiment/stage1_50k_base_test_20260924/*/generation.txt
+Experiment/stage1_50k_base_test_20260924/*/input_products.txt
+Experiment/stage1_50k_base_test_20260924/*/route_cache.json
+Experiment/stage1_50k_base_test_20260924/*/*.log
+Experiment/stage1_50k_base_test_20260924/*.lock
+Experiment/stage1_augmentation_identity_20260924/*.jsonl.gz
+Experiment/stage1_augmentation_identity_20260924/*.log
+Experiment/stage1_fidelity_repair_20260924/inputs/artifacts/
+Experiment/stage1_fidelity_repair_20260924/admitted_inputs/artifacts/
+Experiment/stage1_fidelity_repair_20260924/*.log
+Experiment/stage1_50k_fidelity_expert_multiseed_20260924/seed_*/
+Experiment/stage1_50k_fidelity_expert_multiseed_20260924/*.log
+Experiment/stage1_50k_fidelity_expert_multiseed_20260924/*.lock
+Experiment/stage1_identity_guard_smoke*/generation.txt
+Experiment/stage1_identity_guard_smoke*/input_products.txt
+Experiment/stage1_identity_guard_smoke*/route_cache.json
+Experiment/stage1_50k_guarded_base_test_20260924/*/generation.txt
+Experiment/stage1_50k_guarded_base_test_20260924/*/input_products.txt
+Experiment/stage1_50k_guarded_base_test_20260924/*/route_cache.json
+Experiment/stage1_50k_guarded_base_test_20260924/*/*.log
+Experiment/stage1_50k_guarded_base_test_20260924/*.lock
+Experiment/stage1_50k_fidelity_v2_expert_multiseed_20260924/seed_*/
+Experiment/stage1_50k_fidelity_v2_expert_multiseed_20260924/*.log
+Experiment/stage1_50k_fidelity_v2_expert_multiseed_20260924/*.lock
+Experiment/stage1_50k_guarded_v2_base_test_20260924/*/generation.txt
+Experiment/stage1_50k_guarded_v2_base_test_20260924/*/input_products.txt
+Experiment/stage1_50k_guarded_v2_base_test_20260924/*/route_cache.json
+Experiment/stage1_50k_guarded_v2_base_test_20260924/*/*.log
+Experiment/stage1_50k_guarded_v2_base_test_20260924/*.lock
+Experiment/stage1_50k_downstream_routes_20260924/test/
+Experiment/stage1_50k_downstream_routes_20260924/val/
+Experiment/stage1_50k_downstream_routes_20260924/logs/
+Experiment/stage1_50k_downstream_routes_20260924/*.lock
 
 # Archived exploratory material and large historical outputs
 Experiment/notebooks/
@@ -75,3 +118,19 @@ Experiment/local_archive/*
 # Local paper cases and archived manuscript/example drafts.
 Experiment/current_mainline_case_examples_seed0_20260905/
 Experiment/document_archive_20260913/example_before_first_hit_fix.md
+
+# Publication uses Experiment/.gitignore's explicit aggregate/code allowlist.
+# These safeguards also protect new workspaces from accidental broad git-add.
+Experiment/**/*.pt
+Experiment/**/*.pth
+Experiment/**/*.pkl
+Experiment/**/*.joblib
+Experiment/**/*.npz
+Experiment/**/*.npy
+Experiment/**/*.csv.gz
+Experiment/**/*.jsonl.gz
+Experiment/**/generation.txt
+Experiment/**/input_products.txt
+Experiment/**/route_cache.json
+Experiment/**/local_before_publication/
+Experiment/**/local_publication_checks/

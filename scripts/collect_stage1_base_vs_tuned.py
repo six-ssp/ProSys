@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -43,7 +44,8 @@ def append_macro_and_weighted(rows: list[dict], *, sample_key: str) -> list[dict
     metric_keys = [key for key in rows[0].keys() if key not in {'family', 'display_family'}]
     macro = {'family': 'MACRO-AVG', 'display_family': 'MACRO-AVG'}
     for key in metric_keys:
-        macro[key] = _mean([row.get(key) for row in rows])
+        macro[key] = (sum(int(row.get(sample_key, 0) or 0) for row in rows)
+                      if key == sample_key else _mean([row.get(key) for row in rows]))
     weighted = {'family': 'WEIGHTED-AVG', 'display_family': 'WEIGHTED-AVG'}
     for key in metric_keys:
         if key == sample_key:
@@ -54,12 +56,25 @@ def append_macro_and_weighted(rows: list[dict], *, sample_key: str) -> list[dict
 
 
 def collect_rows(route_root: Path, base_route_root: Path, families: list[str]) -> list[dict]:
+    from scripts.stage1_route_admission import verify_guard
+    if not families or len(families) != len(set(families)):
+        raise ValueError('Expected nonempty unique requested families')
     rows: list[dict] = []
     for family in families:
         tuned_cache = route_root / family / 'route_cache.json'
         base_cache = base_route_root / family / 'route_cache.json'
-        if not tuned_cache.exists() or not base_cache.exists():
-            continue
+        for cache_path in (tuned_cache, base_cache):
+            if not cache_path.is_file():
+                raise FileNotFoundError(f'Missing requested family route cache: {cache_path}')
+        cached = [json.loads(path.read_text()) for path in (tuned_cache, base_cache)]
+        identities = [[(r['sample_index'], r['reaction_id'], r['product'], r['gold_reactants'])
+                       for r in cache['reactions']] for cache in cached]
+        if any(cache.get('family') != family for cache in cached) or not identities[0] or identities[0] != identities[1]:
+            raise ValueError(f'Base/expert query identities differ for {family}')
+        if any(cached[0].get(key) != cached[1].get(key) for key in ('aug', 'topk', 'n_best')):
+            raise ValueError(f'Base/expert decoding settings differ for {family}')
+        for cache_path in (tuned_cache, base_cache):
+            verify_guard(cache_path)
         tuned = stage1_route_recall(tuned_cache)
         base = stage1_route_recall(base_cache)
         rows.append(
@@ -118,7 +133,9 @@ def render_markdown(rows: list[dict]) -> str:
     lines = [
         '# Stage 1 Base vs Family-Tuned Route Recall',
         '',
-        'All route-recall values are reported as percentages.',
+        'All route-recall values are reported as percentages. Macro rates weight families equally; '
+        'weighted rates weight queries. Both summary rows show the total query count, not an average count. '
+        'This is a single selected-expert comparison, not a three-seed uncertainty estimate.',
         '',
         paper.to_markdown(index=False),
         '',
@@ -129,7 +146,7 @@ def render_markdown(rows: list[dict]) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description='Collect Stage 1 base-vs-family-tuned route recall results.')
     parser.add_argument('--families', type=str, default='all')
-    parser.add_argument('--route_root', type=str, default='outputs/stage1_routes')
+    parser.add_argument('--route_root', type=str, required=True)
     parser.add_argument('--base_route_root', type=str, required=True)
     parser.add_argument('--output_csv', type=str, required=True)
     parser.add_argument('--output_md', type=str, required=True)

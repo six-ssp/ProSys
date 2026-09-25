@@ -1,6 +1,6 @@
 # Stage 2: Parallel KNN + ReaFNN Condition Proposals
 
-Updated: 2026-09-13. This document describes only the maintained parallel
+Updated: 2026-09-25. This document describes only the maintained parallel
 implementation. Detailed historical serial/combination experiments are
 [archived separately](../Experiment/document_archive_20260913/stage2_detail_before_cleanup.md).
 
@@ -103,9 +103,10 @@ relative to predicted-route inference and should be reported accurately.
 ## Results and interpretation
 
 The [current three-seed mainline](../CURRENT_RESULTS.md) has candidate recall
-`54.26 +/- 0.15%` and full-system Top-10 accuracy `43.77 +/- 0.60%`.
+`47.57 +/- 0.08%` and full-system Top-10 accuracy `37.87 +/- 0.27%`.
+These are the fresh filtered-50K results with expert seed 1 fixed downstream.
 Removing ReaFNN and fusion, then retraining the ranker on KNN-only candidates,
-gives `53.39 +/- 0.00%` and `39.86 +/- 2.08%`, respectively. The `+3.91 pp`
+gives `46.83 +/- 0.00%` and `34.16 +/- 1.80%`, respectively. The `+3.71 pp`
 system-level effect supports complementary candidate construction. It is not
 a pure ordering intervention within an identical pool, and it does not prove
 that each branch is universally indispensable.
@@ -113,20 +114,26 @@ that each branch is universally indispensable.
 The new strict ReaFNN-only control has now completed all six families and seeds
 0/1/2. It disables KNN similarity lookup, proposals and KNN-derived ranker
 evidence, fixes the KNN fusion weight to zero, and retrains XGB-LTR. It reaches
-`46.48 +/- 0.30%` candidate recall and `36.24 +/- 0.27%` full-system Top-10.
-The full-minus-ReaFNN-only difference is `+7.53 pp`. All 18 retained candidate
+`40.44 +/- 0.27%` candidate recall and `31.31 +/- 0.50%` full-system Top-10.
+The full-minus-ReaFNN-only difference is `+6.55 pp`. All 18 retained candidate
 files passed hash checks and metric replay. See the
-[three-way control table](../Experiment/stage2_reafnn_only_multiseed_20260913/SUMMARY.md).
+[three-way control table](../Experiment/50k_verified_comparisons_20260924/full/RESULTS.md).
 These branch-removal effects include retraining on changed candidate
 distributions; they are not additive effects under a common fixed pool.
 
 The separate seed-0 validation sweep includes ReaFNN-only, KNN-only and fusion.
 It remains a model-selection analysis, not the source of the new test control.
-See [the current Stage 2 control](../ablation/current_parallel_stage2_ablation_results_20260905.md).
+Mean seed-0 validation coverage is 40.04/44.77/45.90% for ReaFNN/KNN/fusion.
+Across all 18 fits, Diels-Alder seed 2 selects KNN weight 1.0. That endpoint
+does not remove ReaFNN features from the ranker, unlike branch removal.
+See [the verified auxiliary fields](../Experiment/paper_auxiliary_50k_20260924/all_families/validation_fusion.csv).
 
 ## Entry points
 
-- `scripts/run_stage23_non_oracle_suite.sh`: maintained family suite.
+- `scripts/run_50k_downstream_evidence.py`: fresh-study entrypoint with explicit
+  admitted route, study and scratch roots; one family and seed per invocation.
+- `scripts/run_stage23_non_oracle_suite.sh`: lower-level family suite; never
+  rely on historical default artifact paths for replacement evidence.
 - `scripts/run_verified_mainline.py`: content-bound, fail-closed cache wrapper
   used by the suite; rejects stale tables, model changes and concurrent writers.
 - `scripts/predict_product.py`: read-only deployment using saved family bundles;

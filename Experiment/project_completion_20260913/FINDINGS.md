@@ -1,5 +1,11 @@
 # Findings and pending protocol decision
 
+> Historical findings and interim decisions. The user subsequently chose a
+> filtered-USPTO-50K base trained from random initialization. Repaired inputs,
+> all expert/downstream experiments and local manuscript publication are now
+> complete; see `../final_release_50k_20260925/FINAL_CHECK.md`. Pending decisions
+> below are retained for provenance, not current requests or live-job status.
+
 ## Whole-side canonicalization
 
 The shared helper now parses whole reaction sides before splitting connected

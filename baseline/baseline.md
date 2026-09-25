@@ -1,8 +1,14 @@
 # ProSys Baseline Experiments
 
-Updated: `2026-09-13`
+Updated: `2026-09-25`
 
-The current citable comparison is maintained in
+**Scientific status:** the table below uses the fresh filtered-USPTO-50K base,
+repaired expert inputs and predeclared expert seed 1. All six families passed
+the new retained-evidence replay. Historical FULL comparisons are not these
+results; see [the repair record](../Experiment/stage1_split_repair_20260915/README.md).
+Exact-reaction split checks do not establish unseen-product or prospective validity.
+
+The historical comparison is maintained in
 [`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md).
 The direct Product-to-Condition implementation is specified in
 [`product_condition_baselines_detail.md`](product_condition_baselines_detail.md).
@@ -44,7 +50,7 @@ target product
 
 - Family splits, label normalization, canonical matching, and the fixed test
   manifest are shared across comparisons.
-- The denominator contains `3,860` product identities. The `27` identities
+- The denominator contains `3,860` original query identities. The `66` identities
   without a Stage 1 route remain zero-valued end-to-end failures.
 - `full-system Top-k accuracy` requires one ranked candidate to jointly match the canonical
   route, complete reagent set, and complete solvent set.
@@ -52,6 +58,31 @@ target product
   validation data only; test labels are used only for final evaluation.
 - Product-Bernoulli Naive Bayes and Product-GNN do not predict temperature, so
   temperature is not reported for them.
+
+## Corrected-Rerun Safeguards
+
+Use new input and result directories after replacing Stage 1 routes. The
+maintained `baseline.run_multiseed_baselines` entrypoint now requires B3/B4
+exports from `baseline.external_adapters.build_datasets` with content manifests.
+Both commands must receive the same explicit `--route-root` and
+`--validation-route-root`; export manifests bind splits, route bytes, checkpoint
+bytes and source code. Historical packages without this evidence are not
+silently admitted.
+
+B1 is evaluated once inside the current study using the same routes, rather
+than loaded from a fixed historical directory. B2/B3/B4 retain seed repeats.
+`--resume` accepts only identical study inputs/settings and content-verified
+completed runs. Partial or legacy unverified runs require a new output root;
+their files are not deleted automatically. A writer lock prevents concurrent
+modification of one study. These checks prevent stale-result reuse; they do not
+replace Stage 1 split/model eligibility checks or constitute new test results.
+
+Before pruning B3/B4 working directories, the runner now retains manifests and
+losslessly compressed full validation/test predictions, validation candidate
+tables, and raw/labeled test candidate tables. It verifies decompressed bytes
+against the source before deletion. This preserves later metric-replay evidence
+without retaining every model or uncompressed intermediate file; the historical
+JSON-only archives are not retroactively upgraded.
 
 ## Current Multi-Seed Comparison
 
@@ -64,15 +95,19 @@ standard deviation across the three seeds.
 
 | ID | Method | Candidate recall | Full-system Top-1 accuracy | Full-system Top-3 accuracy | Full-system Top-5 accuracy | Full-system Top-10 accuracy | MRR | nDCG@10 |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Baseline 1 | Product-Bernoulli Naive Bayes | 31.68 | 9.10 | 14.87 | 17.45 | 21.48 | 13.15 | 14.56 |
-| Baseline 2 | Product-GNN | 38.33 +/- 0.28 | 6.11 +/- 0.49 | 12.84 +/- 0.56 | 16.75 +/- 0.43 | 23.03 +/- 0.73 | 11.40 +/- 0.54 | 13.32 +/- 0.58 |
-| Baseline 3 | EditRetro + Sequential FNN | 45.85 +/- 0.26 | 16.75 +/- 0.27 | 24.32 +/- 0.28 | 27.68 +/- 0.40 | 31.71 +/- 0.10 | 22.01 +/- 0.22 | 23.64 +/- 0.18 |
-| Baseline 4 | EditRetro + Reaction-GCNN | 38.15 +/- 0.24 | 7.43 +/- 0.21 | 13.16 +/- 0.10 | 16.39 +/- 0.34 | 21.10 +/- 0.28 | 11.88 +/- 0.11 | 13.27 +/- 0.10 |
-| Mainline | ProSys current parallel three-seed result | 54.26 +/- 0.15 | 25.13 +/- 1.20 | 35.12 +/- 1.27 | 39.11 +/- 1.04 | 43.77 +/- 0.60 | 31.53 +/- 1.12 | 33.16 +/- 1.02 |
+| Baseline 1 | Product-Bernoulli Naive Bayes | 27.82 | 7.88 | 13.05 | 15.35 | 19.44 | 11.60 | 12.92 |
+| Baseline 2 | Product-GNN | 33.00 +/- 0.98 | 5.06 +/- 0.51 | 10.11 +/- 0.74 | 13.35 +/- 1.10 | 18.85 +/- 0.89 | 9.28 +/- 0.64 | 10.79 +/- 0.70 |
+| Baseline 3 | EditRetro + Sequential FNN | 40.09 +/- 0.19 | 13.80 +/- 0.59 | 20.11 +/- 0.50 | 22.76 +/- 0.53 | 26.16 +/- 0.61 | 18.21 +/- 0.50 | 19.41 +/- 0.48 |
+| Baseline 4 | EditRetro + Reaction-GCNN | 33.11 +/- 0.46 | 5.31 +/- 0.17 | 10.09 +/- 0.37 | 12.96 +/- 0.76 | 17.84 +/- 0.42 | 9.22 +/- 0.27 | 10.60 +/- 0.39 |
+| Mainline | ProSys current parallel three-seed result | 47.57 +/- 0.08 | 19.81 +/- 0.30 | 29.74 +/- 0.51 | 33.33 +/- 0.17 | 37.87 +/- 0.27 | 26.06 +/- 0.15 | 27.74 +/- 0.14 |
 
-The full protocol, family-resolved System@10 results, conditional temperature
+The full protocol, family-resolved full-system Top-10 results, conditional temperature
 metrics, and compact artifact inventory are in
-[`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md).
+[the verified 50K comparison](../Experiment/50k_verified_comparisons_20260924/full/RESULTS.md).
+The unrounded difference from strongest baseline B3 is 11.711804 percentage
+points. B3 temperature MAE is 12.28 +/- 0.19 C versus ProSys 11.32 +/- 0.33 C,
+but B3 has higher within-10 accuracy (66.14% versus 62.27%) on different
+eligible queries. This is not a paired baseline-temperature comparison.
 
 Product-Bernoulli Naive Bayes is the low-capacity conventional-ML control: it uses no neighbor
 lookup, route input, learned graph encoder, or route-aware feature. Product-GNN
@@ -83,10 +118,12 @@ route cache.
 ## Artifacts
 
 - Current multi-seed baseline result record:
-  [`multiseed_baseline_results_20260810.md`](multiseed_baseline_results_20260810.md)
+  [`verified 50K comparison`](../Experiment/50k_verified_comparisons_20260924/full/RESULTS.md)
 - Current compact multi-seed artifacts:
-  [`results/multiseed_20260810/`](results/multiseed_20260810/)
-- Direct-baseline data-flow and split audit:
+  [`baseline_50k_multiseed_20260924`](../Experiment/baseline_50k_multiseed_20260924/)
+- Current direct-condition metric replay:
+  [`paper_auxiliary_50k_20260924`](../Experiment/paper_auxiliary_50k_20260924/all_families/)
+- Historical direct-baseline data-flow and split audit:
   [`direct_product_condition_audit_20260727.md`](direct_product_condition_audit_20260727.md)
 
 Large historical output directories were cleaned for storage. Use retained

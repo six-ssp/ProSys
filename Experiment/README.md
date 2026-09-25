@@ -1,77 +1,34 @@
 # Experiment Records
 
-This directory stores compact, auditable records. The promoted implementation
-is the parallel KNN + ReaFNN Stage-2 workflow; older serial and exploratory
-artifacts are retained only for traceability.
+## Accepted 50K Mainline
 
-## Current Maintained Record
+The user accepted the filtered-USPTO-50K replacement on 2026-09-25.
+Current macro Sys@10 is **37.87 +/- 0.27%**. The former FULL-based and serial
+studies are historical controls, not competing current headline results.
 
-- `stage23_parallel_post_fusion_multiseed_20260903/`
-  - Fixed-Stage-1, six-family parallel evaluation repeated at seeds 0, 1, and 2.
-  - The current reportable record: `54.26 +/- 0.15%` candidate recall and
-    `43.77 +/- 0.60%` macro Sys@10.
-  - Contains compact per-family metrics, per-seed summaries, route-cache hashes,
-    and small source-run records; large model/table intermediates were pruned.
+- [Public release index](release_50k_20260925/README.md): scope, validation and local/public evidence boundaries.
+- [Mainline and Stage 3](stage23_50k_evidence_20260924/RESULTS.md): 18 fits with same-pool ranking and support-matched temperature controls.
+- [All baselines and ablations](50k_verified_comparisons_20260924/full/RESULTS.md): 150 family/model/seed rows, B1 deterministic.
+- [Expert three-seed results](stage1_50k_fidelity_v2_expert_multiseed_20260924/SUMMARY.md): one shared fresh base, 18 experts.
+- [Fixed-seed base/expert comparison](stage1_50k_paired_comparison_20260924/README.md): same 3,860 original query identities.
+- [Base training](stage1_50k_from_scratch_20260924/README.md) and [input repair](stage1_fidelity_repair_20260924/README.md).
+- [Decoder safety recovery](stage1_decode_diagnostic_20260925/README.md): one explicit same-weight invalid-hypothesis recovery, not query deletion.
+- [Cold-query cost](inference_cost_50k_20260925/cold_inference_cost.csv): six fixed queries, not population latency or throughput.
 
-- `stage2_parallel_post_fusion_ablation_multiseed_20260904/`
-  - Paired Stage-2 ReaFNN-removal control for the current parallel candidate
-    pool, evaluated over all six families and seeds 0, 1, and 2.
-  - It keeps the fixed Stage-1 routes and common product-Morgan KNN protocol,
-    disables ReaFNN, and re-trains a 52-feature XGB-LTR on KNN-only candidates.
-  - Candidate recall is `53.39 +/- 0.00%` and Sys@10 is `39.86 +/- 2.08%`,
-    versus `54.26 +/- 0.15%` and `43.77 +/- 0.60%` for the full mainline.
-    The full Stage-2 pool therefore gains `+0.87 pp` recall and `+3.91 pp`
-    Sys@10; every family mean favors the full pool.
+The public release includes aggregate tables and source code. Local workspaces
+also retain models, route caches, per-query predictions and detailed audit
+receipts. These are not all uploaded; an absent local-only artifact in a fresh
+clone does not mean the experiment was skipped. Full replay needs the licensed
+source data and bound local models.
 
-- `stage3_parallel_post_fusion_ablation_multiseed_20260904/`
-  - Paired Stage-3-only control for the current parallel candidate pool.
-  - All 18 family-seed records preserve the full mainline Stage-2 protocol and
-    candidate availability exactly, but use deterministic no-XGB-LTR ranking.
-  - Macro Sys@10 is `36.03 +/- 0.16%` versus `43.77 +/- 0.60%` for the full
-    mainline; the `7.74 pp` gap is therefore a within-pool reranking effect.
+## Historical and Exploratory Records
 
-- `stage3_temperature_no_rgnn_ablation_multiseed_20260904/`
-  - Paired current-mainline temperature-representation control over the same
-    six families and seeds 0/1/2.
-  - Full temperature XGBoost uses 52 tabular plus 128 R-GNN features; the
-    control uses exactly the same 52 tabular fields and no graph features.
-  - All 18 pairs match Stage 1/2/3 system metrics and temperature support
-    exactly. R-GNN reduces conditional MAE from `13.93 +/- 0.38 C` to
-    `11.49 +/- 0.26 C` and improves within-10 C accuracy by `7.53 pp`.
+Dated FULL-based, serial, earlier parallel and repair-diagnostic directories
+are retained for provenance. Statements such as "current headline" inside an
+original historical report refer to its own date, not this release. Never
+combine their metrics or temperature supports with the accepted 50K study.
 
-- `stage2_parallel_post_fusion_20260901.md`
-  - Fixed-Stage-1, six-family, seed-0 evaluation of the maintained parallel
-    KNN/ReaFNN post-fusion procedure.
-  - KNN and ReaFNN independently propose train-only historical contexts; a
-    family-specific mixture weight is selected on predicted validation routes.
-  - Reports 54.10% candidate recall and 43.44% macro Sys@10.
-  - This is a verified seed-0 development record; the three-seed directory
-    above is the current headline record.
-
-## Historical Serial References
-
-- `stage23_product_morgan_reafnn_multiseed_20260830/`
-  - Former serial wide-pool, fixed-Stage-1 three-seed record.
-  - Its 44.62 +/- 0.42% Sys@10 result is retained for traceability only and
-    must not be mixed with the parallel mainline.
-
-- `current_mainline_matched_ablation_multiseed_20260830/`
-  - Former serial KNN-only and no-XGB-LTR component controls.
-  - These controls are not paired ablations of the parallel candidate pool.
-
-## Scope Exclusions
-
-Joint Stage-2/Stage-3 optimization, wrong-route negative-sample training, and
-route-validity auxiliary supervision were explored locally and then retired.
-They are not maintained code, are not current experiments, and are not sources
-of reportable mainline results.
-
-## Archived Contents
-
-- `notebooks/`: exploratory notebooks and analysis assets.
-- `legacy_outputs/`: old baseline result trees.
-- `route_budget/`: route-budget sensitivity experiments.
-- `legacy_stage2/`: older Stage-2 code preserved for historical reproduction.
-- `legacy_stage3/`: retired ranking probes preserved for historical reproduction.
-- `legacy_tools/`: one-off rendering and helper utilities.
-- `local_archive/`: ignored local-only exploratory records and scripts.
+Joint Stage 2/3 training, explicit wrong-route negative training and other
+retired probes are not the maintained mainline. No additional FULL training
+or optimization sweep is queued. Temporary workspaces are ignored by Git;
+the explicit public-file allowlist is in [.gitignore](.gitignore).

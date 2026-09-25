@@ -40,7 +40,8 @@ def read_json(path):
     return json.loads(path.read_text())
 
 
-def child(family, seed, scratch, destination):
+def child(family, seed, scratch, destination, *, route_root=None,
+          validation_route_root=None, verified=False):
     import numpy as np
     import pandas as pd
     import torch
@@ -52,6 +53,9 @@ def child(family, seed, scratch, destination):
     from scripts import run_stage23_mainline_non_oracle as pipeline
     from stage3_XGBoost.xgb_reranker import score_table_with_xgb, train_xgb_temperature_regressor
 
+    route_root = Path(route_root) if route_root is not None else ROOT / "outputs/stage1_routes"
+    validation_route_root = (Path(validation_route_root) if validation_route_root is not None
+                             else ROOT / "outputs/stage1_routes_validation")
     destination.mkdir(parents=True, exist_ok=True)
     source_files = [Path(__file__), ROOT / "scripts/run_stage23_mainline_non_oracle.py"]
     for module in ("prosys_shared", "stage2_KNN", "stage2_ReaFNN", "stage3_XGBoost"):
@@ -86,7 +90,12 @@ def child(family, seed, scratch, destination):
     started = time.perf_counter()
     sys.argv = [str(Path(__file__)), "--repo_root", str(ROOT), "--families", family,
         "--seed", str(seed), "--output_root", str(scratch),
+        "--route_root", str(route_root),
+        "--reafnn_post_fusion_validation_route_root", str(validation_route_root),
         "--reafnn_device", "cuda:0", "--gnn_device", "cuda:0"]
+    if verified:
+        from scripts.run_verified_mainline import guard_family
+        pipeline._run_family = guard_family(pipeline._run_family)
     pipeline.main()
     full = read_json(scratch / family / "knn_xgb/non_oracle/result.json")
     full_table = Path(full["candidate_table"])
@@ -96,7 +105,7 @@ def child(family, seed, scratch, destination):
     rank_dir = Path(full["model"]["model_file"]).parent
     tabular_tables = stage2_root / "training_tables"
     assert all((tabular_tables / (s + ".csv")).is_file() for s in ("train", "val", "test"))
-    cache = read_json(ROOT / "outputs/stage1_routes" / family / "route_cache.json")
+    cache = read_json(route_root / family / "route_cache.json")
     expected = [int(r["sample_index"]) for r in cache["reactions"]]
 
     # Both controls consume the exact same retained rows as this full run.
@@ -200,8 +209,10 @@ def child(family, seed, scratch, destination):
         shutil.copytree(source, bundle / name, dirs_exist_ok=True)
     provenance = {"family": family, "seed": seed,
         "splits": {s: sha(split_file_for_family(ROOT, family, s)) for s in ("train", "val", "test")},
-        "route_test": sha(ROOT / "outputs/stage1_routes" / family / "route_cache.json"),
-        "route_validation": sha(ROOT / "outputs/stage1_routes_validation" / family / "route_cache.json"),
+        "route_test": sha(route_root / family / "route_cache.json"),
+        "route_validation": sha(validation_route_root / family / "route_cache.json"),
+        "route_paths": {"test": str(route_root / family / "route_cache.json"),
+                        "val": str(validation_route_root / family / "route_cache.json")},
         "models": {str(p.relative_to(bundle)): sha(p) for p in bundle.rglob("*") if p.is_file()}}
     write_json(provenance, destination / "provenance.json")
     write_json(full, destination / "result.json")

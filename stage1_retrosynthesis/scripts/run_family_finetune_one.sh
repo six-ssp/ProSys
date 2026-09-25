@@ -12,13 +12,14 @@ fi
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 GPU_ID="${GPU_ID:-0}"
-DEFAULT_ALIAS_CKPT="$REPO_ROOT/stage1_retrosynthesis/checkpoints/checkpoint_USPTO_STAGE2_FILTERED_best.pt"
+BASE_DATASET="${BASE_DATASET:-USPTO_50K_FILTERED}"
+DEFAULT_ALIAS_CKPT="$REPO_ROOT/stage1_retrosynthesis/checkpoints/checkpoint_${BASE_DATASET}_best.pt"
 if [[ -z "${BASE_CKPT:-}" ]]; then
   if [[ -f "$DEFAULT_ALIAS_CKPT" ]]; then
     BASE_CKPT="$DEFAULT_ALIAS_CKPT"
   else
-    BASE_CKPT="$(find "$REPO_ROOT/stage1_retrosynthesis/results/base_train/USPTO_STAGE2_FILTERED" \
-      -mindepth 3 -maxdepth 3 -path '*/checkpoints/checkpoint_best.pt' -print | sort | tail -n 1)"
+    echo "[stage1] no admitted $BASE_DATASET checkpoint; set BASE_CKPT explicitly; no FULL fallback" >&2
+    exit 2
   fi
 fi
 RESULTS_ROOT="${RESULTS_ROOT:-$REPO_ROOT/stage1_retrosynthesis/results/family_finetune}"

@@ -1,14 +1,16 @@
 """Run stochastic ProSys baselines across seeds with disk-safe retention.
 
 The runner keeps Product-GNN artifacts because they are small. Sequential FNN
-and Reaction-GCNN full candidate tables are copied into a compact audit record
-and then pruned only after the compact record has been verified.
+and Reaction-GCNN predictions/candidate tables are losslessly compressed into
+audit records before their larger work directories are pruned.
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import fcntl
+import gzip
 import hashlib
 import json
 import os
@@ -18,9 +20,15 @@ import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
+from importlib.metadata import version
 from typing import Any
 
 from prosys_shared.mainline import parse_families_arg
+from prosys_shared.cache_integrity import CacheMismatchError, fingerprint
+from baseline.experiment_integrity import (
+    admit_study, family_inputs, reuse_completed, seal_completed,
+    source_files, verify_export,
+)
 
 
 METHODS = ("product_gnn", "sequential_fnn", "reaction_gcnn")
@@ -69,7 +77,27 @@ def _run(command: list[str], *, repo_root: Path) -> None:
     subprocess.run(command, cwd=repo_root, env=env, check=True)
 
 
-def _copy_external_compact(work_root: Path, compact_root: Path, families: list[str]) -> list[str]:
+def _copy_verified(source: Path, destination: Path, *, compressed: bool = False) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    original = _sha256(source)
+    if compressed:
+        with source.open('rb') as reader, destination.open('wb') as raw:
+            with gzip.GzipFile(filename='', mode='wb', fileobj=raw, compresslevel=6, mtime=0) as writer:
+                shutil.copyfileobj(reader, writer, length=1024 * 1024)
+        digest = hashlib.sha256()
+        with gzip.open(destination, 'rb') as reader:
+            for block in iter(lambda: reader.read(1024 * 1024), b''):
+                digest.update(block)
+        copied = digest.hexdigest()
+    else:
+        shutil.copy2(source, destination)
+        copied = _sha256(destination)
+    if original != copied or original != _sha256(source):
+        raise CacheMismatchError(f'Lossless retention failed or source changed: {source}')
+
+
+def _copy_external_compact(work_root: Path, compact_root: Path, families: list[str],
+                           input_root: Path) -> list[str]:
     required = ("run_metadata.json", "fusion_selection.json")
     copied: list[str] = []
     for relative in ("run_config.json", "summary.csv", "summary.json"):
@@ -78,7 +106,7 @@ def _copy_external_compact(work_root: Path, compact_root: Path, families: list[s
             raise FileNotFoundError(f"Expected external baseline output is missing: {source}")
         destination = compact_root / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
+        _copy_verified(source, destination)
         copied.append(str(destination.relative_to(compact_root)))
 
     for method in EXTERNAL_METHODS:
@@ -91,12 +119,23 @@ def _copy_external_compact(work_root: Path, compact_root: Path, families: list[s
                     raise FileNotFoundError(f"Expected external baseline output is missing: {source}")
                 destination = destination_root / relative
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, destination)
+                _copy_verified(source, destination)
                 copied.append(str(destination.relative_to(compact_root)))
             for source in sorted((source_root / "artifacts").glob("*.json")):
                 destination = destination_root / "artifacts" / source.name
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, destination)
+                _copy_verified(source, destination)
+                copied.append(str(destination.relative_to(compact_root)))
+            for relative in ('validation_predictions.jsonl', 'test_predictions.jsonl',
+                             'validation_candidates.csv', 'test_candidates.csv', 'test_labeled_candidates.csv'):
+                source = source_root / relative
+                destination = destination_root / (relative + '.gz')
+                _copy_verified(source, destination, compressed=True)
+                copied.append(str(destination.relative_to(compact_root)))
+            for relative in ('val_manifest.jsonl', 'test_manifest.jsonl'):
+                source = input_root / method / family / relative
+                destination = destination_root / relative
+                _copy_verified(source, destination)
                 copied.append(str(destination.relative_to(compact_root)))
 
     for relative in required:
@@ -222,13 +261,13 @@ def _format_scalar(mean: float | None, std: float | None) -> str:
     return f"{mean:.2f} +/- {std:.2f}"
 
 
-def _load_deterministic_nb_rows(repo_root: Path, families: list[str]) -> list[dict[str, Any]]:
-    root = repo_root / "outputs" / "baselines" / "direct_product_condition_nb_20260727" / "product_naive_bayes"
+def _load_deterministic_nb_rows(output_root: Path, families: list[str]) -> list[dict[str, Any]]:
+    root = output_root / "deterministic_b1" / "product_naive_bayes"
     rows: list[dict[str, Any]] = []
     for family in families:
         metadata_file = root / family / "run_metadata.json"
         if not metadata_file.exists():
-            return []
+            raise FileNotFoundError(f"Missing current-study deterministic B1: {metadata_file}")
         record = json.loads(metadata_file.read_text(encoding="utf-8"))
         rows.append(_metric_row(record, method="product_naive_bayes", seed=0, family=family))
     return rows
@@ -243,9 +282,9 @@ def _write_report(
     lines = [
         "# Multi-Seed Baseline Robustness",
         "",
-        "B2 Product-GNN, B3 EditRetro + Sequential FNN, and B4 EditRetro + Reaction-GCNN were independently retrained at seeds 0, 1, and 2 with fixed Stage 1 route caches, formal family splits, validation-only fusion selection, and the fixed full test manifest.",
+        "B2 Product-GNN, B3 EditRetro + Sequential FNN, and B4 EditRetro + Reaction-GCNN were independently retrained at the seeds listed below with fixed Stage 1 route caches, formal family splits, validation-only fusion selection, and the fixed full test manifest. Content checks bind this study to its inputs; they do not independently certify Stage 1 training eligibility.",
         "",
-        "B1 Product-Bernoulli Naive Bayes is deterministic under its fixed training data and hyperparameters, so it is retained as one deterministic reference rather than pseudo-replicated.",
+        "B1 Product-Bernoulli Naive Bayes is deterministic under its fixed training data and hyperparameters. It is run once using this study's route caches, not imported from a historical result directory or pseudo-replicated.",
         "",
         "| Method | Seeds | Candidate recall | Full-system Top-1 | Full-system Top-10 | MRR | nDCG@10 | Conditional temp. MAE (C) |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -278,7 +317,7 @@ def _write_report(
     lines.extend(
         [
             "",
-            "External B3/B4 work directories were pruned only after their per-family run metadata, validation fusion selections, and model metadata had been copied into `seed_<n>/external_compact/`. Product-GNN retains its compact model and top-10 audit outputs directly.",
+            "External B3/B4 work directories were pruned only after metadata and manifests were copied and full predictions/candidate tables were losslessly compressed and byte-verified in `seed_<n>/external_compact/`. Product-GNN retains its compact model, condition predictions and top-10 audit outputs directly.",
         ]
     )
     (output_root / "RESULTS.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -299,11 +338,11 @@ def _run_seed(
     top_contexts: int,
     resume: bool,
     keep_external_work: bool,
+    binding: dict[str, Any],
 ) -> None:
     seed_root = output_root / f"seed_{seed}"
-    complete_file = seed_root / "complete.json"
-    if complete_file.exists():
-        print(f"[multiseed-baseline] seed={seed} is already complete; skipping.", flush=True)
+    if reuse_completed(seed_root, binding):
+        print(f"[multiseed-baseline] seed={seed} has verified matching inputs and outputs; skipping.", flush=True)
         return
 
     direct_root = seed_root / "product_gnn"
@@ -372,7 +411,7 @@ def _run_seed(
         repo_root=repo_root,
     )
 
-    copied = _copy_external_compact(external_work, external_compact, families)
+    copied = _copy_external_compact(external_work, external_compact, families, input_root)
     _load_seed_rows(seed_root, seed=seed, families=families)
     retention = {
         "seed": seed,
@@ -385,6 +424,25 @@ def _run_seed(
         shutil.rmtree(external_work)
     _write_json(seed_root / "retention.json", retention)
     _write_json(seed_root / "complete.json", {"seed": seed, "status": "complete"})
+    seal_completed(seed_root, binding)
+
+
+def _run_deterministic_nb(*, repo_root: Path, output_root: Path, route_root: Path,
+                          validation_route_root: Path, families: list[str],
+                          top_contexts: int, binding: dict[str, Any]) -> None:
+    directory = output_root / "deterministic_b1"
+    if reuse_completed(directory, binding):
+        return
+    _run([
+        sys.executable, "-B", "-m", "baseline.run_direct_product_condition_baselines",
+        "--families", ",".join(families), "--methods", "product_naive_bayes",
+        "--output-root", str(directory), "--route-root", str(route_root),
+        "--validation-route-root", str(validation_route_root), "--device", "cpu",
+        "--top-contexts", str(top_contexts), "--seed", "0",
+    ], repo_root=repo_root)
+    _load_deterministic_nb_rows(output_root, families)
+    _write_json(directory / "complete.json", {"status": "complete", "deterministic": True})
+    seal_completed(directory, binding)
 
 
 def main() -> None:
@@ -403,6 +461,19 @@ def main() -> None:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--keep-external-work", action="store_true")
     args = parser.parse_args()
+
+    root = args.repo_root.resolve()
+    output = args.output_root if args.output_root.is_absolute() else root / args.output_root
+    output.mkdir(parents=True, exist_ok=True)
+    with (output / ".experiment.lock").open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise CacheMismatchError(f"Another process is writing the baseline study: {output}") from exc
+        _run_experiment(args)
+
+
+def _run_experiment(args) -> None:
 
     repo_root = args.repo_root.resolve()
     input_root = args.input_root if args.input_root.is_absolute() else repo_root / args.input_root
@@ -425,11 +496,28 @@ def main() -> None:
                 raise FileNotFoundError(f"Missing route cache: {root / family / 'route_cache.json'}")
 
     output_root.mkdir(parents=True, exist_ok=True)
+    inputs = source_files(repo_root)
+    for family in families:
+        inputs.update({family + "/" + k: v for k, v in
+                       family_inputs(repo_root, route_root, validation_route_root, family).items()})
+        for method in EXTERNAL_METHODS:
+            verify_export(input_root, repo_root, route_root, validation_route_root, family, method)
+            directory = input_root / method / family
+            inputs.update({"export/" + method + "/" + family + "/" + str(p.relative_to(directory)): p
+                           for p in directory.rglob("*") if p.is_file()})
+    config = {
+        "methods": ["product_naive_bayes", *METHODS], "seeds": seeds, "families": families,
+        "device": args.device, "max_epochs": args.max_epochs, "patience": args.patience,
+        "top_contexts": args.top_contexts, "keep_external_work": args.keep_external_work,
+        "packages": {p: version(p) for p in ("numpy", "pandas", "torch", "scikit-learn", "rdkit", "xgboost")},
+    }
+    binding = fingerprint(config, inputs)
+    admit_study(output_root, binding, resume=args.resume)
     _write_json(
         output_root / "experiment_config.json",
         {
             "protocol": "fixed_stage1_route_cache_multiseed_baselines",
-            "methods": list(METHODS),
+            "methods": ["product_naive_bayes", *METHODS],
             "seeds": seeds,
             "families": families,
             "input_root": str(input_root),
@@ -439,9 +527,13 @@ def main() -> None:
             "max_epochs": args.max_epochs,
             "patience": args.patience,
             "top_contexts": args.top_contexts,
-            "external_work_retention": "compact JSON audit only unless --keep-external-work is set",
+            "external_work_retention": "metadata/manifests plus verified lossless prediction/candidate archives; full models only with --keep-external-work",
         },
     )
+
+    _run_deterministic_nb(repo_root=repo_root, output_root=output_root, route_root=route_root,
+                          validation_route_root=validation_route_root, families=families,
+                          top_contexts=args.top_contexts, binding=binding)
 
     for seed in seeds:
         _run_seed(
@@ -458,6 +550,7 @@ def main() -> None:
             top_contexts=args.top_contexts,
             resume=args.resume,
             keep_external_work=args.keep_external_work,
+            binding=binding,
         )
 
     rows: list[dict[str, Any]] = []
@@ -465,7 +558,9 @@ def main() -> None:
         rows.extend(_load_seed_rows(output_root / f"seed_{seed}", seed=seed, families=families))
     macro_rows = [_macro_row(rows, method=method, seed=seed) for method in METHODS for seed in seeds]
     mean_std_rows = _mean_std_rows(macro_rows)
-    deterministic_rows = _load_deterministic_nb_rows(repo_root, families)
+    deterministic_rows = _load_deterministic_nb_rows(output_root, families)
+    if fingerprint(config, inputs) != binding:
+        raise CacheMismatchError("Baseline inputs changed during execution; no aggregate can be certified")
     _write_csv(output_root / "per_family_seed_metrics.csv", rows)
     _write_csv(output_root / "macro_by_seed.csv", macro_rows)
     _write_csv(output_root / "macro_mean_std.csv", mean_std_rows)

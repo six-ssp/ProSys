@@ -1,44 +1,42 @@
-# Current Parallel Stage-2 Result
+# Current 50K Ablation Results
 
-> **Reportable paired control (2026-09-05):**
-> [`current_parallel_stage2_ablation_results_20260905.md`](current_parallel_stage2_ablation_results_20260905.md) and
-> [`Experiment/stage2_parallel_post_fusion_ablation_multiseed_20260904/`](../Experiment/stage2_parallel_post_fusion_ablation_multiseed_20260904/README.md)
-> contain the completed three-seed ReaFNN-removal ablation for the maintained
-> parallel KNN + ReaFNN post-fusion mainline. The fixed Stage-1 route caches,
-> KNN retrieval settings, and split contracts match the current full mainline.
-> The KNN-only arm necessarily rebuilds its candidate pool and retrains its
-> 52D XGB-LTR on that pool; it therefore tests end-to-end candidate
-> availability and composition, rather than a fixed-pool ranking effect.
-> Removing ReaFNN changes macro candidate recall from `54.26 +/- 0.15%` to
-> `53.39 +/- 0.00%` and macro Sys@10 from `43.77 +/- 0.60%` to
-> `39.86 +/- 2.08%` (`-3.91 pp`). All six family-level mean Sys@10 changes
-> favor the full pipeline.
+Updated: 2026-09-25. These results use the fresh scratch-USPTO-50K base,
+repaired experts and fixed expert seed 1. All downstream arms cover the same
+3,860 original queries. Values are equal-family means +/- sample SD over
+downstream seeds 0/1/2, not independent full-pipeline repeats.
 
-# Current Parallel Stage-3 Result
+| Arm | Candidate recall (%) | Full-system Top-10 (%) | Intervention |
+| --- | ---: | ---: | --- |
+| ProSys | 47.57 +/- 0.08 | 37.87 +/- 0.27 | Parallel KNN/ReaFNN and XGB-LTR |
+| Without ReaFNN | 46.83 +/- 0.00 | 34.16 +/- 1.80 | KNN-only pool; refit ranker |
+| Without KNN | 40.44 +/- 0.27 | 31.31 +/- 0.50 | Remove lookup, proposals and KNN evidence; refit ranker |
+| Without XGB-LTR | 47.57 +/- 0.08 | 29.90 +/- 0.10 | Identical pool; deterministic Stage 1/2 order |
 
-> **Reportable paired control (2026-09-04):**
-> [`current_parallel_stage3_ablation_results_20260904.md`](current_parallel_stage3_ablation_results_20260904.md) and
-> [`Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/`](../Experiment/stage3_parallel_post_fusion_ablation_multiseed_20260904/README.md)
-> contain the completed three-seed Stage-3 ablation for the maintained parallel
-> KNN + ReaFNN post-fusion mainline. The Stage-2 protocol and candidate
-> availability match the current full mainline exactly; replacing XGB-LTR with a
-> deterministic prior lowers macro Sys@10 from `43.77 +/- 0.60%` to
-> `36.03 +/- 0.16%` (`-7.74 pp`). This is the only reportable Stage-3 component
-> result for the current parallel candidate distribution.
+The full-minus-control Top-10 differences are 3.708961, 6.553670 and
+7.962408 percentage points, respectively. Branch removals change the candidate
+distribution and refit XGB-LTR; only the no-LTR comparison is a same-pool
+ranking intervention. These effects are not additive. LTR lowers mean Top-1
+from 20.22% to 19.81%, with mixed early-rank effects in several families;
+do not claim uniformly improved ranking.
 
-# Current Parallel Temperature-Representation Result
+The matched temperature control uses identical candidates, order and eligible
+queries. MAE is 11.32 +/- 0.33 C with R-GNN versus 13.63 +/- 0.29 C without it;
+within-10 C accuracy is 62.27 +/- 0.13% versus 55.62 +/- 1.27%. Supports are
+1,529/1,537/1,538 at seeds 0/1/2. The graph-enabled arm is the actual mainline,
+not the older reconstruction. Temperature does not change system order.
 
-> **Reportable paired control (2026-09-04):**
-> [`current_parallel_temperature_ablation_results_20260904.md`](current_parallel_temperature_ablation_results_20260904.md) and
-> [`Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/`](../Experiment/stage3_temperature_no_rgnn_ablation_multiseed_20260904/README.md)
-> contain the completed three-seed temperature-only control for the maintained
-> parallel mainline. It preserves Stage 1, Stage 2, XGB-LTR, all ranked systems,
-> and the conditional temperature support exactly; it replaces only the 128D
-> R-GNN route embedding in the temperature XGBoost regressor with no graph
-> features. Macro MAE is `11.49 +/- 0.26 C` with R-GNN versus `13.93 +/- 0.38 C`
-> without it; within-10 C accuracy improves from `55.56 +/- 1.23%` to
-> `63.09 +/- 1.76%` (`+7.53 pp`). This is the reportable R-GNN contribution:
-> temperature quality only, not a Sys@k claim.
+Stage 1's fixed base/expert-seed-1 comparison gives Route@10 10.08/55.86%
+(+45.782571 pp). All 18 expert fits are complete; their separate macro
+Route@10 is 55.42 +/- 0.39%, with one shared scratch-50K base.
+Validation-only branch fusion gives seed-0 coverage 40.04/44.77/45.90% for
+ReaFNN/KNN/fusion. Diels-Alder seed 2 selects KNN weight 1.0; that endpoint
+does not remove neural ranker features and is not the branch-removal control.
+
+Sources: [full comparisons](../Experiment/50k_verified_comparisons_20260924/full/RESULTS.md),
+[same-pool and temperature evidence](../Experiment/stage23_50k_evidence_20260924/RESULTS.md),
+[fixed-seed Stage 1 comparison](../Experiment/stage1_50k_paired_comparison_20260924/all_families_seed1.md),
+and [validation fusion](../Experiment/paper_auxiliary_50k_20260924/all_families/validation_fusion.csv).
+Historical dated FULL/serial tables below are not the replacement result.
 
 # Archived Ablation Plan
 

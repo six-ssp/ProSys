@@ -32,7 +32,8 @@ class ReproductionEntrypointTests(unittest.TestCase):
                 path.write_text('#!/bin/bash\n"$PYTHON_BIN" "' + script + '" "$@"\n')
             env = dict(os.environ, PYTHON_BIN=str(python), RECORD_CALLS=str(calls), RUN_BASE_TRAIN="1",
                 RESET_PROCESSED="0", CLEAN_LEGACY="0", RESET_STAGE1_RESULTS="0", RESET_BASE_RESULTS="0",
-                SKIP_PREPROCESS="0", SKIP_STAGE1_FINETUNE="0", SKIP_AUDIT="0", FAMILIES="all")
+                SKIP_PREPROCESS="0", SKIP_STAGE1_FINETUNE="0", SKIP_AUDIT="0", FAMILIES="all",
+                BASE_DATASET="USPTO_STAGE2_FILTERED")
             result = subprocess.run(["bash", str(root / "scripts/reproduce_mainline_from_raw.sh"), str(root)],
                 env=env, capture_output=True, text=True, check=True)
             records = [json.loads(line) for line in calls.read_text().splitlines()]

@@ -1,6 +1,24 @@
 # Project completion and robustness study
 
-Status: in progress. Historical promoted results are immutable controls.
+Status: experimental work and local document publication completed; final
+requirement closure is recorded in `../final_release_50k_20260925/FINAL_CHECK.md`.
+Historical promoted results are immutable controls.
+
+Current admission supersedes the original FULL prescription in item 4 below:
+the user selected a filtered USPTO-50K base trained from random initialization,
+with no FULL network weights. That base and repaired expert inputs passed their
+audits; the completed expert study is
+`../stage1_50k_fidelity_v2_expert_multiseed_20260924/`. Original condition queries
+and downstream splits stay fixed. Expert seeds 0/1/2 share that one new base;
+downstream seeds use the predeclared expert seed 1, not the best test seed.
+Historical requirements below document why this replacement was necessary.
+
+The requested same-seed full Stage 2/3 repeat has now also been performed on
+fresh 50K routes: Beckmann seed 0, original and independently refitted run.
+All 40,520 candidates, 2,013 route embeddings, full ranking and predictions,
+both neural payloads and both XGBoost models match exactly. Receipt:
+`../stage23_50k_repeat_check_20260924/independent_repeat_audit.json`.
+This is a one-family same-environment check, not cross-hardware determinism.
 
 ## Requirements
 
@@ -30,6 +48,11 @@ Status: in progress. Historical promoted results are immutable controls.
 
 ## Newly discovered requirements (not silently waived)
 
+- The actual augmented expert inputs overlap condition test reactions in all
+  six families, despite raw-split disjointness. The 2026-09-15 expert queue is
+  suspended and invalidated. Requirement 4's original-input prescription is
+  superseded by clean-input admission and a new study root. See
+  `../stage1_split_repair_20260915/README.md` for evidence and repair rules.
 - The USPTO raw audit found 98 condition-validation reaction overlaps. Decide
   on a clean validation subset with the fixed base or full filtered-base
   retraining before accepting new expert/selection repeats. Preview and

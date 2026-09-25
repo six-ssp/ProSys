@@ -109,32 +109,6 @@ def readonly_builder(repo_root, family, artifact_root, device):
     return builder
 
 
-def generate_routes(product, family, output, device, checkpoint=None):
-    from stage1_retrosynthesis.build_route_cache import (
-        resolve_checkpoint, dataset_name, run_interactive, aggregate_routes,
-    )
-    from prosys_shared.cache_integrity import file_sha256
-    output = Path(output).resolve()
-    checkpoint = resolve_checkpoint(ROOT, family, checkpoint).resolve()
-    databin = ROOT / "data/editretro/datasets" / dataset_name(family) / "aug10/data-bin"
-    output.mkdir(parents=True, exist_ok=True)
-    input_file = output / "input_products.txt"
-    input_file.write_text(product + "\n")
-    generation = output / "generation.txt"
-    run_interactive(repo_root=ROOT, databin=databin, checkpoint=checkpoint,
-        input_file=input_file, output_file=generation, aug=10, topk=10,
-        repos_beam=5, token_beam=2, mask_beam=1, device=device,
-        batch_size=64, buffer_size=2000, max_tokens=4000)
-    ranked = aggregate_routes(generation, num_reactions=1, aug=10, beam_size=10,
-        n_best=10, score_alpha=0.1, processes=2)[0]
-    total = sum(score for _, score in ranked) or 1.0
-    routes = [{"reactants": reactants, "retro_rank": i + 1,
-               "retro_score": score, "retro_probability": score / total}
-              for i, (reactants, score) in enumerate(ranked)]
-    return routes, {"mode": "fresh_editretro_decoding", "checkpoint": str(checkpoint),
-                    "checkpoint_sha256": file_sha256(checkpoint), "aug": 10, "topk": 10}
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--product", required=True, help="Target product SMILES only")
@@ -142,7 +116,7 @@ def main():
     parser.add_argument("--artifact_root", required=True, type=Path, help="Directory containing bundle/ and provenance.json")
     parser.add_argument("--output", required=True, type=Path, help="New directory; existing output is never overwritten")
     parser.add_argument("--device", default="cuda:0")
-    parser.add_argument("--checkpoint", default=None)
+    parser.add_argument("--checkpoint", default=None, help="Optional byte-identical relocation of the bundle's Stage 1 expert")
     parser.add_argument("--route_cache", type=Path, help="Optional frozen Stage 1 predictions; skips decoding")
     args = parser.parse_args()
     args.artifact_root = args.artifact_root.resolve()
@@ -156,6 +130,7 @@ def main():
     from prosys_shared.evidence import ranked_frame
     from stage3_XGBoost.reaction_gnn_features import augment_table_with_reaction_gnn_features
     from stage3_XGBoost.xgb_reranker import score_table_with_xgb
+    from scripts.product_route_inference import bind_routes, cached_routes, generate_routes
     if args.family not in FAMILY_ORDER:
         parser.error("Unknown deployed family")
     if Chem.MolFromSmiles(args.product) is None:
@@ -166,6 +141,7 @@ def main():
     if args.output.exists():
         parser.error("Output directory already exists; use a new directory")
     validate_feature_sources(ROOT, args.artifact_root)
+    route_binding = bind_routes(ROOT, args.artifact_root, args.family, args.checkpoint)
     args.output.mkdir(parents=True)
     timings = {}
 
@@ -181,19 +157,10 @@ def main():
 
     started = time.perf_counter()
     if args.route_cache:
-        cache = json.loads(args.route_cache.read_text())
-        if cache.get("family") != args.family:
-            raise ValueError("Stage 1 route cache family mismatch")
-        matching = [r for r in cache["reactions"] if canonicalize_smiles(r["product"]) == product]
-        if not matching:
-            raise ValueError("Product not present in the supplied Stage 1 cache")
-        routes = matching[0]["routes"]
-        if any(r["routes"] != routes for r in matching[1:]):
-            raise ValueError("Ambiguous cached routes for this product; use fresh decoding")
-        route_provenance = {"mode": "frozen_stage1_predictions", "sha256": file_sha256(args.route_cache)}
+        routes, route_provenance = cached_routes(args.route_cache, product, args.family, route_binding)
     else:
         routes, route_provenance = measured("stage1_decode_and_aggregate", lambda: generate_routes(
-            product, args.family, args.output / "stage1", "-1" if args.device == "cpu" else args.device.split(":")[-1], args.checkpoint))
+            ROOT, product, args.output / "stage1", "-1" if args.device == "cpu" else args.device.split(":")[-1], route_binding))
     (args.output / "routes.json").write_text(json.dumps(routes, indent=2) + "\n")
     builder = measured("stage2_load_models_and_train_library", lambda: readonly_builder(ROOT, args.family, args.artifact_root, args.device))
     records = [RouteRecord(sample_index=0, reaction_id="query", product=product, family=args.family,
@@ -226,7 +193,7 @@ def main():
         "peak_child_rss_mib": resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss / 1024,
         "peak_torch_allocated_mib": torch.cuda.max_memory_allocated() / 1024**2 if torch.cuda.is_initialized() else 0,
         "device": args.device, "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_initialized() else None,
-        "threads": torch.get_num_threads(), "timing_scope": "cold per-query model loading included; imports excluded; no training"}
+        "threads": torch.get_num_threads(), "timing_scope": "per-query model loading included; imports and provenance checks excluded; no training; concurrent jobs may affect timings"}
     (args.output / "prediction.json").write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
     print(json.dumps({"prediction": str(args.output / "prediction.json"), "candidates": len(frame), "timings_seconds": timings}))
 

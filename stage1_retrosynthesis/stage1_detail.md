@@ -1,10 +1,30 @@
 # ProSys Stage 1 实施说明
 
-## 2026-09-13 正确性修复与训练边界
+## 2026-09-25 当前方案与训练边界
 
-新增全量核查确认：保留的 USPTO 基模语料与六家族条件测试集没有完整反应重叠，
-但与条件验证集重叠 98 条。采用干净验证子集还是重新训练基模尚待确认；新启动的
-专家三种子实验已主动停止，不能算作完成的重复。原模型与原始划分未改写。
+当前只使用过滤后的 USPTO-50K 从随机权重训练共享基模，不继承 FULL 神经权重。
+数据准备后为 39,683 条训练反应、4,988 条验证反应，对应 396,830/49,880 对增强输入。
+基模完成 50 epochs、16,500 updates，验证集选择 epoch 49（loss 3.573）。
+原始条件划分及全部 3,860 个测试查询保持不变；增强后的基模/专家输入通过
+受保护留出集交叉与分子身份检查。精确反应不交叉不等于产物完全不交叉。
+
+六家族分别从同一基模微调 seeds 0/1/2；固定 expert seed 1 为所有下游重复提供
+路线，不按测试成绩选择专家。固定 seed-1 的宏平均 Route@10 为 55.86%，
+对应基模 10.08%；三专家种子宏平均 Route@10 为 55.42±0.39%，
+不能把固定 seed-1 数值当作三专家种子均值。18 组结果均已核查，详见
+`../Experiment/stage1_50k_fidelity_v2_expert_multiseed_20260924/SUMMARY.md`。
+
+最后一组 Diels-Alder seed 2 在 epoch 101 正常早停，但测试时一个候选
+膨胀为 3,078 token，超过解码器 1,024 个位置的硬容量。独立保护仅将该候选
+记为空的无效生成槽位，不截断拼接化学结构、不补抽候选，也不删除查询；
+762 个查询与 76,200 个生成槽位完整保留。同家族 seed 1 全量 GPU 对照的
+候选字符串、最终路线顺序/分数/概率均一致；仅两条原本无效 SMILES 的 EOS
+分数不同，已记录，不能声称所有 token 分数逐位一致。其他 17 组原始解码
+保持不变。恢复来源与准入记录位于
+`../Experiment/stage1_decode_diagnostic_20260925/expert_recovery_admission.json`。
+
+历史 FULL 审计曾发现与条件验证集重叠 98 条及增强后的留出反应交叉，相关队列
+已停止且不再续训。旧模型仅作诊断记录，不是本轮 50K 结果。
 
 增强文本与二进制核对还发现家族数据中的空反应物目标：训练 14610 对、验证 80 对。
 这些是实际 EOS-only 训练目标，不是文件显示问题。USPTO 基模增强输入没有空样本。
@@ -156,6 +176,9 @@ Stage 1 的原始训练单位是一条反应：
 2. validate / test 不增广
 3. 所有增广记录都要先和已选 train / validate / test 做 canonical reaction key 去重
 
+这里的增广指补充新的原始反应记录，不是 SMILES 表示增强；模型准备阶段对
+训练与验证反应均生成多种表示，并检查实际增强后的反应身份和划分边界。
+
 也就是说：
 
 - 允许把“Stage 2 筛掉但 route 有效”的反应补进 Stage 1 train
@@ -223,23 +246,18 @@ atom-mapped route 表还不能直接训练，需要继续变成 EditRetro 可读
 
 ## 4. Stage 1B：基模型准备
 
-> **当前维护口径（`ProSys_8_9.docx`）。** 论文主线只使用
-> `USPTO_STAGE2_FILTERED` 这一份由 USPTO-FULL 构建的 benchmark-safe 共享基模：
-> 去原子映射、去除与 Reaxys 验证/测试锚点重叠的反应并按 canonical reaction 去重后，
-> 共 934,575 条路线，按 8:2 固定为 747,660 条训练和 186,915 条验证样本。
-> `run_base_train.sh` 与 family fine-tuning 脚本默认使用该数据集和其 checkpoint。
-> 以下 `USPTO-50K` 内容仅保留为上游 EditRetro 的历史备选方案，不是当前报告结果的
-> 初始化步骤。
+> **2026-09-24 用户确认的新方案。** 共享基模改为
+> `USPTO_50K_FILTERED`：仅使用过滤后的 USPTO-50K，从随机权重开始训练。
+> 不继承旧 FULL 基模，也不采用可能含 FULL 预训练的上游 50K 权重。
+> 新的六家族 50K 下游结果已完成并独立核验，根目录正文和 SI 已于
+> 2026-09-25 完成本地合稿发布。旧 FULL 记录分版本保留，不能改名当作新结果。
+> 新实验入口为 `scripts/run_stage1_50k_from_scratch.py --train`；具体状态、
+> 过滤数及超参数写入 `Experiment/stage1_50k_from_scratch_20260924/`。
 
 ### 4.1 目标
 
-Stage 1 不建议从零开始重训一个超大路线模型。
-
-历史上可以准备两层基线：
-
-1. `USPTO-50K base`
-2. `USPTO-full-safe base`
-对于基模的数据就是只有训练和验证就好，没必要有测试集合
+用规模较小的 USPTO-50K 从头学习通用逆合成表示，再分别微调六个家族。
+Stage 2/3 架构不变；基模、专家与依赖其路径的结果必须分版本管理。
 
 ### 4.2 基模型 1：USPTO-50K base
 
@@ -250,49 +268,52 @@ Stage 1 不建议从零开始重训一个超大路线模型。
 - 提供一个已经会做 retrosynthesis 的初始模型
 - 作为后续所有 family 微调的最小起点
 
-如果已有稳定 checkpoint，可以直接使用，不必重复从零训练。
+当前要求从头训练，禁止加载任何预训练 checkpoint。沿用固定 SPE/ChEMBL
+分词资源和共享词表，这不等于加载 FULL 训练的神经网络权重。
+
+数据取自 RetroSim 的 Schneider 50K 文件，按其 `get_data.py` 对每个类别
+保留原顺序做 80/10/10 划分。源文件实际为 50,016 条，原始 train/val/test
+分别为 40,008/5,001/5,007 条；类别字段仅用于复现划分，不作为模型输入。
+只将过滤后的 train/val 送入基模；原 USPTO 测试部分不训练、不调参。
+
+过滤同时检查去映射的完整反应和产物拆分、映射反应物选择后的反应身份，
+排除 Reaxys 条件与专家验证/测试集合的重叠、USPTO 自身留出集交叉及组内重复。
+保留官方划分方向，不重新打散记录。随后做 10 倍增强并逐条核验增强文本、
+实际二进制张量和跨集合成员关系，通过后才进入 GPU 训练。
 
 ### 4.3 基模型 2：USPTO-full-safe base
 
-这是当前维护的共享基模。
+这是已经停用的历史方案，不是新训练的默认基模。
 
 构造逻辑是：
 
-1. 从 USPTO-full 路线数据出发
-2. 先过滤掉与当前 benchmark test products 重叠的样本
-3. 得到 benchmark-safe 的大规模路线数据
-4. 用 EditRetro 训练配置在该 benchmark-safe 数据集上训练共享基模
+历史上从 USPTO-full 路线数据构建 `USPTO_STAGE2_FILTERED`。后续审计发现，
+原始划分无交叉不保证增强后无交叉，所以不能再将旧基模笼统称为
+benchmark-safe。严格修复副本及其审计保留为证据，但不再安排 FULL 重训。
 
-这个中间基模的作用是：
-
-- 比纯 50K 基模拥有更广的路线覆盖能力
-- 又避免 benchmark test product 泄露
+旧 FULL 模型和数值仅作历史记录，不作为新 50K 模型的初始化或结果。
 
 ### 4.4 当前推荐基线
 
 当前 Stage 1 更推荐的共享起点是：
 
 ```text
-USPTO_STAGE2_FILTERED benchmark-safe base
+USPTO_50K_FILTERED random initialization -> shared base training
 -> family-specific finetune
 ```
-当前训练好的共享基模通过 `checkpoint_USPTO_STAGE2_FILTERED_best.pt` 引用；旧的 `checkpoint_UPSTO_full_best.pt` 仅保留为兼容别名。
-
-也就是说，最终汇报时更建议把：
-
-- `USPTO-full-safe base`
-
-作为后续 family 微调的统一初始化模型。
+默认新别名为 `checkpoint_USPTO_50K_FILTERED_best.pt`，但训练完成和来源核验前
+不创建或晋升该别名。正式专家实验优先显式传入已核验的新 checkpoint。
+若新基模不存在，入口报错，不自动回退到 FULL。
 
 ### 4.5 基模型训练输入
 
 基模型训练输入是：
 
 - binarized route dataset
-- 可选 restore checkpoint
+- 随机初始化，不允许 restore checkpoint
 
-对于当前维护的 `USPTO_STAGE2_FILTERED` base，默认训练入口不要求
-`USPTO-50K` restore checkpoint；如显式提供 checkpoint，则其来源必须另行记录。
+`run_base_train.sh` 默认数据集为 `USPTO_50K_FILTERED`；该模式下设置
+`RESTORE_CKPT` 会直接报错。仅保留 best/last，结果写入新目录，不覆盖旧模型。
 
 ### 4.6 基模型训练超参数口径
 
@@ -314,24 +335,15 @@ USPTO_STAGE2_FILTERED benchmark-safe base
 - learned positional embeddings
 - mixed precision training
 
-对于大数据中间基模，建议：
-
-- epoch 数较少
-- update budget 足够大
-
-因为它的目标不是过度拟合某一类反应，而是提供共享路线先验。
+本轮基模配置为学习率 0.0003、warmup 10,000、max tokens 16,384，
+最多 50 epochs / 200,000 updates，验证 loss patience 10，seed 1。
+实际以 50 epochs 正常结束；这些是保留日志中的设置，不是后续调参建议。
 
 ### 4.7 基模型输出
 
-基模型训练结束后，建议固定输出：
-
-1. best checkpoint
-2. last checkpoint
-3. 若干周期性 checkpoint
-4. 训练日志
-5. 一个稳定的 latest alias
-
-这样后续 family 微调和评估都不需要再猜路径。
+基模型仅保留 best 与 last checkpoint，以及训练日志、配置和哈希核验记录。
+本轮不保存周期性模型，也不依赖容易漂移的 latest 别名；专家入口显式绑定
+`Experiment/stage1_50k_from_scratch_20260924/` 下已核验的 best checkpoint。
 
 ---
 
@@ -360,24 +372,21 @@ family 微调的目标是：
 - Stage 1 微调虽然只看 route
 - 但 validate / test 仍然要和全项目数据划分保持一致
 
-### 5.3 两种微调起点
+### 5.3 唯一的本轮微调起点
 
-family 微调可以有两条线：
-
-1. `USPTO-50K base -> family finetune`
-2. `USPTO-full-safe base -> family finetune`
-
-当前推荐第二条线作为主结果。
+`USPTO_50K_FILTERED scratch base -> family finetune` 是本轮唯一主线。
+六家族、三个专家种子均从同一个已核验的 50K best checkpoint 开始。
+历史 FULL 起点已停用，不作为备用初始化，更不作为当前主结果。
 
 ### 5.4 family 微调训练规则
 
 建议每个 family 独立训练一个模型。
 
-训练时建议：
+本轮独立种子训练遵循：
 
 1. 第一次从共享基模开始时，重置 optimizer / lr scheduler / dataloader 状态
-2. 如果训练中断，再次续跑时直接从该 family 的 latest checkpoint 恢复
-3. 保留一个稳定的 latest alias，始终指向当前可用的最佳 checkpoint
+2. 固定当前种子的输入、超参数和停止条件；不能因日志安静而中断或重启
+3. 保留 best/last 与配置哈希；确需恢复时必须另行核验同一实验，不使用漂移的 latest 别名
 
 ### 5.5 family 微调输出
 
@@ -386,11 +395,11 @@ family 微调可以有两条线：
 1. family-specific best checkpoint
 2. family-specific last checkpoint
 3. 训练日志
-4. 稳定的 latest alias
+4. 配置、输入/模型哈希及完成核验记录
 
 也就是说，后续任何 route-only evaluation、route cache generation、Stage 2 coupling，都只需要读取：
 
-- family-specific latest checkpoint
+- 已明确绑定路径与 SHA256 的 family-specific best checkpoint
 
 ### 5.6 catmerge 对 Stage 1 的影响
 

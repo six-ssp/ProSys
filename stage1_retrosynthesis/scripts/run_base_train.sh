@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REPO_ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
-DATASET="${2:-USPTO_STAGE2_FILTERED}"
+DATASET="${2:-USPTO_50K_FILTERED}"
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 GPU_ID="${GPU_ID:-0}"
@@ -25,8 +25,15 @@ NO_EPOCH_CHECKPOINTS="${NO_EPOCH_CHECKPOINTS:-1}"
 RESTORE_CKPT="${RESTORE_CKPT:-}"
 ALIAS_NAME="${ALIAS_NAME:-checkpoint_${DATASET}_best.pt}"
 SKIP_PREPARE="${SKIP_PREPARE:-0}"
+SEED="${SEED:-1}"
+UPDATE_ALIAS="${UPDATE_ALIAS:-1}"
 
-run_name="$(date "+%Y%m%d_%H%M%S")"
+if [[ "$DATASET" == "USPTO_50K_FILTERED" && -n "$RESTORE_CKPT" ]]; then
+  echo "[stage1] USPTO_50K_FILTERED must train from scratch; RESTORE_CKPT is forbidden" >&2
+  exit 2
+fi
+
+run_name="${RUN_NAME:-$(date "+%Y%m%d_%H%M%S")}"
 run_root="$RESULTS_ROOT/$DATASET/$run_name"
 model_dir="$run_root/checkpoints"
 mkdir -p "$model_dir"
@@ -45,7 +52,15 @@ cd "$REPO_ROOT"
 
 "$REPO_ROOT/stage1_retrosynthesis/scripts/ensure_fairseq_extensions.sh" "$REPO_ROOT"
 
-databin="$REPO_ROOT/data/editretro/datasets/$DATASET/aug$AUGMENTATION/data-bin"
+if [[ -n "${DATA_BIN:-}" && "$SKIP_PREPARE" != "1" ]]; then
+  echo "[stage1] DATA_BIN override requires SKIP_PREPARE=1" >&2
+  exit 2
+fi
+if [[ "$UPDATE_ALIAS" != "0" && "$UPDATE_ALIAS" != "1" ]]; then
+  echo "[stage1] UPDATE_ALIAS must be 0 or 1" >&2
+  exit 2
+fi
+databin="${DATA_BIN:-$REPO_ROOT/data/editretro/datasets/$DATASET/aug$AUGMENTATION/data-bin}"
 if [[ "$SKIP_PREPARE" != "1" ]]; then
   "$PYTHON_BIN" stage1_retrosynthesis/scripts/prepare_family_binarized.py \
     --dataset "$DATASET" \
@@ -56,6 +71,14 @@ elif [[ ! -f "$databin/dict.src.txt" ]]; then
   echo "SKIP_PREPARE=1 but missing data-bin: $databin" >&2
   exit 1
 fi
+
+for required in dict.src.txt dict.tgt.txt train.src-tgt.src.bin train.src-tgt.src.idx train.src-tgt.tgt.bin train.src-tgt.tgt.idx valid.src-tgt.src.bin valid.src-tgt.src.idx valid.src-tgt.tgt.bin valid.src-tgt.tgt.idx; do
+  if [[ ! -s "$databin/$required" ]]; then
+    echo "[stage1] missing prepared input: $databin/$required" >&2
+    exit 2
+  fi
+done
+"$PYTHON_BIN" "$REPO_ROOT/scripts/build_stage1_nonempty_inputs.py" --check-databin "$databin"
 
 train_cmd=(
   "$PYTHON_BIN"
@@ -88,6 +111,7 @@ train_cmd=(
   --log-format simple
   --log-interval 200
   --fixed-validation-seed 7
+  --seed "$SEED"
   --max-tokens "$MAX_TOKENS"
   --num-workers "$NUM_WORKERS"
   --patience "$PATIENCE"
@@ -123,12 +147,16 @@ CUDA_VISIBLE_DEVICES="$GPU_ID" "${train_cmd[@]}" > "$run_root/train.log" 2>&1
 
 best_ckpt="$model_dir/checkpoint_best.pt"
 if [[ -f "$best_ckpt" ]]; then
-  mkdir -p "$REPO_ROOT/stage1_retrosynthesis/checkpoints"
-  alias_path="$REPO_ROOT/stage1_retrosynthesis/checkpoints/$ALIAS_NAME"
-  rm -f "$alias_path"
-  ln -s "$best_ckpt" "$alias_path"
   echo "best checkpoint: $best_ckpt"
-  echo "alias updated: $alias_path"
+  if [[ "$UPDATE_ALIAS" == "1" ]]; then
+    mkdir -p "$REPO_ROOT/stage1_retrosynthesis/checkpoints"
+    alias_path="$REPO_ROOT/stage1_retrosynthesis/checkpoints/$ALIAS_NAME"
+    rm -f "$alias_path"
+    ln -s "$best_ckpt" "$alias_path"
+    echo "alias updated: $alias_path"
+  else
+    echo "alias unchanged: UPDATE_ALIAS=0"
+  fi
 else
   echo "warning: checkpoint_best.pt not found under $model_dir" >&2
 fi

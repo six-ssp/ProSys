@@ -1,0 +1,44 @@
+# Fresh experiment workspaces are local by default. Keep directory traversal
+# enabled so the explicit aggregate/code allowlist below can be versioned.
+/*_20260924/**
+!/*_20260924/**/
+/*_20260925/**
+!/*_20260925/**/
+/stage1_split_repair_20260915/**
+!/stage1_split_repair_20260915/**/
+/stage1_finetune_multiseed_20260915/**
+!/stage1_finetune_multiseed_20260915/**/
+/final_release_audit_20260915/**
+!/final_release_audit_20260915/**/
+
+# Public results: aggregate family/seed tables, never row-level predictions.
+!/50k_verified_comparisons_20260924/full/*.csv
+!/50k_verified_comparisons_20260924/full/RESULTS.md
+!/stage23_50k_evidence_20260924/*.csv
+!/stage23_50k_evidence_20260924/RESULTS.md
+!/stage1_50k_fidelity_v2_expert_multiseed_20260924/*.csv
+!/stage1_50k_fidelity_v2_expert_multiseed_20260924/SUMMARY.md
+!/stage1_50k_paired_comparison_20260924/*.csv
+!/stage1_50k_paired_comparison_20260924/all_families_seed1.md
+!/stage1_50k_downstream_routes_20260924/route_counts.csv
+!/paper_auxiliary_50k_20260924/all_families/direct_condition_metrics.csv
+!/paper_auxiliary_50k_20260924/all_families/validation_fusion.csv
+!/query_diagnostics_50k_20260924/all_families/failures_per_family_seed.csv
+!/query_diagnostics_50k_20260924/all_families/subgroups_per_family_seed.csv
+!/inference_cost_50k_20260925/cold_inference_cost.csv
+
+# Small source/configuration records and documentation.
+!/50k_verified_comparisons_20260924/README.md
+!/stage1_50k_from_scratch_20260924/README.md
+!/stage1_50k_from_scratch_20260924/training_config.json
+!/stage1_50k_from_scratch_20260924/training_summary.json
+!/stage1_50k_paired_comparison_20260924/README.md
+!/stage1_fidelity_repair_20260924/README.md
+!/stage1_split_repair_20260915/README.md
+!/stage1_decode_diagnostic_20260925/*.py
+!/stage1_decode_diagnostic_20260925/README.md
+
+# Release metadata contains hashes/counts, not private manuscripts or records.
+!/release_50k_20260925/README.md
+!/release_50k_20260925/public_evidence.json
+!/release_50k_20260925/verify_public_release.py

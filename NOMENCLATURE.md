@@ -1,7 +1,7 @@
 # ProSys Paper Terminology Contract
 
-Effective date: `2026-08-06`
-Source aligned: `ProSys_8_9.docx`
+Updated: `2026-09-25`
+Source aligned: accepted filtered-USPTO-50K mainline and current paper terminology.
 
 Official paper title: *ProSys: A Product-to-System Framework for
 Target-Product-Driven Reaction-System Recommendation*.
@@ -22,9 +22,10 @@ molecular, route, ReaFNN, or XGB-LTR feature vector.
 | Project path or internal name | Reader-facing name | Role |
 | --- | --- | --- |
 | `stage1_retrosynthesis/`, EditRetro | Stage 1: family-tuned EditRetro route generation | Generate ranked precursor routes from the target product. |
-| `stage2_ReaFNN/`, KNN + ReaFNN | Stage 2: condition candidate construction | Retrieve local route precedents and compose a compact reagent-solvent pool. |
-| `stage3_XGBoost/`, XGBRanker | Stage 3: full-system ranking and temperature prediction (XGB-LTR) | Rank the Stage 2 candidates; it never adds candidates. |
-| `Reaction-GNN` | R-GNN (reaction graph neural network) | A validation-selected temperature-regression representation, not a maintained ranking feature. |
+| `stage2_ReaFNN/`, KNN + ReaFNN | Stage 2: condition candidate construction | Parallel product-Morgan retrieval and route-conditioned neural proposals, with validation-selected fusion of historical contexts. |
+| `stage3_XGBoost/`, XGBRanker | XGB-LTR system reranking | Rank the Stage 2 candidates using 52 non-graph fields; it never adds candidates. |
+| Separate XGBoost regressor | Temperature regression | Regress temperature from 52 tabular fields plus 128 R-GNN features; not XGB-LTR. |
+| `Reaction-GNN` | R-GNN (reaction graph neural network) | A temperature-only representation with no inclusion gate; never changes system ranking. |
 
 ## Canonical Metrics
 
@@ -56,7 +57,11 @@ temperature metrics.
 
 ## Reader-facing Rule
 
-Use `candidate recall` and `full-system Top-k accuracy` in new prose, figure labels, and table headings. Use the full baseline names below after any baseline identifier (B1-B4). The compact forms `CR`, `FS@k`, `P-BNB`, `P-GNN`, `Seq-MLP`, and `R-GCN` are retained only as legacy aliases in existing artifacts.
+Use `candidate recall` and `full-system Top-k accuracy` in new prose. The compact
+paper abbreviation `FS@k` and repository display `Sys@k` denote exactly the same
+metric, not different matching rules. An exact hit requires route, reagent set
+and solvent set simultaneously; temperature is evaluated separately. Retain
+machine-readable field names for compatibility. Expand baseline names after B1-B4.
 
 ## Compatibility Rule
 
